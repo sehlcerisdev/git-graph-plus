@@ -15,7 +15,7 @@ const IGNORED_DIRS = new Set([
   '.next', '.nuxt', '__pycache__', '.venv', 'venv', '.tox',
 ]);
 
-const MAX_DEPTH = 1;
+const MAX_DEPTH = 3;
 
 export class RepoDiscoveryService {
   private static cache: { repos: RepoInfo[]; cacheKey: string } | null = null;
@@ -33,12 +33,14 @@ export class RepoDiscoveryService {
 
     const repos: RepoInfo[] = [];
     const seen = new Set<string>();
+    const normalize = (p: string) => path.resolve(p).toLowerCase();
 
     for (const folderPath of folderPaths) {
       try {
         const repoRoot = await this.execGit(['rev-parse', '--show-toplevel'], folderPath);
-        if (repoRoot && !seen.has(repoRoot)) {
-          seen.add(repoRoot);
+        const normRoot = normalize(repoRoot);
+        if (repoRoot && !seen.has(normRoot)) {
+          seen.add(normRoot);
           repos.push({
             path: repoRoot,
             name: path.basename(repoRoot),
@@ -50,13 +52,14 @@ export class RepoDiscoveryService {
       }
     }
 
-    // Discover submodules from each repo found
+    // Discover submodules recursively from each repo found
     for (const repo of [...repos]) {
       try {
         const subs = await this.getSubmodules(repo.path);
         for (const sub of subs) {
-          if (!seen.has(sub.path)) {
-            seen.add(sub.path);
+          const normSub = normalize(sub.path);
+          if (!seen.has(normSub)) {
+            seen.add(normSub);
             repos.push(sub);
           }
         }
@@ -67,21 +70,48 @@ export class RepoDiscoveryService {
 
     // Discover independent nested git repos in workspace folders
     for (const folderPath of folderPaths) {
-      await this.discoverNestedRepos(folderPath, seen, repos, 0);
+      await this.discoverNestedRepos(folderPath, seen, repos, 0, normalize);
     }
+
 
     const typeOrder: Record<RepoType, number> = { root: 0, nested: 1, submodule: 2 };
     repos.sort((a, b) => typeOrder[a.type] - typeOrder[b.type] || a.name.localeCompare(b.name));
 
-    // De-duplicate names by adding parent directory if needed
-    const nameCounts = new Map<string, number>();
+    // De-duplicate names by prepending path segments until unique
+    const nameToRepos = new Map<string, RepoInfo[]>();
     for (const repo of repos) {
-      nameCounts.set(repo.name, (nameCounts.get(repo.name) || 0) + 1);
+      const list = nameToRepos.get(repo.name) || [];
+      list.push(repo);
+      nameToRepos.set(repo.name, list);
     }
-    for (const repo of repos) {
-      if ((nameCounts.get(repo.name) ?? 0) > 1) {
-        const parentDir = path.basename(path.dirname(repo.path));
-        repo.name = `${parentDir}/${repo.name}`;
+
+    for (const [name, duplicates] of nameToRepos.entries()) {
+      if (duplicates.length > 1) {
+        // For each duplicate, try to make it unique by adding parent directories
+        for (const repo of duplicates) {
+          let currentPath = repo.path;
+          let newName = repo.name;
+          let partsAdded = 0;
+          
+          // Keep adding parent dirs until this specific repo name is unique among all repos
+          while (partsAdded < 3) {
+            const parent = path.dirname(currentPath);
+            if (parent === currentPath) break; // Reached root
+            const parentName = path.basename(parent);
+            if (!parentName) break;
+
+            newName = `${parentName}/${newName}`;
+            currentPath = parent;
+            partsAdded++;
+
+            // Check if this newName is now unique
+            const isUnique = !repos.some(r => r !== repo && r.name === newName);
+            if (isUnique) {
+              repo.name = newName;
+              break;
+            }
+          }
+        }
       }
     }
 
@@ -94,7 +124,7 @@ export class RepoDiscoveryService {
   }
 
   private static async discoverNestedRepos(
-    dir: string, seen: Set<string>, repos: RepoInfo[], depth: number
+    dir: string, seen: Set<string>, repos: RepoInfo[], depth: number, normalize: (p: string) => string
   ): Promise<void> {
     if (depth >= MAX_DEPTH) { return; }
 
@@ -107,17 +137,28 @@ export class RepoDiscoveryService {
 
     const dirs = entries.filter(e => e.isDirectory() && !IGNORED_DIRS.has(e.name) && !e.name.startsWith('.'));
 
-    // Check all children in parallel - detect repos by .git presence, not rev-parse
+    // Check all children in parallel - detect repos by .git presence, then verify with git rev-parse
     const results = await Promise.all(dirs.map(async (entry) => {
       const childPath = path.join(dir, entry.name);
       const hasGit = await this.hasGitDir(childPath);
-      return { childPath, hasGit };
+      if (hasGit) {
+        try {
+          // Verify it's a real git repo and get its canonical root path
+          const realRoot = await this.execGit(['rev-parse', '--show-toplevel'], childPath);
+          return { childPath: realRoot, hasGit: true };
+        } catch {
+          // False positive .git folder
+          return { childPath, hasGit: false };
+        }
+      }
+      return { childPath, hasGit: false };
     }));
 
     const toRecurse: string[] = [];
     for (const { childPath, hasGit } of results) {
-      if (hasGit && !seen.has(childPath)) {
-        seen.add(childPath);
+      const normPath = normalize(childPath);
+      if (hasGit && !seen.has(normPath)) {
+        seen.add(normPath);
         repos.push({ path: childPath, name: path.basename(childPath), type: 'nested' });
         // Don't recurse into discovered repos
       } else if (!hasGit) {
@@ -126,7 +167,7 @@ export class RepoDiscoveryService {
     }
 
     // Recurse into non-repo directories in parallel
-    await Promise.all(toRecurse.map(p => this.discoverNestedRepos(p, seen, repos, depth + 1)));
+    await Promise.all(toRecurse.map(p => this.discoverNestedRepos(p, seen, repos, depth + 1, normalize)));
   }
 
   private static async hasGitDir(dir: string): Promise<boolean> {
@@ -139,26 +180,30 @@ export class RepoDiscoveryService {
   }
 
   /**
-   * Uses `git submodule status` to find submodules.
+   * Uses `git submodule status --recursive` to find all submodules.
    * Works for both initialized and uninitialized submodules, cross-platform.
    */
   private static async getSubmodules(repoPath: string): Promise<RepoInfo[]> {
-    const raw = await this.execGit(['submodule', 'status'], repoPath);
-    if (!raw.trim()) { return []; }
+    try {
+      const raw = await this.execGit(['submodule', 'status', '--recursive'], repoPath);
+      if (!raw.trim()) { return []; }
 
-    // Format: " <hash> <path> (<ref>)" or "-<hash> <path>" (uninitialized) or "+<hash> <path> (<ref>)" (modified)
-    const results: RepoInfo[] = [];
-    for (const line of raw.trim().split('\n').filter(Boolean)) {
-      const match = line.match(/^[\s+-]?[0-9a-f]+\s+(\S+)/);
-      if (!match) { continue; }
-      const smPath = match[1];
-      results.push({
-        path: path.resolve(repoPath, smPath),
-        name: path.basename(smPath),
-        type: 'submodule',
-      });
+      // Format: " <hash> <path> (<ref>)" or "-<hash> <path>" (uninitialized) or "+<hash> <path> (<ref>)" (modified)
+      const results: RepoInfo[] = [];
+      for (const line of raw.trim().split('\n').filter(Boolean)) {
+        const match = line.match(/^[\s+-]?[0-9a-f]+\s+(\S+)/);
+        if (!match) { continue; }
+        const smPath = match[1];
+        results.push({
+          path: path.resolve(repoPath, smPath),
+          name: path.basename(smPath),
+          type: 'submodule',
+        });
+      }
+      return results;
+    } catch {
+      return [];
     }
-    return results;
   }
 
   private static execGit(args: string[], cwd: string): Promise<string> {

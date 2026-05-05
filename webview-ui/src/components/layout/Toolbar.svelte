@@ -86,7 +86,11 @@
         onclick={() => { if (uiStore.repos.length > 1) showRepoDropdown = !showRepoDropdown; }}
         title={activeRepoInfo?.name}
       >
-        <i class="codicon {activeRepoInfo?.type === 'submodule' ? 'codicon-package' : 'codicon-repo'} repo-icon"></i>
+        <i class="codicon {
+          activeRepoInfo?.type === 'submodule' ? 'codicon-archive' : 
+          activeRepoInfo?.type === 'nested' ? 'codicon-folder-library' : 
+          'codicon-repo'
+        } repo-icon"></i>
         <span class="repo-name">
           {activeRepoInfo?.name ?? 'Repository'}
         </span>
@@ -105,7 +109,12 @@
               class:active={repo.path === uiStore.activeRepo}
               onclick={() => { showRepoDropdown = false; switchRepo(repo.path); }}
             >
-              <i class="codicon {repo.path === uiStore.activeRepo ? 'codicon-check' : repo.type === 'submodule' ? 'codicon-package' : 'codicon-repo'}"></i>
+              <i class="codicon {
+                repo.path === uiStore.activeRepo ? 'codicon-check' : 
+                repo.type === 'submodule' ? 'codicon-archive' : 
+                repo.type === 'nested' ? 'codicon-folder-library' : 
+                'codicon-repo'
+              }"></i>
               {repo.name}
             </button>
           {/each}
