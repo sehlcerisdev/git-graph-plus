@@ -85,7 +85,7 @@
         <input type="checkbox" bind:checked={autoRefresh} />
         <span>{t('activityLog.auto')}</span>
       </label>
-      <button class="log-refresh" onclick={refresh} use:tooltip={t('activityLog.refresh')}>
+      <button class="log-refresh" onclick={refresh} aria-label={t('activityLog.refresh')} use:tooltip={t('activityLog.refresh')}>
         <i class="codicon codicon-refresh"></i>
       </button>
     </div>

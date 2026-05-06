@@ -36,7 +36,7 @@ export function tooltip(node: HTMLElement, text: string | undefined) {
     timer = setTimeout(() => {
       el = document.createElement('div');
       el.className = 'vsg-tooltip';
-      el.textContent = text;
+      el.textContent = text ?? null;
       document.body.appendChild(el);
       position();
     }, 500);
@@ -55,7 +55,7 @@ export function tooltip(node: HTMLElement, text: string | undefined) {
   return {
     update(t: string | undefined) {
       text = t;
-      if (el) { el.textContent = t ?? ''; position(); }
+      if (el) { el.textContent = t ?? null; position(); }
     },
     destroy() {
       hide();
