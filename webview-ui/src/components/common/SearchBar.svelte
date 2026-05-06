@@ -1,6 +1,7 @@
 <script lang="ts">
   import { commitStore } from '../../lib/stores/commits.svelte';
   import { t } from '../../lib/i18n/index.svelte';
+  import { tooltip } from '../../lib/actions/tooltip';
 
   interface Props {
     onResults: (matchedHashes: Set<string> | null) => void;
@@ -139,13 +140,13 @@
         {/if}
       </span>
       <span class="nav-divider"></span>
-      <button class="nav-btn" onclick={navigatePrev} disabled={matchedHashes.length === 0} title={t('search.prev')}>
+      <button class="nav-btn" onclick={navigatePrev} disabled={matchedHashes.length === 0} aria-label={t('search.prev')} use:tooltip={t('search.prev')}>
         <i class="codicon codicon-chevron-up"></i>
       </button>
-      <button class="nav-btn" onclick={navigateNext} disabled={matchedHashes.length === 0} title={t('search.next')}>
+      <button class="nav-btn" onclick={navigateNext} disabled={matchedHashes.length === 0} aria-label={t('search.next')} use:tooltip={t('search.next')}>
         <i class="codicon codicon-chevron-down"></i>
       </button>
-      <button class="nav-btn close-btn" onclick={clear} title={t('search.clear')}>
+      <button class="nav-btn close-btn" onclick={clear} aria-label={t('search.clear')} use:tooltip={t('search.clear')}>
         <i class="codicon codicon-close"></i>
       </button>
     {/if}
@@ -156,7 +157,7 @@
       class="filter-btn"
       class:active={filterActive}
       onclick={() => { filterOpen = !filterOpen; }}
-      title="Filter branches"
+      use:tooltip={"Filter branches"}
     >
       <i class="codicon codicon-list-filter filter-btn-icon"></i>
       <span class="filter-label">

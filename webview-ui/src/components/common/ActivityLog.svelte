@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { getVsCodeApi } from '../../lib/vscode-api';
   import { t } from '../../lib/i18n/index.svelte';
+  import { tooltip } from '../../lib/actions/tooltip';
 
   interface LogEntry {
     command: string;
@@ -84,7 +85,7 @@
         <input type="checkbox" bind:checked={autoRefresh} />
         <span>{t('activityLog.auto')}</span>
       </label>
-      <button class="log-refresh" onclick={refresh} title={t('activityLog.refresh')}>
+      <button class="log-refresh" onclick={refresh} use:tooltip={t('activityLog.refresh')}>
         <i class="codicon codicon-refresh"></i>
       </button>
     </div>
@@ -96,7 +97,7 @@
         <span class="log-status">
           <i class="codicon" class:codicon-pass-filled={entry.success} class:codicon-error={!entry.success}></i>
         </span>
-        <span class="log-command truncate" title={entry.command}>{friendlyCommand(entry.command)}</span>
+        <span class="log-command truncate" use:tooltip={entry.command}>{friendlyCommand(entry.command)}</span>
         <span class="log-duration">{formatDuration(entry.duration)}</span>
         <span class="log-time">{formatTime(entry.timestamp)}</span>
       </div>

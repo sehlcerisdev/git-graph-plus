@@ -10,6 +10,7 @@
 
   import ImageDiff from '../common/ImageDiff.svelte';
   import ContextMenu from '../common/ContextMenu.svelte';
+  import { tooltip } from '../../lib/actions/tooltip';
 
   interface Props {
     commit?: Commit;
@@ -228,10 +229,10 @@
       {t('details.changes')} <span class="tab-count">{files.length}</span>
     </button>
     <div class="tabs-actions">
-      <button class="tab-action-btn" title={uiStore.commitDetailFullscreen ? t('details.restore') : t('details.fullscreen')} onclick={() => { uiStore.commitDetailFullscreen = !uiStore.commitDetailFullscreen; }}>
+      <button class="tab-action-btn" aria-label={uiStore.commitDetailFullscreen ? t('details.restore') : t('details.fullscreen')} use:tooltip={uiStore.commitDetailFullscreen ? t('details.restore') : t('details.fullscreen')} onclick={() => { uiStore.commitDetailFullscreen = !uiStore.commitDetailFullscreen; }}>
         <i class="codicon {uiStore.commitDetailFullscreen ? 'codicon-chevron-down' : 'codicon-chevron-up'}"></i>
       </button>
-      <button class="tab-action-btn" title={t('common.close')} onclick={() => { uiStore.selectedCommitHash = null; uiStore.showBottomPanel = false; uiStore.commitDetailFullscreen = false; uiStore.comparing = false; }}>
+      <button class="tab-action-btn" aria-label={t('common.close')} use:tooltip={t('common.close')} onclick={() => { uiStore.selectedCommitHash = null; uiStore.showBottomPanel = false; uiStore.commitDetailFullscreen = false; uiStore.comparing = false; }}>
         <i class="codicon codicon-close"></i>
       </button>
     </div>
@@ -350,7 +351,7 @@
                       vscode.postMessage({ type: 'openDiff', payload: { file: node.path } });
                     }
                   }}
-                  title="Double-click to open in editor"
+                  use:tooltip={"Double-click to open in editor"}
                   oncontextmenu={(e) => {
                     e.preventDefault();
                     const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [];
@@ -388,13 +389,13 @@
                   <i class="codicon codicon-file"></i>
                   <span class="file-name truncate">{node.name}</span>
                   {#if lfsFileSet.has(node.path)}
-                    <span class="lfs-badge" class:locked={lfsLockMap.has(node.path)} title={lfsLockMap.has(node.path) ? t('lfs.locked', { owner: lfsLockMap.get(node.path) ?? '' }) : 'LFS'}>
+                    <span class="lfs-badge" class:locked={lfsLockMap.has(node.path)} use:tooltip={lfsLockMap.has(node.path) ? t('lfs.locked', { owner: lfsLockMap.get(node.path) ?? '' }) : 'LFS'}>
                       {#if lfsLockMap.has(node.path)}<i class="codicon codicon-lock"></i>{/if}
                       LFS
                     </span>
                   {/if}
                   {#if node.status}
-                    <span class="file-status" style="color: {statusColor(node.status)}" title={statusLabel(node.status)}>{node.status}</span>
+                    <span class="file-status" style="color: {statusColor(node.status)}" use:tooltip={statusLabel(node.status)}>{node.status}</span>
                   {/if}
                 </button>
               {:else}

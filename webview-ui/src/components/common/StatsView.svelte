@@ -3,6 +3,7 @@
   import { getVsCodeApi } from '../../lib/vscode-api';
   import { getGravatarUrl } from '../../lib/utils/gravatar';
   import { t } from '../../lib/i18n/index.svelte';
+  import { tooltip } from '../../lib/actions/tooltip';
 
   interface AuthorStat { author: string; email: string; count: number; }
   interface HourStat { weekday: number; hour: number; count: number; }
@@ -91,7 +92,7 @@
                 <div
                   class="heatmap-cell"
                   style="background: {getHeatColor(count)}"
-                  title="{WEEKDAYS[d]} {h.toString().padStart(2, '0')}:00 - {count} commits"
+                  use:tooltip={`${WEEKDAYS[d]} ${h.toString().padStart(2, '0')}:00 - ${count} commits`}
                 ></div>
               {/each}
             </div>

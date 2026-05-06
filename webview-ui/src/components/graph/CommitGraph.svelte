@@ -18,6 +18,7 @@
   import CheckoutCommitModal from '../modals/CheckoutCommitModal.svelte';
   import { modalStore } from '../../lib/stores/modals.svelte';
   import type { Commit, CommitGraphData } from '../../lib/types';
+  import { tooltip } from '../../lib/actions/tooltip';
 
   // Track pending message handlers for cleanup on destroy
   const pendingHandlers = new Map<(event: MessageEvent) => void, ReturnType<typeof setTimeout>>();
@@ -897,9 +898,9 @@
           >
             <div class="col-message" style="padding-left: {(displayLeftMargin[index] ?? graphWidth) * X_SCALE + 4}px;">
               {#if currentBranchLocalOnly.has(commit.hash)}
-                <span class="local-dot" title="Not pushed"></span>
+                <span class="local-dot" use:tooltip={"Not pushed"}></span>
               {:else if currentBranchRemoteAhead.has(commit.hash)}
-                <span class="remote-dot" title="Remote only"></span>
+                <span class="remote-dot" use:tooltip={"Remote only"}></span>
               {/if}
               {#each commit.refs.filter(r => {
                   if (r.type === 'remote-branch') {
@@ -936,7 +937,7 @@
                       class="ref-badge badge-cloud-only"
                       style="--badge-color: {badgeColor};"
                       class:badge-bold={ref.type === 'head' || isWtBranch}
-                      title={trackedUpstream}
+                      use:tooltip={trackedUpstream ?? ''}
                       ondblclick={(e) => {
                         e.stopPropagation();
                         doCheckout(ref.name);
@@ -957,7 +958,7 @@
                     style="--badge-color: {badgeColor};"
                     class:badge-bold={ref.type === 'head' || ref.type === 'tag' || ref.type === 'stash' || isWtBranch}
                     class:badge-head={ref.type === 'head'}
-                    title="Double-click to checkout: {ref.type === 'remote-branch' ? `${ref.remote}/${ref.name}` : ref.name}"
+                    use:tooltip={'Double-click to checkout: ' + (ref.type === 'remote-branch' ? ref.remote + '/' + ref.name : ref.name)}
                     ondblclick={(e) => {
                       e.stopPropagation();
                       if (ref.type === 'remote-branch') {
@@ -1015,14 +1016,14 @@
                     {/if}
                   </span>
                 {/each}
-                <span class="commit-subject truncate" title={commit.subject}>{commit.subject}</span>
+                <span class="commit-subject truncate" use:tooltip={commit.subject}>{commit.subject}</span>
             </div>
-              <div class="col-author truncate" title={commit.author.name}>
+              <div class="col-author truncate" use:tooltip={commit.author.name}>
                 <img class="avatar-sm" src={getGravatarUrl(commit.author.email, 20)} alt="" loading="lazy" />
                 {commit.author.name}
               </div>
-              <div class="col-hash" title={commit.hash}>{commit.abbreviatedHash}</div>
-              <div class="col-date" title={new Date(commit.author.date).toLocaleString()}>{formatDate(commit.author.date)}</div>
+              <div class="col-hash" use:tooltip={commit.hash}>{commit.abbreviatedHash}</div>
+              <div class="col-date" use:tooltip={new Date(commit.author.date).toLocaleString()}>{formatDate(commit.author.date)}</div>
           </div>
         {/each}
       </div>
@@ -1154,11 +1155,11 @@
     <p class="modal-desc">{t('fastForward.desc')}</p>
     <div class="modal-context-card">
       <span class="modal-label">{t('fastForward.switchTo')}</span>
-      <span class="modal-pill modal-pill--source" title={fastForwardLocalBranch}><i class="codicon codicon-git-branch"></i><span class="modal-pill-text">{fastForwardLocalBranch}</span></span>
+      <span use:tooltip={fastForwardLocalBranch} class="modal-pill modal-pill--source"><i class="codicon codicon-git-branch"></i><span class="modal-pill-text">{fastForwardLocalBranch}</span></span>
     </div>
     <div class="modal-context-card">
       <span class="modal-label">{t('fastForward.fastForwardTo')}</span>
-      <span class="modal-pill modal-pill--target" title={fastForwardRemote}><i class="codicon codicon-cloud"></i><span class="modal-pill-text">{fastForwardRemote}</span></span>
+      <span use:tooltip={fastForwardRemote} class="modal-pill modal-pill--target"><i class="codicon codicon-cloud"></i><span class="modal-pill-text">{fastForwardRemote}</span></span>
     </div>
     <div class="form-actions">
       <button onclick={() => { showFastForwardModal = false; }}>{t('common.cancel')}</button>
@@ -1191,7 +1192,7 @@
   <Modal title={t('checkout.worktreeBlockedTitle')} onClose={() => { showWorktreeBlockedModal = false; }}>
     <p class="modal-desc">{t('checkout.worktreeBlockedDesc')}</p>
     <div class="modal-context-card">
-      <span class="modal-pill modal-pill--target" title={worktreeBlockedRef}><i class="codicon codicon-git-branch"></i><span class="modal-pill-text">{worktreeBlockedRef}</span></span>
+      <span use:tooltip={worktreeBlockedRef} class="modal-pill modal-pill--target"><i class="codicon codicon-git-branch"></i><span class="modal-pill-text">{worktreeBlockedRef}</span></span>
     </div>
     <div class="modal-context-card">
       <i class="codicon codicon-worktree" style="color: var(--text-secondary);"></i>
@@ -1504,6 +1505,8 @@
   .ref-icon {
     font-size: 1em;
     flex-shrink: 0;
+    line-height: 1;
+    transform: translateY(1px);
   }
 
 
@@ -1518,7 +1521,7 @@
     color: #63b0f4;
     padding: 6px 14px;
     border-radius: 20px;
-    font-size: inherit;
+    font-size: var(--vscode-font-size, 13px);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1565,7 +1568,7 @@
     color: #f44336;
     padding: 6px 14px;
     border-radius: 20px;
-    font-size: inherit;
+    font-size: var(--vscode-font-size, 13px);
     display: flex;
     align-items: center;
     gap: 8px;

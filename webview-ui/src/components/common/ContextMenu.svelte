@@ -134,6 +134,7 @@
     padding: 4px 0;
     min-width: 280px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    font-size: var(--vscode-font-size, 13px);
   }
 
   .menu-item {

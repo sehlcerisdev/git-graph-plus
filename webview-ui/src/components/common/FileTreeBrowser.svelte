@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getVsCodeApi } from '../../lib/vscode-api';
+  import { tooltip } from '../../lib/actions/tooltip';
 
   interface Props {
     commitHash: string;
@@ -66,9 +67,9 @@
 
 <div class="file-tree-browser">
   <div class="tree-header">
-    <button class="nav-btn" onclick={navigateToRoot} disabled={currentPath.length === 0} title="Root">/</button>
+    <button class="nav-btn" onclick={navigateToRoot} disabled={currentPath.length === 0} use:tooltip={"Root"}>/</button>
     {#if currentPath.length > 0}
-      <button class="nav-btn" onclick={navigateUp} title="Go up">&#8593;</button>
+      <button class="nav-btn" onclick={navigateUp} use:tooltip={"Go up"}>&#8593;</button>
     {/if}
     <span class="tree-path truncate">{displayPath}</span>
     <span class="tree-ref">{commitHash.substring(0, 7)}</span>

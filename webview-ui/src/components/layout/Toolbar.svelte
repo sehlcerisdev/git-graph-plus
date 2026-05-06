@@ -6,6 +6,7 @@
   import { t } from '../../lib/i18n/index.svelte';
   import Modal from '../common/Modal.svelte';
   import AddRemoteModal from '../modals/AddRemoteModal.svelte';
+  import { tooltip } from '../../lib/actions/tooltip';
   import { modalStore } from '../../lib/stores/modals.svelte';
   import type { FlowStatus, FlowBranches } from '../../lib/types';
 
@@ -84,7 +85,7 @@
         class="repo-pill"
         class:clickable={uiStore.repos.length > 1}
         onclick={() => { if (uiStore.repos.length > 1) showRepoDropdown = !showRepoDropdown; }}
-        title={activeRepoInfo?.name}
+        use:tooltip={activeRepoInfo?.name}
       >
         <i class="codicon {
           activeRepoInfo?.type === 'submodule' ? 'codicon-archive' : 
@@ -122,7 +123,7 @@
       {/if}
     </div>
     {#if branchStore.currentBranch}
-      <span class="current-branch" title={branchStore.currentBranch.name}>
+      <span class="current-branch" use:tooltip={branchStore.currentBranch.name}>
         <i class="codicon codicon-git-branch branch-icon"></i>
         <span class="branch-name">
           {branchStore.currentBranch.name.startsWith('(HEAD detached') ? t('toolbar.detachedHead') : branchStore.currentBranch.name}
@@ -160,7 +161,7 @@
       class="toolbar-btn"
       onclick={refresh}
       disabled={uiStore.operating !== null}
-      title={t('toolbar.refresh')}
+      use:tooltip={t('toolbar.refresh')}
     >
       {#if uiStore.operating === 'refresh'}<span class="spinner"></span>{:else}<i class="codicon codicon-refresh"></i>{/if}
     </button>
@@ -169,7 +170,7 @@
       class="toolbar-btn"
       onclick={doFetch}
       disabled={uiStore.operating !== null}
-      title={t('toolbar.fetchAll')}
+      use:tooltip={t('toolbar.fetchAll')}
     >
       {#if uiStore.operating === 'fetch'}<span class="spinner"></span>{:else}<i class="codicon codicon-cloud-download"></i>{/if}
     </button>
@@ -178,7 +179,7 @@
       class:has-badge={behind > 0}
       onclick={doPull}
       disabled={uiStore.operating !== null}
-      title={t('toolbar.pullDesc')}
+      use:tooltip={t('toolbar.pullDesc')}
     >
       {#if uiStore.operating === 'pull'}<span class="spinner"></span>{:else}<i class="codicon codicon-arrow-down"></i>{/if}
       {#if behind > 0}<span class="btn-badge pull-badge">{behind}</span>{/if}
@@ -188,7 +189,7 @@
       class:has-badge={ahead > 0}
       onclick={doPush}
       disabled={uiStore.operating !== null}
-      title={t('toolbar.pushDesc')}
+      use:tooltip={t('toolbar.pushDesc')}
     >
       {#if uiStore.operating === 'push'}
         <span class="spinner"></span>
@@ -204,7 +205,8 @@
       class="toolbar-btn"
       onclick={() => { modalStore.openStashSave(); }}
       disabled={uiStore.operating !== null}
-      title={t('toolbar.stashDesc')}
+      aria-label={t('toolbar.stashDesc')}
+      use:tooltip={t('toolbar.stashDesc')}
     >
       <i class="codicon codicon-archive"></i>
     </button>
@@ -213,7 +215,8 @@
       <button
         class="toolbar-btn"
         onclick={openFlowDropdown}
-        title={t('flow.button')}
+        aria-label={t('flow.button')}
+        use:tooltip={t('flow.button')}
       >
         <i class="codicon codicon-source-control"></i>
         <i class="codicon codicon-chevron-down flow-chevron"></i>
@@ -528,17 +531,18 @@
   }
 
   .pull-badge {
-    background: color-mix(in srgb, var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d) 25%, transparent);
-    color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+    background: var(--vscode-notificationsWarningIcon-foreground, #cca700);
+    color: #fff;
   }
 
   .push-badge {
-    background: color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #73c991) 25%, transparent);
-    color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+    background: var(--button-bg);
+    color: var(--button-fg);
   }
 
   .unpublished-icon {
-    color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+    color: var(--button-bg);
+    font-size: 18px;
   }
 
   .separator {
