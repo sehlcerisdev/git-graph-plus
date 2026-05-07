@@ -198,3 +198,57 @@ input[type="checkbox"]:focus {
 .loading-pulse {
   animation: pulse 1.5s ease-in-out infinite;
 }
+
+/* ---- Banner card (error, conflict, rebase, bisect) ---- */
+.banner-card {
+  border-radius: 6px;
+  margin: 8px;
+  font-size: inherit;
+  flex-shrink: 0;
+}
+
+/* ---- Banner action button ---- */
+.banner-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 3px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.4));
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  transition: background 0.1s;
+}
+
+.banner-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.1));
+  color: var(--text-primary);
+}
+
+.banner-btn:disabled,
+.banner-btn:disabled:hover {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.banner-btn.danger {
+  color: var(--vscode-errorForeground, #f48771);
+  border-color: rgba(244, 67, 54, 0.35);
+}
+
+.banner-btn.danger:hover {
+  background: rgba(244, 67, 54, 0.08);
+}
+
+.banner-btn.success {
+  color: var(--vscode-testing-iconPassed, #4caf50);
+  border-color: rgba(76, 175, 80, 0.35);
+}
+
+.banner-btn.success:hover {
+  background: rgba(76, 175, 80, 0.1);
+}

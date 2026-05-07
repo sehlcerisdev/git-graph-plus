@@ -417,6 +417,11 @@ export const ko: Record<string, string> = {
   'conflict.abortConfirm': '현재 {operation} 작업을 중단하시겠습니까? 작업이 <span class="modal-emph modal-emph--danger">중단</span>되고 변경사항이 <span class="modal-emph modal-emph--danger">되돌려집니다</span>.',
   'conflict.abort': '중단',
   'conflict.resolveSuccess': '{operation} 작업이 완료되었습니다.',
+  'conflict.banner.resolved': '{resolved}/{total} 해결됨',
+  'conflict.banner.resolve': '해결 완료',
+  'rebase.pause.message': 'Rebase 일시 정지 - 변경 사항을 적용하고 계속하세요',
+  'rebase.pause.continue': '계속',
+  'rebase.pause.abort': '중단',
 
   // Common
   'common.cancel': '취소',

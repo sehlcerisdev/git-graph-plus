@@ -417,6 +417,11 @@ export const zh: Record<string, string> = {
   'conflict.abortConfirm': '中止当前 {operation}？操作将被<span class="modal-emph modal-emph--danger">取消</span>，更改将被<span class="modal-emph modal-emph--danger">还原</span>。',
   'conflict.abort': '中止',
   'conflict.resolveSuccess': '{operation} 已成功完成。',
+  'conflict.banner.resolved': '已解决 {resolved}/{total}',
+  'conflict.banner.resolve': '完成解决',
+  'rebase.pause.message': 'Rebase 已暂停 - 请进行更改，然后继续',
+  'rebase.pause.continue': '继续',
+  'rebase.pause.abort': '中止',
 
   // Common
   'common.cancel': '取消',

@@ -276,21 +276,21 @@
   <Toolbar />
 
   {#if conflict}
-    <div class="conflict-banner">
+    <div class="conflict-banner banner-card" transition:slide={{ duration: 150 }}>
       <div class="conflict-header">
         <div class="conflict-info">
           <i class="codicon codicon-warning conflict-icon"></i>
           <span class="conflict-title">
             <strong>{{ merge: 'Merge', rebase: 'Rebase', revert: 'Revert', cherryPick: 'Cherry-Pick' }[conflict.operation] ?? conflict.operation} Conflict</strong>
           </span>
-          <span class="conflict-count">{conflict.files.filter(f => f.resolved).length}/{conflict.files.length} resolved</span>
+          <span class="conflict-count">{t('conflict.banner.resolved', { resolved: conflict.files.filter(f => f.resolved).length, total: conflict.files.length })}</span>
         </div>
         <div class="conflict-actions">
-          <button class="conflict-btn conflict-btn--abort" onclick={() => { showAbortConfirmModal = true; }}>
+          <button class="banner-btn danger" onclick={() => { showAbortConfirmModal = true; }}>
             <i class="codicon codicon-discard"></i> Abort
           </button>
-          <button class="conflict-btn conflict-btn--continue" disabled={conflict.files.some(f => !f.resolved)} onclick={() => { const op = conflict?.operation ?? 'merge'; vscode.postMessage({ type: 'continueOperation' }); conflict = null; vscode.postMessage({ type: 'showNotification', payload: { message: t('conflict.resolveSuccess', { operation: op }) } }); }}>
-            <i class="codicon codicon-check"></i> Resolve
+          <button class="banner-btn success" disabled={conflict.files.some(f => !f.resolved)} onclick={() => { const op = conflict?.operation ?? 'merge'; vscode.postMessage({ type: 'continueOperation' }); conflict = null; vscode.postMessage({ type: 'showNotification', payload: { message: t('conflict.resolveSuccess', { operation: op }) } }); }}>
+            <i class="codicon codicon-check"></i> {t('conflict.banner.resolve')}
           </button>
         </div>
       </div>
@@ -301,7 +301,7 @@
               {#if file.resolved}
                 <i class="codicon codicon-check conflict-file-status resolved-icon"></i>
               {:else}
-                <span class="conflict-file-status">C</span>
+                <i class="codicon codicon-warning conflict-file-status unresolved-icon"></i>
               {/if}
               <span class="conflict-file-path">
                 {#if file.path.includes('/')}
@@ -324,18 +324,18 @@
   {/if}
 
   {#if rebasePaused && !conflict}
-    <div class="rebase-pause-banner">
+    <div class="rebase-pause-banner banner-card" transition:slide={{ duration: 150 }}>
       <i class="codicon codicon-debug-pause"></i>
-      <span>Rebase paused - edit mode. Make your changes, then continue.</span>
+      <span>{t('rebase.pause.message')}</span>
       <div class="rebase-pause-actions">
-        <button onclick={() => {
+        <button class="banner-btn" onclick={() => {
           vscode.postMessage({ type: 'continueOperation' });
           rebasePaused = false;
-        }}>Continue</button>
-        <button class="danger" onclick={() => {
+        }}>{t('rebase.pause.continue')}</button>
+        <button class="banner-btn danger" onclick={() => {
           vscode.postMessage({ type: 'abortOperation' });
           rebasePaused = false;
-        }}>Abort</button>
+        }}>{t('rebase.pause.abort')}</button>
       </div>
     </div>
   {/if}
@@ -351,9 +351,9 @@
   {/if}
 
   {#if uiStore.errorMessage}
-    <div class="error-bar" transition:slide={{ duration: 150 }}>
+    <div class="error-bar banner-card" transition:slide={{ duration: 150 }}>
       <i class="codicon codicon-error error-icon"></i>
-      <span class="error-text">{uiStore.errorMessage}</span>
+      <span class="error-text">{uiStore.errorMessage ?? ''}</span>
       <button class="error-dismiss" onclick={() => uiStore.setError(null)} title={t('common.dismiss')}>
         <i class="codicon codicon-close"></i>
       </button>
@@ -921,8 +921,7 @@
     align-items: center;
     padding: 7px 8px 7px 12px;
     background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
-    border-bottom: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
-    font-size: inherit;
+    border: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
     gap: 8px;
   }
 
@@ -936,6 +935,7 @@
     flex: 1;
     min-width: 0;
     word-break: break-word;
+    white-space: pre-wrap;
     line-height: 1.5;
   }
 
@@ -966,10 +966,8 @@
     gap: 8px;
     padding: 8px 14px;
     background: rgba(156, 39, 176, 0.08);
-    border-bottom: 1px solid rgba(156, 39, 176, 0.3);
+    border: 1px solid rgba(156, 39, 176, 0.3);
     color: #9c27b0;
-    font-size: inherit;
-    flex-shrink: 0;
   }
 
   .rebase-pause-actions {
@@ -978,59 +976,17 @@
     margin-left: auto;
   }
 
-  .rebase-pause-actions button {
-    padding: 2px 10px;
-    font-size: 11px;
-    border-radius: 4px;
-    border: 1px solid rgba(156, 39, 176, 0.4);
-    background: transparent;
-    color: #9c27b0;
-    cursor: pointer;
-  }
-
-  .rebase-pause-actions button:hover {
-    background: rgba(156, 39, 176, 0.12);
-  }
-
-  .rebase-pause-actions button.danger {
-    border-color: rgba(244, 67, 54, 0.4);
-    color: #f44336;
-  }
-
-  .rebase-pause-actions button.danger:hover {
-    background: rgba(244, 67, 54, 0.08);
-  }
-
   /* ---- Light theme overrides (rebase pause) ---- */
   :global(body.vscode-light) .rebase-pause-banner {
     background: rgba(123, 31, 162, 0.07);
-    border-bottom-color: rgba(123, 31, 162, 0.3);
+    border-color: rgba(123, 31, 162, 0.3);
     color: #7b1fa2;
-  }
-
-  :global(body.vscode-light) .rebase-pause-actions button {
-    color: #7b1fa2;
-    border-color: rgba(123, 31, 162, 0.35);
-  }
-
-  :global(body.vscode-light) .rebase-pause-actions button:hover {
-    background: rgba(123, 31, 162, 0.08);
-  }
-
-  :global(body.vscode-light) .rebase-pause-actions button.danger {
-    color: #b71c1c;
-    border-color: rgba(183, 28, 28, 0.35);
-  }
-
-  :global(body.vscode-light) .rebase-pause-actions button.danger:hover {
-    background: rgba(183, 28, 28, 0.06);
   }
 
   /* ---- Conflict banner ---- */
   .conflict-banner {
     background: rgba(240, 160, 32, 0.06);
-    border-bottom: 1px solid rgba(240, 160, 32, 0.25);
-    font-size: inherit;
+    border: 1px solid rgba(240, 160, 32, 0.25);
   }
 
   .conflict-header {
@@ -1075,37 +1031,6 @@
     flex-shrink: 0;
   }
 
-  .conflict-btn {
-    font-size: 11px;
-    padding: 3px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .conflict-btn--abort {
-    background: transparent;
-    color: #f44336;
-    border: 1px solid rgba(244, 67, 54, 0.3);
-  }
-
-  .conflict-btn--abort:hover {
-    background: rgba(244, 67, 54, 0.1);
-  }
-
-  .conflict-btn--continue {
-    background: var(--vscode-button-background, #0078d4);
-    color: var(--vscode-button-foreground, #fff);
-    border: none;
-  }
-
-  .conflict-btn--continue:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
 
   .conflict-files {
     display: flex;
@@ -1138,10 +1063,7 @@
   }
 
   .conflict-file-status {
-    font-size: 10px;
-    font-weight: 700;
-    color: #f0a020;
-    background: rgba(240, 160, 32, 0.15);
+    font-size: 12px;
     width: 16px;
     height: 16px;
     display: flex;
@@ -1149,6 +1071,11 @@
     justify-content: center;
     border-radius: 3px;
     flex-shrink: 0;
+  }
+
+  .unresolved-icon {
+    color: #f0a020;
+    background: rgba(240, 160, 32, 0.15);
   }
 
   .conflict-file-row {
@@ -1261,16 +1188,7 @@
     background: rgba(200, 120, 0, 0.12);
   }
 
-  :global(body.vscode-light) .conflict-btn--abort {
-    color: #b71c1c;
-    border-color: rgba(183, 28, 28, 0.3);
-  }
-
-  :global(body.vscode-light) .conflict-btn--abort:hover {
-    background: rgba(183, 28, 28, 0.06);
-  }
-
-  :global(body.vscode-light) .conflict-file-status {
+  :global(body.vscode-light) .unresolved-icon {
     color: #9a6700;
     background: rgba(200, 120, 0, 0.12);
   }

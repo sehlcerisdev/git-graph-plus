@@ -416,6 +416,11 @@ export const en: Record<string, string> = {
   'conflict.abortConfirm': 'Abort the current {operation}? The operation will be <span class="modal-emph modal-emph--danger">cancelled</span> and changes will be <span class="modal-emph modal-emph--danger">reverted</span>.',
   'conflict.abort': 'Abort',
   'conflict.resolveSuccess': '{operation} completed successfully.',
+  'conflict.banner.resolved': '{resolved}/{total} resolved',
+  'conflict.banner.resolve': 'Resolve',
+  'rebase.pause.message': 'Rebase paused - make your changes, then continue',
+  'rebase.pause.continue': 'Continue',
+  'rebase.pause.abort': 'Abort',
 
   // Common
   'common.cancel': 'Cancel',

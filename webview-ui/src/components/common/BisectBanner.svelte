@@ -73,7 +73,7 @@
   }
 </script>
 
-<div class="bisect-banner" class:finished={isFinished}>
+<div class="bisect-banner banner-card" class:finished={isFinished}>
   <div class="bisect-header">
     <i class="codicon codicon-search"></i>
     <span class="bisect-title">
@@ -105,19 +105,19 @@
 
   <div class="bisect-actions">
     {#if !isFinished}
-      <button class="bisect-btn bisect-good" onclick={markGood}>
+      <button class="banner-btn success" onclick={markGood}>
         <i class="codicon codicon-check"></i>
         {t('bisect.banner.good')}
       </button>
-      <button class="bisect-btn bisect-bad" onclick={markBad}>
+      <button class="banner-btn danger" onclick={markBad}>
         <i class="codicon codicon-close"></i>
         {t('bisect.banner.bad')}
       </button>
-      <button class="bisect-btn bisect-skip" onclick={skip}>
+      <button class="banner-btn" onclick={skip}>
         {t('bisect.banner.skip')}
       </button>
     {/if}
-    <button class="bisect-btn bisect-reset" onclick={onReset}>
+    <button class="banner-btn bisect-reset" onclick={onReset}>
       {t('bisect.banner.reset')}
     </button>
   </div>
@@ -131,8 +131,6 @@
     padding: 10px 14px;
     background: rgba(33, 150, 243, 0.08);
     border: 1px solid rgba(33, 150, 243, 0.3);
-    border-radius: 6px;
-    margin: 8px;
   }
 
   .bisect-banner.finished {
@@ -207,47 +205,11 @@
     gap: 6px;
   }
 
-  .bisect-btn {
-    padding: 3px 10px;
+  .bisect-actions :global(.banner-btn) {
     font-size: inherit;
-    border-radius: 3px;
-    border: 1px solid var(--border-color);
-    background: transparent;
-    color: var(--text-primary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .bisect-btn:hover {
-    background: rgba(128, 128, 128, 0.15);
-  }
-
-  .bisect-good {
-    border-color: rgba(76, 175, 80, 0.4);
-    color: #4caf50;
-  }
-
-  .bisect-good:hover {
-    background: rgba(76, 175, 80, 0.15);
-  }
-
-  .bisect-bad {
-    border-color: rgba(244, 67, 54, 0.4);
-    color: #f44336;
-  }
-
-  .bisect-bad:hover {
-    background: rgba(244, 67, 54, 0.15);
-  }
-
-  .bisect-skip {
-    color: var(--text-secondary);
   }
 
   .bisect-reset {
-    color: var(--text-secondary);
     margin-left: auto;
   }
 
@@ -270,21 +232,4 @@
     color: #2e7d32;
   }
 
-  :global(body.vscode-light) .bisect-good {
-    color: #2e7d32;
-    border-color: rgba(46, 125, 50, 0.4);
-  }
-
-  :global(body.vscode-light) .bisect-good:hover {
-    background: rgba(46, 125, 50, 0.1);
-  }
-
-  :global(body.vscode-light) .bisect-bad {
-    color: #b71c1c;
-    border-color: rgba(183, 28, 28, 0.4);
-  }
-
-  :global(body.vscode-light) .bisect-bad:hover {
-    background: rgba(183, 28, 28, 0.1);
-  }
 </style>
