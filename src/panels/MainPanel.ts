@@ -90,15 +90,17 @@ export class MainPanel {
     this.sendRepoList();
   }
 
-  public static createOrShow(extensionUri: vscode.Uri): void {
-    let repoPath: string | undefined;
+  public static createOrShow(extensionUri: vscode.Uri, repoPathHint?: string): void {
+    let repoPath: string | undefined = repoPathHint;
 
-    // Try to find the repo associated with the active editor
-    const activeEditor = vscode.window.activeTextEditor;
-    if (activeEditor) {
-      const workspaceFolder = vscode.workspace.getWorkspaceFolder(activeEditor.document.uri);
-      if (workspaceFolder) {
-        repoPath = workspaceFolder.uri.fsPath;
+    if (!repoPath) {
+      // Try to find the repo associated with the active editor
+      const activeEditor = vscode.window.activeTextEditor;
+      if (activeEditor) {
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(activeEditor.document.uri);
+        if (workspaceFolder) {
+          repoPath = workspaceFolder.uri.fsPath;
+        }
       }
     }
 
@@ -113,6 +115,10 @@ export class MainPanel {
     }
 
     if (MainPanel.currentPanel) {
+      // If a specific repo is requested, switch to it before revealing
+      if (repoPathHint && MainPanel.currentPanel.repoPath !== repoPathHint) {
+        MainPanel.currentPanel.switchRepo(repoPathHint);
+      }
       MainPanel.currentPanel.panel.reveal(vscode.ViewColumn.One);
       return;
     }
@@ -141,6 +147,37 @@ export class MainPanel {
   }
 
   public async postRefresh(): Promise<void> {
+    await this.refreshAll();
+  }
+
+  public async switchRepo(newPath: string): Promise<void> {
+    if (path.resolve(newPath) === path.resolve(this.repoPath)) { return; }
+    this.repoPath = newPath;
+    this.gitService = new GitService(newPath);
+    if (MainPanel.extraEnv) {
+      this.gitService.setExtraEnv(MainPanel.extraEnv);
+    }
+
+    this.allConflictFiles = [];
+    this.isFirstGetLog = true;
+    this.currentRemoteFilter = undefined;
+    this.logSequence = 0;
+
+    const oldWatcher = this.fileWatcher;
+    oldWatcher.dispose();
+    const oldIdx = this.disposables.indexOf(oldWatcher);
+    if (oldIdx >= 0) { this.disposables.splice(oldIdx, 1); }
+    this.fileWatcher = new FileWatcher(newPath, (what) => this.onRepoChanged(what));
+    this.fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
+    this.disposables.push(this.fileWatcher);
+
+    MainPanel.onRepoChange?.(newPath);
+
+    this.panel.webview.postMessage({
+      type: 'repoList',
+      payload: { repos: this.cachedRepos, active: this.repoPath },
+    });
+
     await this.refreshAll();
   }
 

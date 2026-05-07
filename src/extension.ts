@@ -161,12 +161,11 @@ export function activate(context: vscode.ExtensionContext) {
     }, 300);
   }
 
-  MainPanel.onSidebarRefresh = refreshAll;
-  MainPanel.onRepoChange = (newPath: string) => {
+  function switchToRepo(newPath: string) {
+    if (path.resolve(newPath) === path.resolve(activeRepoPath)) { return; }
     activeRepoPath = newPath;
     activeGitService = new GitService(newPath);
 
-    // Re-inject VS Code's built-in git extension askpass env for the new service
     if (builtinGit) {
       const ext = builtinGit.exports;
       if (ext) {
@@ -177,14 +176,12 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
 
-    // Update providers
     branchesProvider.setGitService(activeGitService);
     remotesProvider.setGitService(activeGitService);
     tagsProvider.setGitService(activeGitService);
     stashesProvider.setGitService(activeGitService);
     worktreesProvider.setGitService(activeGitService);
 
-    // Update view descriptions
     const repoName = path.basename(newPath);
     branchesView.description = repoName;
     remotesView.description = repoName;
@@ -192,22 +189,68 @@ export function activate(context: vscode.ExtensionContext) {
     stashesView.description = repoName;
     worktreesView.description = repoName;
 
-    // Update file watcher
     fileWatcher.dispose();
     fileWatcher = new FileWatcher(newPath, () => {
       refreshAll();
     });
     fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
 
+    // If the webview panel is open, sync it to the new repo as well.
+    // MainPanel.switchRepo() will call onRepoChange → switchToRepo again,
+    // but the path.resolve guard above prevents an infinite loop.
+    MainPanel.currentPanel?.switchRepo(newPath);
+
     refreshAll();
-  };
+  }
+
+  MainPanel.onSidebarRefresh = refreshAll;
+  MainPanel.onRepoChange = switchToRepo;
+
+  // Auto-switch sidebar when the active editor moves to a different repo
+  if (builtinGit) {
+    const waitForGitApi = builtinGit.isActive
+      ? Promise.resolve(builtinGit.exports)
+      : Promise.resolve(builtinGit.activate());
+    waitForGitApi.then((ext: {
+      getAPI(version: number): {
+        repositories: { rootUri: vscode.Uri; ui: { selected: boolean; onDidChange: vscode.Event<void> } }[];
+        onDidOpenRepository: vscode.Event<{ rootUri: vscode.Uri; ui: { selected: boolean; onDidChange: vscode.Event<void> } }>;
+        getRepository(uri: vscode.Uri): { rootUri: vscode.Uri } | null;
+      }
+    }) => {
+      try {
+        const gitApi = ext.getAPI(1);
+
+        function watchRepo(repo: { rootUri: vscode.Uri; ui: { selected: boolean; onDidChange: vscode.Event<void> } }) {
+          context.subscriptions.push(
+            repo.ui.onDidChange(() => {
+              if (repo.ui.selected) { switchToRepo(repo.rootUri.fsPath); }
+            })
+          );
+        }
+
+        for (const repo of gitApi.repositories) { watchRepo(repo); }
+        context.subscriptions.push(gitApi.onDidOpenRepository(watchRepo));
+
+        context.subscriptions.push(
+          vscode.window.onDidChangeActiveTextEditor(editor => {
+            if (!editor) { return; }
+            const repo = gitApi.getRepository(editor.document.uri);
+            if (repo?.rootUri) { switchToRepo(repo.rootUri.fsPath); }
+          })
+        );
+      } catch { /* git API unavailable */ }
+    }).catch(() => {});
+  }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('git-graph-plus.open', () => {
-      MainPanel.createOrShow(context.extensionUri);
+    vscode.commands.registerCommand('git-graph-plus.open', (sourceControl?: vscode.SourceControl) => {
+      if (sourceControl?.rootUri) { switchToRepo(sourceControl.rootUri.fsPath); }
+      MainPanel.createOrShow(context.extensionUri, activeRepoPath);
     }),
-    vscode.commands.registerCommand('gitGraphPlus.open', () => {
-      MainPanel.createOrShow(context.extensionUri);
+    vscode.commands.registerCommand('gitGraphPlus.open', (sourceControl?: vscode.SourceControl) => {
+      if (sourceControl?.rootUri) { switchToRepo(sourceControl.rootUri.fsPath); }
+      MainPanel.createOrShow(context.extensionUri, activeRepoPath);
     }),
     vscode.commands.registerCommand('gitGraphPlus.refresh', () => {
       refreshAll();
