@@ -22,7 +22,7 @@
 
   // Track pending message handlers for cleanup on destroy
   const pendingHandlers = new Map<(event: MessageEvent) => void, ReturnType<typeof setTimeout>>();
-  const HANDLER_TIMEOUT_MS = 10_000;
+  const HANDLER_TIMEOUT_MS = 30_000;
 
   function addTimedMessageHandler(handler: (event: MessageEvent) => void): void {
     window.addEventListener('message', handler);

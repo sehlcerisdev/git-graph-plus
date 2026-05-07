@@ -86,7 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
     tagsProvider.prefetch(),
     stashesProvider.prefetch(),
     worktreesProvider.prefetch(),
-  ]).catch(() => {});
+  ]).catch((err) => { console.warn('Git Graph+: sidebar prefetch failed:', err instanceof Error ? err.message : err); });
 
   // --- File Watcher ---
   let fileWatcher = new FileWatcher(activeRepoPath, () => {
@@ -132,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
       });
       fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
     }
-  }).catch(() => {});
+  }).catch((err) => { console.warn('Git Graph+: repo discovery failed:', err instanceof Error ? err.message : err); });
 
   let sidebarRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   function refreshAll() {
