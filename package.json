@@ -204,6 +204,12 @@
       }
     ],
     "menus": {
+      "editor/title": [
+        {
+          "command": "gitGraphPlus.open",
+          "group": "navigation"
+        }
+      ],
       "scm/title": [
         {
           "command": "gitGraphPlus.open",
