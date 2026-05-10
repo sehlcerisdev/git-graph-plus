@@ -145,7 +145,7 @@
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 5px 14px;
+    padding: 3px 14px;
     white-space: nowrap;
     text-align: left;
     font-size: inherit;

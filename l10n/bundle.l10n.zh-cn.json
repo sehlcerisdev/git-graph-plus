@@ -67,5 +67,21 @@
   "pruneWorktreesFailed": "修剪工作树失败：{0}",
   "noChangesToStash": "没有本地更改需要储藏",
   "stashPopAfterPullFailed": "拉取成功，但应用并删除储藏失败。请手动执行 'git stash pop'。",
-  "stashPopAfterCheckoutFailed": "检出成功，但应用并删除储藏失败。请手动执行 'git stash pop'。"
+  "stashPopAfterCheckoutFailed": "检出成功，但应用并删除储藏失败。请手动执行 'git stash pop'。",
+  "branchCreated": "分支 '{0}' 已创建",
+  "branchCreatedAndCheckedOut": "已切换到新分支 '{0}'",
+  "branchDeleted": "分支 '{0}' 已删除",
+  "branchRenamed": "分支已重命名为 '{0}'",
+  "merged": "已合并 '{0}'",
+  "fetched": "抓取完成",
+  "pulled": "拉取完成",
+  "pushed": "推送完成",
+  "rebased": "已变基到 '{0}'",
+  "cherryPicked": "已遴选 {0}",
+  "reverted": "已还原 {0}",
+  "resetComplete": "已重置到 {0}",
+  "stashApplied": "储藏已应用",
+  "stashPopped": "储藏已应用并删除",
+  "tagCreated": "标签 '{0}' 已创建",
+  "tagDeleted": "标签 '{0}' 已删除"
 }

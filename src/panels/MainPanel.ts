@@ -320,6 +320,7 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'checkout', success: true },
           });
+          vscode.window.showInformationMessage(vscode.l10n.t('checkedOut', message.payload.ref));
           await this.refreshAll();
           break;
         }
@@ -349,6 +350,11 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'createBranch', success: true },
           });
+          vscode.window.showInformationMessage(
+            message.payload.checkout
+              ? vscode.l10n.t('branchCreatedAndCheckedOut', message.payload.name)
+              : vscode.l10n.t('branchCreated', message.payload.name)
+          );
           await this.refreshAll();
           break;
         }
@@ -374,6 +380,7 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'deleteBranch', success: true },
           });
+          vscode.window.showInformationMessage(vscode.l10n.t('branchDeleted', message.payload.name));
           await this.refreshAll();
           break;
         }
@@ -392,6 +399,7 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'renameBranch', success: true },
           });
+          vscode.window.showInformationMessage(vscode.l10n.t('branchRenamed', message.payload.newName));
           await this.refreshAll();
           break;
         }
@@ -407,6 +415,7 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'merge', success: true },
           });
+          vscode.window.showInformationMessage(vscode.l10n.t('merged', message.payload.branch));
           await this.refreshAll();
           break;
         }
@@ -437,6 +446,7 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'fetch', success: true },
           });
+          vscode.window.showInformationMessage(vscode.l10n.t('fetched'));
           await this.refreshAll();
           break;
         }
@@ -459,6 +469,7 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'pull', success: true },
           });
+          vscode.window.showInformationMessage(vscode.l10n.t('pulled'));
           await this.refreshAll();
           break;
         }
@@ -468,6 +479,7 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'push', success: true },
           });
+          vscode.window.showInformationMessage(vscode.l10n.t('pushed'));
           await this.refreshAll();
           break;
         }
@@ -495,6 +507,7 @@ export class MainPanel {
             type: 'operationComplete',
             payload: { operation: 'rebase', success: true },
           });
+          vscode.window.showInformationMessage(vscode.l10n.t('rebased', message.payload.onto));
           await this.refreshAll();
           break;
         }
@@ -536,6 +549,7 @@ export class MainPanel {
         case 'reset': {
           await this.gitService.reset(message.payload.ref, message.payload.mode);
           this.panel.webview.postMessage({ type: 'operationComplete', payload: { operation: 'reset', success: true } });
+          vscode.window.showInformationMessage(vscode.l10n.t('resetComplete', message.payload.ref));
           await this.refreshAll();
           break;
         }
@@ -545,6 +559,7 @@ export class MainPanel {
           const afterCount = (await this.gitService.stashList()).length;
           if (afterCount > beforeCount) {
             this.panel.webview.postMessage({ type: 'operationComplete', payload: { operation: 'stashSave', success: true } });
+            vscode.window.showInformationMessage(vscode.l10n.t('changesStashed'));
           } else {
             this.panel.webview.postMessage({ type: 'error', payload: { message: vscode.l10n.t('noChangesToStash') } });
           }
@@ -558,6 +573,7 @@ export class MainPanel {
             await this.gitService.stashApply(message.payload.index);
           }
           this.panel.webview.postMessage({ type: 'operationComplete', payload: { operation: 'stashApply', success: true } });
+          vscode.window.showInformationMessage(vscode.l10n.t(message.payload.drop ? 'stashPopped' : 'stashApplied'));
           await this.refreshAll();
           break;
         }
@@ -599,24 +615,28 @@ export class MainPanel {
         case 'cherryPick': {
           await this.gitService.cherryPick(message.payload.commit, { noCommit: message.payload.noCommit });
           this.panel.webview.postMessage({ type: 'operationComplete', payload: { operation: 'cherryPick', success: true } });
+          vscode.window.showInformationMessage(vscode.l10n.t('cherryPicked', message.payload.commit.substring(0, 7)));
           await this.refreshAll();
           break;
         }
         case 'revert': {
           await this.gitService.revert(message.payload.commit, { noCommit: message.payload.noCommit });
           this.panel.webview.postMessage({ type: 'operationComplete', payload: { operation: 'revert', success: true } });
+          vscode.window.showInformationMessage(vscode.l10n.t('reverted', message.payload.commit.substring(0, 7)));
           await this.refreshAll();
           break;
         }
         case 'createTag': {
           await this.gitService.createTag(message.payload.name, message.payload.ref, message.payload.message);
           this.panel.webview.postMessage({ type: 'operationComplete', payload: { operation: 'createTag', success: true } });
+          vscode.window.showInformationMessage(vscode.l10n.t('tagCreated', message.payload.name));
           await this.refreshAll();
           break;
         }
         case 'deleteTag': {
           await this.gitService.deleteTag(message.payload.name);
           this.panel.webview.postMessage({ type: 'operationComplete', payload: { operation: 'deleteTag', success: true } });
+          vscode.window.showInformationMessage(vscode.l10n.t('tagDeleted', message.payload.name));
           await this.refreshAll();
           break;
         }

@@ -67,5 +67,21 @@
   "pruneWorktreesFailed": "Prune worktrees failed: {0}",
   "noChangesToStash": "No local changes to stash",
   "stashPopAfterPullFailed": "Pull succeeded, but failed to restore stashed changes. Use 'git stash pop' manually.",
-  "stashPopAfterCheckoutFailed": "Checkout succeeded, but failed to restore stashed changes. Use 'git stash pop' manually."
+  "stashPopAfterCheckoutFailed": "Checkout succeeded, but failed to restore stashed changes. Use 'git stash pop' manually.",
+  "branchCreated": "Branch '{0}' created",
+  "branchCreatedAndCheckedOut": "Switched to new branch '{0}'",
+  "branchDeleted": "Branch '{0}' deleted",
+  "branchRenamed": "Branch renamed to '{0}'",
+  "merged": "Merged '{0}'",
+  "fetched": "Fetch complete",
+  "pulled": "Pull complete",
+  "pushed": "Push complete",
+  "rebased": "Rebased onto '{0}'",
+  "cherryPicked": "Cherry-picked {0}",
+  "reverted": "Reverted {0}",
+  "resetComplete": "Reset to {0}",
+  "stashApplied": "Stash applied",
+  "stashPopped": "Stash popped",
+  "tagCreated": "Tag '{0}' created",
+  "tagDeleted": "Tag '{0}' deleted"
 }
