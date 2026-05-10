@@ -14,7 +14,7 @@
   }
 
   let { source, target, onClose, onMerge }: Props = $props();
-  let mergeMode = $state<'default' | 'no-ff' | 'ff-only' | 'squash'>('default');
+  let mergeMode = $state<'default' | 'no-ff' | 'squash'>('default');
   const isHash = (ref: string) => /^[0-9a-f]{7,40}$/i.test(ref);
   const shortRef = (ref: string) => /^[0-9a-f]{40}$/i.test(ref) ? ref.substring(0, 7) : ref;
   let mergeBtn: HTMLButtonElement | undefined = $state();
@@ -49,7 +49,6 @@
       options={[
         { value: 'default', label: t('merge.default'), color: '#4caf50' },
         { value: 'no-ff', label: t('merge.noFf'), color: '#2196f3', flag: '--no-ff' },
-        { value: 'ff-only', label: t('merge.ffOnly'), color: '#ff9800', flag: '--ff-only' },
         { value: 'squash', label: t('merge.squash'), color: '#9c27b0', warning: t('merge.squashWarning'), flag: '--squash' },
       ]}
       value={mergeMode}

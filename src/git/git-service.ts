@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { parseLog, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks } from './git-parser';
@@ -456,6 +457,9 @@ export class GitService {
       args.push('--squash');
     }
     await this.exec(args);
+    if (options?.squash) {
+      await this.exec(['commit', '--no-edit']);
+    }
   }
 
   async abortMerge(): Promise<void> {
@@ -773,7 +777,7 @@ export class GitService {
     }
   }
 
-  async getOperationState(): Promise<{ type: 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null }> {
+  async getOperationState(): Promise<{ type: 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'squash' | null }> {
     const [merge, rebase, cherryPick, revert] = await Promise.allSettled([
       this.exec(['rev-parse', '--verify', 'MERGE_HEAD'], { silent: true }),
       this.exec(['rev-parse', '--verify', 'REBASE_HEAD'], { silent: true }),
@@ -784,6 +788,7 @@ export class GitService {
     if (rebase.status === 'fulfilled') return { type: 'rebase' };
     if (cherryPick.status === 'fulfilled') return { type: 'cherry-pick' };
     if (revert.status === 'fulfilled') return { type: 'revert' };
+    if (existsSync(join(this.repoPath, '.git', 'SQUASH_MSG'))) return { type: 'squash' };
     return { type: null };
   }
 
@@ -793,6 +798,7 @@ export class GitService {
     const state = await this.getOperationState();
     switch (state.type) {
       case 'merge': await this.exec(['commit', '--no-edit']); break;
+      case 'squash': await this.exec(['commit', '--no-edit']); break;
       case 'rebase': await this.exec(['rebase', '--continue']); break;
       case 'cherry-pick': await this.exec(['cherry-pick', '--continue']); break;
       case 'revert': await this.exec(['revert', '--continue']); break;
@@ -803,6 +809,7 @@ export class GitService {
     const state = await this.getOperationState();
     switch (state.type) {
       case 'merge': await this.abortMerge(); break;
+      case 'squash': await this.exec(['reset', '--hard', 'HEAD']); break;
       case 'rebase': await this.abortRebase(); break;
       case 'cherry-pick': await this.exec(['cherry-pick', '--abort']); break;
       case 'revert': await this.exec(['revert', '--abort']); break;

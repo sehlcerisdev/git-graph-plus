@@ -1079,7 +1079,7 @@ export class MainPanel {
         const opState = await this.gitService.getOperationState();
         this.panel.webview.postMessage({
           type: 'conflictData',
-          payload: { operation: opState.type ?? 'merge', files: conflictFiles.map(f => ({ path: f, resolved: false })) },
+          payload: { operation: (opState.type === 'squash' ? 'merge' : opState.type) ?? 'merge', files: conflictFiles.map(f => ({ path: f, resolved: false })) },
         });
         // Focus the Source Control sidebar so the user can resolve conflicts
         vscode.commands.executeCommand('workbench.view.scm');
