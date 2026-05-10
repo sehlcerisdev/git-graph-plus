@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.6 (2026-05-10)
+
+### New Features
+- **Branch Filter Dropdown** - Filter the commit graph to show only commits reachable from a selected branch
+- **Editor Title Bar Icon** - "Open Git Graph" icon added to the editor title bar for quick access
+- **Open File / Open Changes** - Right-click any file in the commit diff viewer to open it or view its changes directly in VS Code
+
+### Improvements
+- **Squash Merge** - Auto-commits on success; shows conflict resolution UI when conflicts are detected
+- **Graph Rail Colors** - Rail colors assigned by lowest available index (Fork-style) for consistent branch coloring
+- **VS Code Notifications** - Success toasts for git operations use native VS Code notifications
+- **Toolbar Badge Visibility** - Improved contrast for ahead/behind badges and the unpublished branch icon
+- **CommitDetails Font Sizes** - Relative font sizes in the commit details panel for better theme compatibility
+- **Search Label** - "All branches" filter label shortened to "All"
+
+### Bug Fixes
+- **Git Flow Button** - Git Flow toolbar button is now disabled during loading/operating state, consistent with other toolbar buttons
+- **Fast-forward Modal** - Skip the fast-forward confirmation when double-clicking the local branch badge on the current branch
+- **Checkout Modal** - Show branch pill only (no commit pill) when checking out a branch with no upstream
+- **Modal Input Reset** - Branch rename and stash save modals now reset their input fields when reopened
+- **Sidebar JSON Error** - Fixed circular structure to JSON error in sidebar; added missing message handlers
+
 ## 0.3.5 (2026-05-07)
 
 ### Improvements

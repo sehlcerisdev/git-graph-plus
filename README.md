@@ -37,6 +37,7 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 | **Commit Details**      | Click any commit to view metadata, changed files, and full diffs in a resizable bottom panel                          |
 | **Commit Comparison**   | Select a base commit, then click another to compare - or compare any commit to your working tree                      |
 | **Search**              | Find commits by message, author, date range, hash, or changed file - with result highlighting and keyboard navigation |
+| **Branch Filter**       | Filter the commit graph to show only commits reachable from a selected branch                                         |
 | **Push Status**         | Blue dot for local-only commits (not pushed), gray dot for remote-only commits (remote ahead)                         |
 | **Avatars**             | Gravatar avatars displayed next to author names                                                                       |
 | **Themes**              | Full support for light, dark, and high-contrast VS Code themes                                                        |
@@ -95,6 +96,7 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 | **Syntax Highlighting** | Powered by Shiki - accurate, editor-quality syntax colors                                |
 | **Image Diff**          | Side-by-side visual preview with swipe comparison for image changes                      |
 | **Patch Export**        | Save any commit as a `.patch` file                                                       |
+| **Open in Editor**      | Right-click any file in the diff viewer to open it or view its changes in VS Code        |
 
 ### Stash & Worktree
 
@@ -148,7 +150,7 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 3. Open Git Graph+ using any of:
    - **Command Palette** - `Git Graph+: Open`
    - **Activity Bar** - Click the Git Graph+ icon
-   - **SCM title bar** or **Status bar** - Click the git-merge icon
+   - **SCM title bar**, **Status bar**, or **Editor title bar** - Click the git-merge icon
 
 ---
 
