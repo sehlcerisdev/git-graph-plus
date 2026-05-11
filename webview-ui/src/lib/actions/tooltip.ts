@@ -31,6 +31,7 @@ export function tooltip(node: HTMLElement, text: string | undefined) {
 
   function show(e: MouseEvent) {
     if (!text) return;
+    hide();
     mouseX = e.clientX;
     mouseY = e.clientY;
     timer = setTimeout(() => {
@@ -48,6 +49,16 @@ export function tooltip(node: HTMLElement, text: string | undefined) {
     el = null;
   }
 
+  // Chromium/Electron does not fire mouseleave when disabled is set while hovering.
+  // MutationObserver catches the attribute change and hides the tooltip proactively.
+  const observer = new MutationObserver(() => {
+    if ((node as HTMLButtonElement).disabled) hide();
+  });
+  observer.observe(node, { attributes: true, attributeFilter: ['disabled'] });
+
+  // Hide when the webview loses focus (Alt+Tab, clicking VS Code sidebar, etc.)
+  window.addEventListener('blur', hide);
+
   node.addEventListener('mouseenter', show);
   node.addEventListener('mousemove', onMouseMove);
   node.addEventListener('mouseleave', hide);
@@ -59,6 +70,8 @@ export function tooltip(node: HTMLElement, text: string | undefined) {
     },
     destroy() {
       hide();
+      observer.disconnect();
+      window.removeEventListener('blur', hide);
       node.removeEventListener('mouseenter', show);
       node.removeEventListener('mousemove', onMouseMove);
       node.removeEventListener('mouseleave', hide);
