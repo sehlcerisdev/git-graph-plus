@@ -217,11 +217,11 @@
       class="filter-btn"
       class:active={filterActive}
       onclick={() => { filterOpen = !filterOpen; }}
-      use:tooltip={"Filter branches"}
+      use:tooltip={t('search.sourceFilterTooltip')}
     >
       <i class="codicon codicon-list-filter filter-btn-icon"></i>
       <span class="filter-label">
-        Source
+        {t('search.sourceFilter')}
         {#if filterActive}<span class="filter-count">{remoteFilter.length}</span>{/if}
       </span>
       <i class="codicon {filterOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'} chevron"></i>
@@ -259,7 +259,7 @@
       class="filter-btn"
       class:active={branchFilterActive}
       onclick={() => { branchFilterOpen = !branchFilterOpen; }}
-      use:tooltip={t('search.branchFilter')}
+      use:tooltip={t('search.branchFilterTooltip')}
     >
       <i class="codicon codicon-git-branch filter-btn-icon"></i>
       <span class="filter-label">

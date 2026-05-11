@@ -204,7 +204,10 @@ export const en: Record<string, string> = {
   'search.next': 'Next match (Enter)',
   'search.filters': 'Filters',
   'search.authorFilter': 'Author filter',
+  'search.sourceFilter': 'Source',
+  'search.sourceFilterTooltip': 'Filter by source (local / remote)',
   'search.branchFilter': 'Branch',
+  'search.branchFilterTooltip': 'Filter by specific branch',
   'search.allBranches': 'All',
   'search.filterBranches': 'Search',
 

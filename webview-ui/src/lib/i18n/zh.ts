@@ -204,7 +204,10 @@ export const zh: Record<string, string> = {
   'search.next': '下一个匹配（Enter）',
   'search.filters': '筛选',
   'search.authorFilter': '作者筛选',
+  'search.sourceFilter': '来源',
+  'search.sourceFilterTooltip': '按来源筛选（本地 / 远程）',
   'search.branchFilter': 'Branch',
+  'search.branchFilterTooltip': '按特定分支筛选',
   'search.allBranches': 'All',
   'search.filterBranches': 'Search',
 

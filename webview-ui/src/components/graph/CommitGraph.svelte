@@ -1418,7 +1418,7 @@
   }
 
   .col-date {
-    width: 140px;
+    width: 160px;
     flex-shrink: 0;
     padding: 0 10px;
     color: var(--text-secondary);
