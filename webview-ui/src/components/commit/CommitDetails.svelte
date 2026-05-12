@@ -330,22 +330,30 @@
             <div class="person-info">
               <img class="avatar-lg" src={getGravatarUrl(commit.author.email, 48)} alt="" loading="lazy" />
               <div class="person-details">
-                <div class="person-name">{commit.author.name} <span class="person-email">{commit.author.email}</span></div>
+                <div class="person-name">
+                  {commit.author.name}
+                  <span class="person-email">&lt;{commit.author.email}&gt;</span>
+                </div>
                 <div class="person-date">{formatFullDate(commit.author.date)}</div>
               </div>
             </div>
           </div>
-          <!-- Committer -->
-          <div class="info-column">
-            <div class="info-label">COMMITTER</div>
-            <div class="person-info">
-              <img class="avatar-lg" src={getGravatarUrl(commit.committer.email, 48)} alt="" loading="lazy" />
-              <div class="person-details">
-                <div class="person-name">{commit.committer.name} <span class="person-email">{commit.committer.email}</span></div>
-                <div class="person-date">{formatFullDate(commit.committer.date)}</div>
+          <!-- Committer (Only show if different from author) -->
+          {#if commit.author.email !== commit.committer.email || commit.author.name !== commit.committer.name}
+            <div class="info-column">
+              <div class="info-label">COMMITTER</div>
+              <div class="person-info">
+                <img class="avatar-lg" src={getGravatarUrl(commit.committer.email, 48)} alt="" loading="lazy" />
+                <div class="person-details">
+                  <div class="person-name">
+                    {commit.committer.name}
+                    <span class="person-email">&lt;{commit.committer.email}&gt;</span>
+                  </div>
+                  <div class="person-date">{formatFullDate(commit.committer.date)}</div>
+                </div>
               </div>
             </div>
-          </div>
+          {/if}
         </div>
 
         <!-- Refs, SHA, Parents -->
@@ -366,7 +374,13 @@
                   const bName = b.type === 'remote-branch' ? `${b.remote}/${b.name}` : b.name;
                   return aName.localeCompare(bName);
                 }) as ref}
-                  <span class="ref-badge">
+                  {@const isWtBranch = (ref.type === 'branch' || ref.type === 'head') && branchStore.worktrees.some(w => !w.isMain && w.branch === ref.name)}
+                  {@const badgeColor = ref.type === 'tag' ? '#f0c040' : isWtBranch ? '#4caf50' : '#63b0f4'}
+                  <span 
+                    class="ref-badge" 
+                    class:badge-bold={ref.type === 'tag'}
+                    style="--badge-color: {badgeColor};"
+                  >
                     {#if ref.type === 'remote-branch'}
                       <i class="codicon codicon-cloud ref-icon"></i>
                       {ref.remote}/{ref.name}
@@ -383,7 +397,26 @@
           {/if}
           <div class="meta-row">
             <span class="meta-label">SHA</span>
-            <span class="meta-value mono">{commit.hash}</span>
+            <span class="meta-value mono">{commit.hash}
+              <div class="copy-btns">
+                <button 
+                  class="copy-btn" 
+                  onclick={() => vscode.postMessage({ type: 'copyToClipboard', payload: { text: commit.hash } })}
+                  aria-label="Copy Full SHA"
+                  use:tooltip={"Copy Full SHA"}
+                >
+                  <i class="codicon codicon-copy"></i>
+                </button>
+                <button 
+                  class="copy-btn" 
+                  onclick={() => vscode.postMessage({ type: 'copyToClipboard', payload: { text: commit.abbreviatedHash } })}
+                  aria-label="Copy Short SHA"
+                  use:tooltip={"Copy Short SHA (7 chars)"}
+                >
+                  <i class="codicon codicon-git-commit"></i>
+                </button>
+              </div>
+            </span>
           </div>
           {#if commit.parents.length > 0}
             <div class="meta-row">
@@ -737,72 +770,127 @@
 
   .info-label {
     font-size: 0.85em;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.05em;
     color: var(--text-secondary);
     margin-bottom: 8px;
+    opacity: 0.8;
   }
 
   .person-info {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .avatar-lg {
-    width: 36px;
-    height: 36px;
+    width: 3.2em;
+    height: 3.2em;
     border-radius: 50%;
     flex-shrink: 0;
+    border: 1px solid var(--border-color);
   }
 
   .person-details {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 3.2em;
   }
 
   .person-name {
-    font-weight: normal;
+    font-weight: 600;
+    font-size: 1.1em;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .person-email {
     font-weight: 400;
     color: var(--text-secondary);
-    font-size: inherit;
+    font-size: 0.85em;
+    opacity: 0.7;
   }
 
   .person-date {
-    font-size: inherit;
+    font-size: 0.85em;
     color: var(--text-secondary);
-    margin-top: 2px;
+    margin-top: 4px;
+    opacity: 0.8;
   }
 
   /* ── Meta rows ── */
   .meta-rows {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    padding: 4px 5px; /* Added slight horizontal padding for alignment */
+    margin-bottom: 8px;
   }
 
   .meta-row {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 12px;
   }
 
   .meta-label {
-    width: 65px;
+    width: 70px;
     flex-shrink: 0;
     font-size: 0.85em;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-secondary);
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .meta-value {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
   }
 
   .mono {
     font-family: var(--vscode-editor-font-family, monospace);
+  }
+
+  .copy-btns {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 4px;
+    align-items: center;
+  }
+
+  .copy-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.6;
+    transition: opacity 0.1s, background 0.1s;
+  }
+
+  .copy-btn:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.2);
+  }
+
+  .copy-btn i {
+    font-size: 1.1em;
   }
 
   .parent-link {
@@ -821,28 +909,61 @@
   .ref-badge {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 8px;
-    border-radius: 0;
+    gap: 4px;
+    padding: 1px 6px;
+    border-radius: 3px;
     font-size: 0.9em;
     font-weight: normal;
     margin-right: 6px;
-    border: 1px solid rgba(128, 128, 128, 0.15);
-    background: rgba(128, 128, 128, 0.1);
-    color: var(--text-primary);
+    cursor: default;
+    white-space: nowrap;
+    line-height: 1.4;
+    /* Dark theme defaults */
+    background: color-mix(in srgb, var(--badge-color) 15%, transparent);
+    color: #fff;
+    border: 1px solid color-mix(in srgb, var(--badge-color) 25%, transparent);
+  }
+
+  .ref-badge.badge-bold {
+    background: color-mix(in srgb, var(--badge-color) 55%, transparent);
+    border-color: color-mix(in srgb, var(--badge-color) 70%, transparent);
+  }
+
+  .ref-badge.badge-head {
+    font-weight: 600;
+  }
+
+  /* Light theme overrides */
+  :global(body.vscode-light) .ref-badge {
+    background: color-mix(in srgb, var(--badge-color) 18%, transparent);
+    color: #000;
+    border: 1px solid color-mix(in srgb, var(--badge-color) 40%, transparent);
+  }
+
+  :global(body.vscode-light) .ref-badge.badge-bold {
+    background: color-mix(in srgb, var(--badge-color) 75%, #fff);
+    color: #000;
+    border-color: color-mix(in srgb, var(--badge-color) 85%, transparent);
   }
 
   .ref-icon {
-    font-size: 0.9em;
+    font-size: 1em;
     flex-shrink: 0;
-    opacity: 0.7;
+    line-height: 1;
   }
 
   /* ── Message ── */
   .message-section {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border-color);
+    margin-top: 8px;
+    background: rgba(128, 128, 128, 0.05);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(128, 128, 128, 0.1);
+  }
+
+  :global(body.vscode-light) .message-section {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.08);
   }
 
   .message-subject {
