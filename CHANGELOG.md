@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.7 (2026-05-12)
+
+### New Features
+- **Commit Preview Hover Card** - View commit details by hovering over parent links in the commit details panel
+- **Synchronized Diff Scrolling** - Side-by-side diff panes now scroll together for easier comparison
+
+### Improvements
+- **Refined Commit Details UI** - Modernized layout with a dedicated card for the commit message, circular avatars, and cleaner metadata display
+- **SHA Copy Shortcuts** - Added dedicated buttons to copy both full and short (7-char) SHA hashes in the commit details panel
+- **Enhanced Ref Badges** - Consistent badge styling across all reference types for better visual unity
+- **Relative UI Scaling** - Switched to relative units (em) for panel buttons to improve theme and font-size compatibility
+
+### Performance
+- **Lazy Loading Diffs** - Improved popup responsiveness by implementing lazy loading for commit diff data
+
+### Bug Fixes
+- **Type Safety** - Fixed latent TypeScript errors in the message bus and main panel message routing
+- **Fullscreen Reset** - Fullscreen state now correctly resets when closing the bottom panel via the Escape key
+- **Tooltip Reliability** - Fixed an issue where tooltips could get stuck when a button becomes disabled
+- **UI Layout Fixes** - Widen date column, fixed i18n filter tooltips, and moved status bar for better visibility
+
 ## 0.3.6 (2026-05-10)
 
 ### New Features
