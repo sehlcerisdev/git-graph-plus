@@ -221,9 +221,13 @@
 
     if (e.key === 'Escape' && !modalStore.anyOpen && uiStore.showBottomPanel && (uiStore.selectedCommitHash || uiStore.comparing)) {
       e.preventDefault();
-      uiStore.selectedCommitHash = null;
-      uiStore.comparing = false;
-      uiStore.showBottomPanel = false;
+      if (uiStore.commitDetailFullscreen) {
+        uiStore.commitDetailFullscreen = false;
+      } else {
+        uiStore.selectedCommitHash = null;
+        uiStore.comparing = false;
+        uiStore.showBottomPanel = false;
+      }
     }
   }
 
