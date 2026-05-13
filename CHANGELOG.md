@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.9 (2026-05-13)
+
+### Bug Fixes
+- **Conflict Prediction Accuracy** - Improved conflict prediction for rebase, cherry-pick, and revert operations
+- **Fast-forward Notification Order** - Fixed notification order bug in fast-forward that could cause inconsistent state
+
 ## 0.3.8 (2026-05-13)
 
 ### New Features
