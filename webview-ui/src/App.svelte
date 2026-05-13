@@ -213,8 +213,8 @@
       e.preventDefault();
       vscode.postMessage({ type: 'getLog', payload: {
         limit: commitStore.currentLimit || undefined,
-        branches: branchFilter.length > 0 ? branchFilter : undefined,
-        remoteFilter: branchFilter.length > 0 ? undefined : (remoteFilter.length > 0 ? remoteFilter : undefined),
+        branches: branchFilter.length > 0 ? [...branchFilter] : undefined,
+        remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
       }});
       vscode.postMessage({ type: 'getBranches' });
     }
@@ -253,8 +253,8 @@
       type: 'getLog',
       payload: {
         limit: commitStore.currentLimit || undefined,
-        branches: branchFilter.length > 0 ? branchFilter : undefined,
-        remoteFilter: branchFilter.length > 0 ? undefined : (filter.length > 0 ? filter : undefined),
+        branches: branchFilter.length > 0 ? [...branchFilter] : undefined,
+        remoteFilter: filter.length > 0 ? [...filter] : undefined,
       },
     });
   }
@@ -265,8 +265,8 @@
       type: 'getLog',
       payload: {
         limit: commitStore.currentLimit || undefined,
-        branches: branches.length > 0 ? branches : undefined,
-        remoteFilter: branches.length > 0 ? undefined : (remoteFilter.length > 0 ? remoteFilter : undefined),
+        branches: branches.length > 0 ? [...branches] : undefined,
+        remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
       },
     });
   }
