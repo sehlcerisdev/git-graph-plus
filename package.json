@@ -406,9 +406,9 @@
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.0.0",
     "concurrently": "^9.0.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.25.12",
     "typescript": "^5.5.0",
-    "vitest": "^2.0.0"
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.45"
