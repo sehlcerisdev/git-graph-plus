@@ -360,18 +360,6 @@
           "default": true,
           "description": "Automatically refresh when repository changes are detected"
         },
-        "gitGraphPlus.autoFetch": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically fetch from remotes periodically"
-        },
-        "gitGraphPlus.autoFetchInterval": {
-          "type": "number",
-          "default": 10,
-          "minimum": 1,
-          "maximum": 60,
-          "description": "Auto fetch interval in minutes"
-        },
         "gitGraphPlus.locale": {
           "type": "string",
           "enum": [
