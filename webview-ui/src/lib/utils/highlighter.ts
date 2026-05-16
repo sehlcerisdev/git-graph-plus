@@ -29,7 +29,7 @@ export function detectLanguage(filename: string): string {
   return LANG_MAP[ext] ?? '';
 }
 
-async function getHighlighter(): Promise<HighlighterCore> {
+export async function getHighlighter(): Promise<HighlighterCore> {
   if (highlighter) return highlighter;
   if (loadingPromise) return loadingPromise;
 
@@ -80,27 +80,14 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export async function highlightLine(content: string, lang: string): Promise<string> {
-  if (!lang) {
-    return escapeHtml(content);
-  }
-
+export function highlightLineSync(h: HighlighterCore, content: string, lang: string): string {
+  if (!lang) return escapeHtml(content);
   try {
-    const h = await getHighlighter();
     const loadedLangs = h.getLoadedLanguages();
+    if (!loadedLangs.includes(lang as any)) return escapeHtml(content);
 
-    if (!loadedLangs.includes(lang as any)) {
-      return escapeHtml(content);
-    }
-
-    const tokens = h.codeToTokens(content, {
-      lang: lang as any,
-      theme: 'dark-plus',
-    });
-
-    if (!tokens.tokens[0]) {
-      return escapeHtml(content);
-    }
+    const tokens = h.codeToTokens(content, { lang: lang as any, theme: 'dark-plus' });
+    if (!tokens.tokens[0]) return escapeHtml(content);
 
     return tokens.tokens[0]
       .map((token: ThemedToken) => {
@@ -109,6 +96,16 @@ export async function highlightLine(content: string, lang: string): Promise<stri
         return color ? `<span style="color:${color}">${escaped}</span>` : escaped;
       })
       .join('');
+  } catch {
+    return escapeHtml(content);
+  }
+}
+
+export async function highlightLine(content: string, lang: string): Promise<string> {
+  if (!lang) return escapeHtml(content);
+  try {
+    const h = await getHighlighter();
+    return highlightLineSync(h, content, lang);
   } catch {
     return escapeHtml(content);
   }

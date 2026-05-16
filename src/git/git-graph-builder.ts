@@ -183,8 +183,9 @@ function buildRemoteOnlyData(commits: Commit[], branches: BranchInfo[]): { tipSe
       const q: number[] = [];
       const li = hashIndex.get(localHash);
       if (li !== undefined) q.push(li);
-      while (q.length > 0) {
-        const idx = q.shift()!;
+      let qHead = 0;
+      while (qHead < q.length) {
+        const idx = q[qHead++];
         for (const ph of commits[idx].parents) {
           if (!localAncestors.has(ph)) {
             localAncestors.add(ph);
@@ -199,8 +200,9 @@ function buildRemoteOnlyData(commits: Commit[], branches: BranchInfo[]): { tipSe
     // BFS from remote tip, stop at local branch ancestors
     allSet.add(commits[tipIdx].hash);
     const queue = [tipIdx];
-    while (queue.length > 0) {
-      const idx = queue.shift()!;
+    let qHead = 0;
+    while (qHead < queue.length) {
+      const idx = queue[qHead++];
       for (const parentHash of commits[idx].parents) {
         if (allSet.has(parentHash) || localAncestors.has(parentHash)) continue;
         allSet.add(parentHash);
@@ -235,8 +237,9 @@ function buildPushedSet(commits: Commit[]): Set<string> {
   }
 
   // BFS through parents
-  while (queue.length > 0) {
-    const idx = queue.shift()!;
+  let qHead = 0;
+  while (qHead < queue.length) {
+    const idx = queue[qHead++];
     for (const parentHash of commits[idx].parents) {
       if (!pushed.has(parentHash)) {
         pushed.add(parentHash);

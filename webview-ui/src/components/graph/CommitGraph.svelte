@@ -124,9 +124,10 @@
     const currentBranchCommits = new Set<string>();
     const headCommit = commits.find(c => c.refs.some(r => r.type === 'head'));
     if (headCommit) {
-      const queue = [headCommit.hash];
-      while (queue.length > 0) {
-        const hash = queue.shift()!;
+      const queue: string[] = [headCommit.hash];
+      let head = 0;
+      while (head < queue.length) {
+        const hash = queue[head++];
         if (currentBranchCommits.has(hash)) continue;
         currentBranchCommits.add(hash);
         const idx = hashIndex.get(hash);
@@ -150,9 +151,10 @@
         // BFS 2: commits reachable from upstream tip
         const upstreamReachable = new Set<string>();
         if (current.ahead > 0) {
-          const queue = [remoteTipCommit.hash];
-          while (queue.length > 0) {
-            const hash = queue.shift()!;
+          const queue: string[] = [remoteTipCommit.hash];
+          let head = 0;
+          while (head < queue.length) {
+            const hash = queue[head++];
             if (upstreamReachable.has(hash)) continue;
             upstreamReachable.add(hash);
             const idx = hashIndex.get(hash);
@@ -169,8 +171,9 @@
         // BFS 3: commits reachable from upstream tip but not on current branch
         if (current.behind > 0) {
           const queue: string[] = [remoteTipCommit.hash];
-          while (queue.length > 0) {
-            const hash = queue.shift()!;
+          let head = 0;
+          while (head < queue.length) {
+            const hash = queue[head++];
             if (currentBranchRemoteAhead.has(hash) || currentBranchCommits.has(hash)) continue;
             currentBranchRemoteAhead.add(hash);
             const idx = hashIndex.get(hash);

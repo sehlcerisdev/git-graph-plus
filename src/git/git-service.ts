@@ -292,7 +292,7 @@ export class GitService {
             abbreviatedHash: 'UNCOMMITTED',
             parents: [],
             refs: [],
-            subject: 'UNCOMMITTED',
+            subject: `Uncommitted changes (${lines.length})`,
             body: JSON.stringify({ staged, unstaged }),
             author: { name: '', email: '', date: '' },
             committer: { name: '', email: '', date: '' },

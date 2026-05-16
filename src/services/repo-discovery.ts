@@ -208,23 +208,33 @@ export class RepoDiscoveryService {
     }
   }
 
-  private static execGit(args: string[], cwd: string): Promise<string> {
+  private static execGit(args: string[], cwd: string, timeoutMs = 15000): Promise<string> {
     return new Promise((resolve, reject) => {
       const proc = spawn('git', args, {
         cwd,
         env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
       });
 
+      const timer = setTimeout(() => {
+        proc.kill('SIGTERM');
+        setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* already dead */ } }, 2000);
+        reject(new Error(`git ${args[0]} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+
       let stdout = '';
       proc.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
       proc.on('close', (code) => {
+        clearTimeout(timer);
         if (code === 0) {
           resolve(stdout.trim());
         } else {
           reject(new Error(`git ${args[0]} failed`));
         }
       });
-      proc.on('error', reject);
+      proc.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
     });
   }
 }

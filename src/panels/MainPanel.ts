@@ -1295,8 +1295,13 @@ export class MainPanel {
         if (MainPanel.extraEnv) {
           this.gitService.setExtraEnv(MainPanel.extraEnv);
         }
-        this.fileWatcher.dispose();
+        const oldWatcher = this.fileWatcher;
+        const oldIdx = this.disposables.indexOf(oldWatcher);
+        if (oldIdx !== -1) this.disposables.splice(oldIdx, 1);
+        oldWatcher.dispose();
         this.fileWatcher = new FileWatcher(active, (what) => this.onRepoChanged(what));
+        this.fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
+        this.disposables.push(this.fileWatcher);
         
         // Notify extension to update sidebar views
         if (MainPanel.onRepoChange) {

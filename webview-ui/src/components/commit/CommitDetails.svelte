@@ -7,7 +7,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { getGravatarUrl } from '../../lib/utils/gravatar';
-  import { detectLanguage, highlightLine, escapeHtml } from '../../lib/utils/highlighter';
+  import { detectLanguage, highlightLineSync, getHighlighter, escapeHtml } from '../../lib/utils/highlighter';
 
   import ImageDiff from '../common/ImageDiff.svelte';
   import ContextMenu from '../common/ContextMenu.svelte';
@@ -359,30 +359,33 @@
     }
   }
 
+  const MAX_HIGHLIGHT_LINES = 5000;
+
   $effect(() => {
-    if (selectedDiff && !selectedDiff.isBinary) {
-      const lang = detectLanguage(selectedDiff.file);
-      if (lang) {
-        const newMap = new Map<string, string>();
-        const promises: Promise<void>[] = [];
-        for (const hunk of selectedDiff.hunks) {
-          for (let i = 0; i < hunk.lines.length; i++) {
-            const line = hunk.lines[i];
-            const key = `${hunk.oldStart}-${i}`;
-            promises.push(
-              highlightLine(line.content, lang).then(html => {
-                newMap.set(key, html);
-              })
-            );
-          }
-        }
-        Promise.all(promises).then(() => {
-          highlightedLines = newMap;
-        }).catch(() => {});
-      } else {
-        highlightedLines = new Map();
-      }
+    if (!selectedDiff || selectedDiff.isBinary) return;
+    const lang = detectLanguage(selectedDiff.file);
+    if (!lang) {
+      highlightedLines = new Map();
+      return;
     }
+    const totalLines = selectedDiff.hunks.reduce((s, h) => s + h.lines.length, 0);
+    if (totalLines > MAX_HIGHLIGHT_LINES) {
+      highlightedLines = new Map();
+      return;
+    }
+    const target = selectedDiff;
+    getHighlighter().then(h => {
+      if (selectedDiff !== target) return;
+      const newMap = new Map<string, string>();
+      for (const hunk of target.hunks) {
+        for (let i = 0; i < hunk.lines.length; i++) {
+          const key = `${hunk.oldStart}-${i}`;
+          newMap.set(key, highlightLineSync(h, hunk.lines[i].content, lang));
+        }
+      }
+      if (selectedDiff !== target) return;
+      highlightedLines = newMap;
+    }).catch(() => {});
   });
 
   function getHighlighted(hunkStart: number, lineIdx: number, content: string): string {
