@@ -295,6 +295,17 @@ export class MainPanel {
           this.panel.webview.postMessage({ type: 'dirtyState', payload: { dirty } });
           break;
         }
+        case 'getUncommittedDiff': {
+          const result = await this.gitService.getUncommittedDiff();
+          this.panel.webview.postMessage({ type: 'uncommittedDiffData', payload: result });
+          break;
+        }
+        case 'getUncommittedFileDiff': {
+          const diff = await this.gitService.getUncommittedFileDiff(message.payload.file, message.payload.staged);
+          const key = (message.payload.staged ? 'staged' : 'unstaged') + ':' + message.payload.file;
+          this.panel.webview.postMessage({ type: 'fileDiffData', payload: { hash: 'UNCOMMITTED', file: message.payload.file, key, diff } });
+          break;
+        }
         case 'predictConflicts': {
           const result = message.payload.mode === 'rebase'
             ? await this.gitService.predictRebaseConflicts(message.payload.ours, message.payload.theirs)

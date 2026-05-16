@@ -18,7 +18,7 @@ export interface PersonInfo {
 }
 
 export interface Ref {
-  type: 'branch' | 'remote-branch' | 'tag' | 'head' | 'stash';
+  type: 'branch' | 'remote-branch' | 'tag' | 'head' | 'stash' | 'working-dir';
   name: string;
   remote?: string;
 }

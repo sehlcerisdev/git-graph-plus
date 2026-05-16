@@ -102,6 +102,7 @@ export const ko: Record<string, string> = {
   'createTag.createAndPush': '생성 및 Push',
 
   // Graph
+  'graph.uncommitted': '커밋되지 않은 변경 (staged {staged}, unstaged {unstaged})',
   'graph.loading': 'Commit 로딩 중',
   'graph.noCommits': 'Commit을 찾을 수 없습니다',
   'graph.notGitRepo': 'Git 레포지토리가 아닙니다.',

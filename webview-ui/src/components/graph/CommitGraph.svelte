@@ -427,7 +427,7 @@
       if (r.type === 'remote-branch' && r.name === 'HEAD') return false;
       return true;
     }).sort((a, b) => {
-      const order = { head: 0, branch: 1, 'remote-branch': 2, tag: 3, stash: 4 };
+      const order = { head: 0, branch: 1, 'remote-branch': 2, tag: 3, stash: 4, 'working-dir': 5 };
       const typeOrder = (order[a.type] ?? 4) - (order[b.type] ?? 4);
       if (typeOrder !== 0) return typeOrder;
       // Alphabetical within same type for branches, tags, worktrees
@@ -824,7 +824,10 @@
           {@const dotColor = COLOR_PALETTE[dot.color % COLOR_PALETTE.length]}
           {@const dx = laneX(dot.center.x)}
           {@const dy = dot.center.y * ROW_HEIGHT}
-          {#if dot.type === 'head'}
+          {@const dotCommit = displayCommits[startIndex + i]}
+          {#if dotCommit?.hash === 'UNCOMMITTED'}
+            <circle cx={dx} cy={dy} r={5} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
+          {:else if dot.type === 'head'}
             <circle cx={dx} cy={dy} r={5} fill="var(--bg-primary, #1e1e1e)" stroke={dotColor} stroke-width="2" />
           {:else if dot.type === 'merge'}
             <circle cx={dx} cy={dy} r={4} fill="var(--bg-primary, #1e1e1e)" stroke={dotColor} stroke-width="1.5" />
@@ -851,7 +854,7 @@
             class:search-match={isSearchActive && searchMatchedHashes?.has(commit.hash)}
             class:search-dim={isSearchActive && !searchMatchedHashes?.has(commit.hash)}
             class:search-current={searchNavigateHash === commit.hash}
-            class:other-branch={!isSearchActive && !currentBranchCommits.has(commit.hash)}
+            class:other-branch={!isSearchActive && !currentBranchCommits.has(commit.hash) && commit.hash !== 'UNCOMMITTED'}
             class:compare-mode={compareBase !== null && compareBase !== commit.hash}
             class:compare-base={compareBase === commit.hash}
             class:compare-active={uiStore.comparing && (uiStore.compareRef1 === commit.hash || uiStore.compareRef2 === commit.hash)}
@@ -884,6 +887,7 @@
               clickTimer = setTimeout(() => { clickTimer = null; selectCommit(commit.hash); }, 200);
             }}
             ondblclick={() => {
+              if (commit.hash === 'UNCOMMITTED') return;
               if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
               const localRefs = commit.refs.filter(r => r.type === 'head' || r.type === 'branch');
               if (localRefs.length === 1) {
@@ -899,7 +903,7 @@
                 }
               }
             }}
-            oncontextmenu={(e) => onCommitContextMenu(e, commit)}
+            oncontextmenu={(e) => { if (commit.hash !== 'UNCOMMITTED') onCommitContextMenu(e, commit); }}
             role="row"
             tabindex={0}
             onkeydown={(e) => { if (e.key === 'Enter') selectCommit(commit.hash); }}
@@ -911,6 +915,7 @@
                 <span class="remote-dot" use:tooltip={"Remote only"}></span>
               {/if}
               {#each commit.refs.filter(r => {
+                  if (r.type === 'working-dir') return false;
                   if (r.type === 'remote-branch') {
                     if (r.name === 'HEAD') return false;
                     if (remoteFilter.length > 0 && !remoteFilter.includes(r.remote ?? '')) return false;
@@ -929,7 +934,7 @@
                   }
                   return true;
                 }).sort((a, b) => {
-                  const order = { head: 0, branch: 1, 'remote-branch': 2, tag: 3, stash: 4 };
+                  const order = { head: 0, branch: 1, 'remote-branch': 2, tag: 3, stash: 4, 'working-dir': 5 };
                   return (order[a.type] ?? 4) - (order[b.type] ?? 4);
                 }) as ref}
                   {@const hasRemote = (ref.type === 'branch' || ref.type === 'head') && (() => {
@@ -1024,14 +1029,22 @@
                     {/if}
                   </span>
                 {/each}
-                <span class="commit-subject truncate" use:tooltip={commit.subject}>{commit.subject}</span>
+                {#if commit.hash === 'UNCOMMITTED'}
+                  {@const counts = JSON.parse(commit.body || '{}')}
+                  {@const label = t('graph.uncommitted', { staged: counts.staged ?? 0, unstaged: counts.unstaged ?? 0 })}
+                  <span class="commit-subject truncate" use:tooltip={label}>{label}</span>
+                {:else}
+                  <span class="commit-subject truncate" use:tooltip={commit.subject}>{commit.subject}</span>
+                {/if}
             </div>
               <div class="col-author truncate" use:tooltip={commit.author.name}>
-                <img class="avatar-sm" src={getGravatarUrl(commit.author.email, 20)} alt="" loading="lazy" />
-                {commit.author.name}
+                {#if commit.hash !== 'UNCOMMITTED'}
+                  <img class="avatar-sm" src={getGravatarUrl(commit.author.email, 20)} alt="" loading="lazy" />
+                  {commit.author.name}
+                {/if}
               </div>
-              <div class="col-hash" use:tooltip={commit.hash}>{commit.abbreviatedHash}</div>
-              <div class="col-date" use:tooltip={new Date(commit.author.date).toLocaleString()}>{formatDate(commit.author.date)}</div>
+              <div class="col-hash" use:tooltip={commit.hash !== 'UNCOMMITTED' ? commit.hash : ''}>{commit.hash !== 'UNCOMMITTED' ? commit.abbreviatedHash : ''}</div>
+              <div class="col-date" use:tooltip={commit.hash !== 'UNCOMMITTED' ? new Date(commit.author.date).toLocaleString() : ''}>{commit.hash !== 'UNCOMMITTED' ? formatDate(commit.author.date) : ''}</div>
           </div>
         {/each}
       </div>

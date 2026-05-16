@@ -99,9 +99,15 @@ export function activate(context: vscode.ExtensionContext) {
   // --- File Watcher ---
   let fileWatcher = new FileWatcher(activeRepoPath, () => {
     refreshAll();
+    MainPanel.currentPanel?.postRefresh();
   });
   fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
   context.subscriptions.push({ dispose: () => fileWatcher.dispose() });
+
+  // Refresh graph when any file in the workspace is saved (catches unstaged working-dir changes)
+  context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(() => {
+    MainPanel.currentPanel?.postRefresh();
+  }));
 
   // --- Auto-detect Git Repo if root isn't one ---
   RepoDiscoveryService.discoverRepos([activeRepoPath]).then(repos => {
@@ -137,6 +143,7 @@ export function activate(context: vscode.ExtensionContext) {
       fileWatcher.dispose();
       fileWatcher = new FileWatcher(activeRepoPath, () => {
         refreshAll();
+        MainPanel.currentPanel?.postRefresh();
       });
       fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
     }
@@ -200,6 +207,7 @@ export function activate(context: vscode.ExtensionContext) {
     fileWatcher.dispose();
     fileWatcher = new FileWatcher(newPath, () => {
       refreshAll();
+      MainPanel.currentPanel?.postRefresh();
     });
     fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
 

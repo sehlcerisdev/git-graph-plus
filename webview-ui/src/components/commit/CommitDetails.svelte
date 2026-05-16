@@ -30,6 +30,8 @@
   let files = $state<CommitFile[]>([]);
   let diffs = $state<DiffData[]>([]);
   let selectedFile = $state<string | null>(null);
+  let uncommittedFiles = $state<{ staged: CommitFile[]; unstaged: CommitFile[] } | null>(null);
+  let uncommittedDiffCache = $state(new Map<string, DiffData>());
   let lfsFiles = $state<Array<{ oid: string; path: string }>>([]);
   let lfsLocks = $state<Array<{ path: string; owner: string; id: string }>>([]);
   let fileContextMenu = $state<{ x: number; y: number; items: any[] } | null>(null);
@@ -39,7 +41,6 @@
   let previewCache = new Map<string, Commit>();
   let previewTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  let selectedDiff = $derived(diffs.find(d => d.file === selectedFile));
   const lfsFileSet = $derived(new Set(lfsFiles.map(f => f.path)));
   const lfsLockMap = $derived(new Map(lfsLocks.map(l => [l.path, l.owner])));
   let diffMode = $state<'inline' | 'side-by-side'>('inline');
@@ -49,8 +50,15 @@
   let resizeStartWidth = 0;
   // svelte-ignore state_referenced_locally
   let activeTab = $state<'commit' | 'changes'>(commit ? 'commit' : 'changes');
+  let uncommittedTab = $state<'staged' | 'unstaged'>('staged');
 
-  let activeHash = '';
+  let activeHash = $state('');
+
+  let selectedDiff = $derived(
+    activeHash === 'UNCOMMITTED'
+      ? (selectedFile ? uncommittedDiffCache.get(selectedFile) ?? null : null)
+      : (diffs.find(d => d.file === (selectedFile ?? '')) ?? null)
+  );
 
   function startResize(e: MouseEvent) {
     isResizing = true;
@@ -87,19 +95,25 @@
   // Request commit diff only when hash actually changes (not on object reference changes from fullRefresh)
   $effect(() => {
     const hash = commit?.hash ?? '';
-    if (hash === activeHash) return;
-    activeHash = hash;
-    files = [];
-    diffs = [];
-    selectedFile = null;
-    if (hash) {
-      vscode.postMessage({ type: 'getCommitDiff', payload: { hash } });
-      vscode.postMessage({ type: 'getLfsFiles' });
+    if (hash !== activeHash) {
+      activeHash = hash;
+      files = [];
+      diffs = [];
+      selectedFile = null;
+      uncommittedFiles = null;
+      uncommittedDiffCache = new Map();
+      if (hash === 'UNCOMMITTED') {
+        activeTab = 'changes';
+        vscode.postMessage({ type: 'getUncommittedDiff' });
+      } else if (hash) {
+        vscode.postMessage({ type: 'getCommitDiff', payload: { hash } });
+        vscode.postMessage({ type: 'getLfsFiles' });
+      }
     }
   });
 
   $effect(() => {
-    if (selectedFile && activeHash) {
+    if (selectedFile && activeHash && activeHash !== 'UNCOMMITTED') {
       // Check if we already have the diff
       if (!diffs.some(d => d.file === selectedFile)) {
          vscode.postMessage({ type: 'getFileDiff', payload: { hash: activeHash, file: selectedFile } });
@@ -110,6 +124,28 @@
   onMount(() => {
     function handleMessage(event: MessageEvent) {
       const msg = event.data;
+      if (msg.type === 'uncommittedDiffData') {
+        uncommittedFiles = msg.payload;
+        if (selectedFile) {
+          const isStaged = selectedFile.startsWith('staged:');
+          const filePath = selectedFile.replace(/^(staged|unstaged):/, '');
+          const list = isStaged ? msg.payload.staged : msg.payload.unstaged;
+          if (!list.some((f: { path: string }) => f.path === filePath)) {
+            selectedFile = null;
+          }
+        }
+      }
+      if (msg.type === 'fullRefresh') {
+        if (activeHash === 'UNCOMMITTED') {
+          uncommittedDiffCache = new Map();
+          vscode.postMessage({ type: 'getUncommittedDiff' });
+          if (selectedFile) {
+            const isStaged = selectedFile.startsWith('staged:');
+            const filePath = selectedFile.replace(/^(staged|unstaged):/, '');
+            vscode.postMessage({ type: 'getUncommittedFileDiff', payload: { file: filePath, staged: isStaged } });
+          }
+        }
+      }
       if (msg.type === 'commitDiffData') {
         // Discard stale responses from previous commit selections
         if (msg.payload.hash !== activeHash) return;
@@ -118,8 +154,13 @@
       if (msg.type === 'fileDiffData') {
         if (msg.payload.hash !== activeHash) return;
         if (msg.payload.diff) {
-          // Add or replace the diff for the file
-          diffs = [...diffs.filter(d => d.file !== msg.payload.file), msg.payload.diff];
+          if (msg.payload.hash === 'UNCOMMITTED' && msg.payload.key) {
+            const next = new Map(uncommittedDiffCache);
+            next.set(msg.payload.key, msg.payload.diff);
+            uncommittedDiffCache = next;
+          } else {
+            diffs = [...diffs.filter(d => d.file !== msg.payload.file), msg.payload.diff];
+          }
         }
       }
       if (msg.type === 'lfsData') {
@@ -242,6 +283,21 @@
     }
   });
 
+  $effect(() => {
+    if (uncommittedFiles) {
+      const dirs = new Set<string>();
+      for (const { path: p } of uncommittedFiles.staged) {
+        const parts = p.split('/');
+        parts.slice(0, -1).forEach((_, i) => dirs.add('staged:' + parts.slice(0, i + 1).join('/')));
+      }
+      for (const { path: p } of uncommittedFiles.unstaged) {
+        const parts = p.split('/');
+        parts.slice(0, -1).forEach((_, i) => dirs.add('unstaged:' + parts.slice(0, i + 1).join('/')));
+      }
+      expandedDirs = dirs;
+    }
+  });
+
   function statusColor(s?: string): string {
     if (document.body.classList.contains('vscode-light')) {
       switch (s) {
@@ -270,6 +326,7 @@
       case 'D': return 'Deleted';
       case 'R': return 'Renamed';
       case 'C': return 'Copied';
+      case 'U': return 'Untracked';
       default: return '';
     }
   }
@@ -337,14 +394,23 @@
 <div class="commit-details">
   <!-- Top tabs -->
   <div class="top-tabs">
-    {#if commit}
-      <button class="top-tab" class:active={activeTab === 'commit'} onclick={() => { activeTab = 'commit'; }}>
-        {t('details.commit')}
+    {#if commit?.hash === 'UNCOMMITTED'}
+      <button class="top-tab" class:active={uncommittedTab === 'staged'} onclick={() => { uncommittedTab = 'staged'; selectedFile = null; }}>
+        Staged <span class="tab-count">{uncommittedFiles?.staged.length ?? 0}</span>
+      </button>
+      <button class="top-tab" class:active={uncommittedTab === 'unstaged'} onclick={() => { uncommittedTab = 'unstaged'; selectedFile = null; }}>
+        Unstaged <span class="tab-count">{uncommittedFiles?.unstaged.length ?? 0}</span>
+      </button>
+    {:else}
+      {#if commit}
+        <button class="top-tab" class:active={activeTab === 'commit'} onclick={() => { activeTab = 'commit'; }}>
+          {t('details.commit')}
+        </button>
+      {/if}
+      <button class="top-tab" class:active={activeTab === 'changes'} onclick={() => { activeTab = 'changes'; }}>
+        {t('details.changes')} <span class="tab-count">{files.length}</span>
       </button>
     {/if}
-    <button class="top-tab" class:active={activeTab === 'changes'} onclick={() => { activeTab = 'changes'; }}>
-      {t('details.changes')} <span class="tab-count">{files.length}</span>
-    </button>
     <div class="tabs-actions">
       <button class="tab-action-btn" aria-label={uiStore.commitDetailFullscreen ? t('details.restore') : t('details.fullscreen')} use:tooltip={uiStore.commitDetailFullscreen ? t('details.restore') : t('details.fullscreen')} onclick={() => { uiStore.commitDetailFullscreen = !uiStore.commitDetailFullscreen; }}>
         <i class="codicon {uiStore.commitDetailFullscreen ? 'codicon-chevron-down' : 'codicon-chevron-up'}"></i>
@@ -491,6 +557,58 @@
     <div class="changes-tab-content">
       <div class="files-panel" style="width: {filesPanelWidth}px">
         <div class="files-list">
+          {#if activeHash === 'UNCOMMITTED' && uncommittedFiles}
+            {#snippet renderUncommittedTree(nodes: FileTreeNode[], depth: number, staged: boolean)}
+              {#each nodes as node}
+                {#if node.isFile}
+                  <button
+                    class="file-item"
+                    class:selected={selectedFile === `${staged ? 'staged' : 'unstaged'}:${node.path}`}
+                    style="padding-left: {8 + depth * 16 + 18}px;"
+                    onclick={() => {
+                      const key = `${staged ? 'staged' : 'unstaged'}:${node.path}`;
+                      selectedFile = selectedFile === key ? null : key;
+                      if (selectedFile && !uncommittedDiffCache.has(key)) {
+                        vscode.postMessage({ type: 'getUncommittedFileDiff', payload: { file: node.path, staged } });
+                      }
+                    }}
+                  >
+                    <i class="codicon codicon-file"></i>
+                    <span class="file-name truncate">{node.name}</span>
+                    {#if node.status}
+                      <span class="file-status" style="color: {statusColor(node.status)}" use:tooltip={statusLabel(node.status)}>{node.status}</span>
+                    {/if}
+                  </button>
+                {:else}
+                  <button
+                    class="dir-item"
+                    style="padding-left: {8 + depth * 16}px;"
+                    onclick={() => toggleDir(`${staged ? 'staged' : 'unstaged'}:${node.path}`)}
+                  >
+                    <i class="codicon" class:codicon-chevron-right={!expandedDirs.has(`${staged ? 'staged' : 'unstaged'}:${node.path}`)} class:codicon-chevron-down={expandedDirs.has(`${staged ? 'staged' : 'unstaged'}:${node.path}`)}></i>
+                    <i class="codicon codicon-folder"></i>
+                    <span class="dir-name">{node.name}</span>
+                  </button>
+                  {#if expandedDirs.has(`${staged ? 'staged' : 'unstaged'}:${node.path}`)}
+                    {@render renderUncommittedTree(node.children, depth + 1, staged)}
+                  {/if}
+                {/if}
+              {/each}
+            {/snippet}
+            {#if uncommittedTab === 'staged'}
+              {#if uncommittedFiles.staged.length > 0}
+                {@render renderUncommittedTree(buildFileTree(uncommittedFiles.staged), 0, true)}
+              {:else}
+                <div class="empty-state-text">No staged changes</div>
+              {/if}
+            {:else}
+              {#if uncommittedFiles.unstaged.length > 0}
+                {@render renderUncommittedTree(buildFileTree(uncommittedFiles.unstaged), 0, false)}
+              {:else}
+                <div class="empty-state-text">No unstaged changes</div>
+              {/if}
+            {/if}
+          {:else if activeHash !== 'UNCOMMITTED'}
           {#snippet renderTree(nodes: FileTreeNode[], depth: number)}
             {#each nodes as node}
               {#if node.isFile}
@@ -591,6 +709,7 @@
             {/each}
           {/snippet}
           {@render renderTree(fileTree, 0)}
+          {/if}
         </div>
       </div>
       <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -603,7 +722,12 @@
       {#if selectedDiff}
         <div class="diff-wrapper">
           <div class="diff-toolbar">
-            <span class="diff-file-name">{selectedDiff.file}</span>
+            <span class="diff-file-name" title={selectedDiff.file}>
+              {#if selectedDiff.file.includes('/')}
+                <span class="diff-dir">{selectedDiff.file.substring(0, selectedDiff.file.lastIndexOf('/') + 1)}</span>
+              {/if}
+              <span class="diff-base">{getFileName(selectedDiff.file)}</span>
+            </span>
             <div class="diff-mode-toggle">
               <button
                 class:active={diffMode === 'inline'}
@@ -1117,7 +1241,30 @@
     z-index: 5;
   }
 
-  .diff-file-name { font-weight: 600; font-size: var(--vscode-font-size, 13px); }
+  .diff-file-name {
+    font-size: var(--vscode-font-size, 13px);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+  }
+
+  .diff-dir {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.55;
+    font-weight: normal;
+  }
+
+  .diff-base {
+    flex-shrink: 0;
+    font-weight: 600;
+  }
 
   .diff-mode-toggle {
     display: flex;
@@ -1267,6 +1414,13 @@
 
   .lfs-badge i {
     font-size: 1em;
+  }
+
+  .empty-state-text {
+    padding: 16px 8px;
+    color: var(--text-muted, #888);
+    font-size: 12px;
+    text-align: center;
   }
 
 </style>

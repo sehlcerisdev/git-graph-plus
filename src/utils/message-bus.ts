@@ -82,7 +82,9 @@ export type WebviewMessage =
   | { type: 'setUpstream'; payload: { branch: string; remote: string; remoteBranch: string; createRemote?: boolean } }
   | { type: 'openWorktreeInNewWindow'; payload: { path: string } }
   | { type: 'showNotification'; payload: { message: string } }
-  | { type: 'showTagDetails'; payload: { name: string } };
+  | { type: 'showTagDetails'; payload: { name: string } }
+  | { type: 'getUncommittedDiff' }
+  | { type: 'getUncommittedFileDiff'; payload: { file: string; staged: boolean } };
 
 // Messages from Extension → Webview
 export type ExtensionMessage =
@@ -111,6 +113,7 @@ export type ExtensionMessage =
   | { type: 'setLocale'; payload: { locale: string; homeDir?: string } }
   | { type: 'repoList'; payload: { repos: Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>; active: string } }
   | { type: 'worktreeData'; payload: WorktreeInfo[] }
+  | { type: 'uncommittedDiffData'; payload: { staged: Array<{ path: string; status: string }>; unstaged: Array<{ path: string; status: string }> } }
   | { type: 'imageData'; payload: { ref: string; path: string; base64: string; mimeType: string } }
   | { type: 'conflictData'; payload: { operation: string; files: Array<{ path: string; resolved: boolean }> } }
   | { type: 'flowStatus'; payload: { installed: boolean; initialized: boolean; config: { productionBranch: string; developBranch: string; featurePrefix: string; releasePrefix: string; hotfixPrefix: string; versionTagPrefix: string } | null } }

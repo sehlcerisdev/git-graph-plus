@@ -102,6 +102,7 @@ export const en: Record<string, string> = {
   'createTag.createAndPush': 'Create and Push',
 
   // Graph
+  'graph.uncommitted': 'Uncommitted ({staged} staged, {unstaged} unstaged)',
   'graph.loading': 'Loading commits',
   'graph.noCommits': 'No commits found',
   'graph.notGitRepo': 'This folder is not a Git repository.',

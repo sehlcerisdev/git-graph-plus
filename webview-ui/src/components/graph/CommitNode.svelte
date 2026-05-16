@@ -5,21 +5,26 @@
     color: string;
     isMerge: boolean;
     isHead: boolean;
+    isWorkingDir?: boolean;
   }
 
-  let { x, y, color, isMerge, isHead }: Props = $props();
+  let { x, y, color, isMerge, isHead, isWorkingDir = false }: Props = $props();
 </script>
 
-{#if isHead}
-  <!-- Outer glow ring for HEAD -->
-  <circle cx={x} cy={y} r={8} fill={color} opacity="0.12" />
-  <circle cx={x} cy={y} r={6} fill="none" stroke={color} stroke-width="1.5" opacity="0.5" />
-{/if}
+{#if isWorkingDir}
+  <circle cx={x} cy={y} r={6} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
+{:else}
+  {#if isHead}
+    <!-- Outer glow ring for HEAD -->
+    <circle cx={x} cy={y} r={8} fill={color} opacity="0.12" />
+    <circle cx={x} cy={y} r={6} fill="none" stroke={color} stroke-width="1.5" opacity="0.5" />
+  {/if}
 
-<!-- Node body -->
-<circle cx={x} cy={y} r={isMerge ? 5 : 4} fill={color} />
+  <!-- Node body -->
+  <circle cx={x} cy={y} r={isMerge ? 5 : 4} fill={color} />
 
-{#if isMerge}
-  <!-- Inner hole for merge commits -->
-  <circle cx={x} cy={y} r={2} fill="var(--bg-primary, #1e1e1e)" />
+  {#if isMerge}
+    <!-- Inner hole for merge commits -->
+    <circle cx={x} cy={y} r={2} fill="var(--bg-primary, #1e1e1e)" />
+  {/if}
 {/if}

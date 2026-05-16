@@ -324,4 +324,95 @@ describe('GitService', () => {
       await expect(service.getImageBase64('main', '')).rejects.toThrow('Invalid filePath');
     });
   });
+
+  describe('log() uncommitted node injection', () => {
+    const logLine = '\x01abc123\x00abc\x00Author\x00a@a.com\x002024-01-01T00:00:00Z\x00Author\x00a@a.com\x002024-01-01T00:00:00Z\x00feat: initial\x00\x00\x00\n';
+
+    it('prepends UNCOMMITTED commit when porcelain has output', async () => {
+      mockExec(service, async (args) => {
+        if (args.includes('--porcelain') && !args.includes('diff')) return ' M src/foo.ts\n?? new.ts\n';
+        if (args.includes('log') && !args.includes('--no-walk')) return logLine;
+        if (args.includes('remote')) return '';
+        if (args.includes('stash')) return '';
+        return '';
+      });
+
+      const commits = await service.log();
+      expect(commits[0].hash).toBe('UNCOMMITTED');
+      expect(commits[0].refs).toEqual([]);
+      expect(commits[0].parents).toEqual([]);
+      expect(commits[0].subject).toBe('Uncommitted changes (2)');
+    });
+
+    it('does NOT prepend UNCOMMITTED when working tree is clean', async () => {
+      mockExec(service, async (args) => {
+        if (args.includes('--porcelain') && !args.includes('diff')) return '';
+        if (args.includes('log') && !args.includes('--no-walk')) return logLine;
+        if (args.includes('remote')) return '';
+        if (args.includes('stash')) return '';
+        return '';
+      });
+
+      const commits = await service.log();
+      expect(commits[0]?.hash).not.toBe('UNCOMMITTED');
+    });
+  });
+
+  describe('getUncommittedDiff', () => {
+    it('returns staged and unstaged file lists', async () => {
+      // porcelain format: XY PATH (X=staged, Y=unstaged)
+      mockExec(service, async () => 'M  src/foo.ts\nA  src/bar.ts\n M src/old.ts\n?? src/new.ts\n');
+
+      const result = await service.getUncommittedDiff();
+      expect(result.staged).toEqual([
+        { path: 'src/foo.ts', status: 'M' },
+        { path: 'src/bar.ts', status: 'A' },
+      ]);
+      expect(result.unstaged).toEqual([
+        { path: 'src/old.ts', status: 'M' },
+        { path: 'src/new.ts', status: 'U' },
+      ]);
+    });
+
+    it('returns empty arrays when no changes', async () => {
+      mockExec(service, async () => '');
+      const result = await service.getUncommittedDiff();
+      expect(result.staged).toEqual([]);
+      expect(result.unstaged).toEqual([]);
+    });
+
+    it('preserves leading space when first line is unstaged-only', async () => {
+      // Regression: trimming the whole output dropped the first line's leading
+      // space, shifting columns so the file landed in `staged` with its first
+      // character chopped off.
+      mockExec(service, async () => ' M src/foo.ts\n M src/bar.ts\n');
+
+      const result = await service.getUncommittedDiff();
+      expect(result.staged).toEqual([]);
+      expect(result.unstaged).toEqual([
+        { path: 'src/foo.ts', status: 'M' },
+        { path: 'src/bar.ts', status: 'M' },
+      ]);
+    });
+  });
+
+  describe('getUncommittedFileDiff', () => {
+    it('passes --cached for staged files', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+
+      await service.getUncommittedFileDiff('src/foo.ts', true);
+      expect(calls[0]).toContain('--cached');
+      expect(calls[0]).toContain('src/foo.ts');
+    });
+
+    it('omits --cached for unstaged files', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+
+      await service.getUncommittedFileDiff('src/foo.ts', false);
+      expect(calls[0]).not.toContain('--cached');
+      expect(calls[0]).toContain('src/foo.ts');
+    });
+  });
 });

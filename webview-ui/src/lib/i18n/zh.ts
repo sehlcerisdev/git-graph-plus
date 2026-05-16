@@ -102,6 +102,7 @@ export const zh: Record<string, string> = {
   'createTag.createAndPush': '创建并推送',
 
   // Graph
+  'graph.uncommitted': '未提交 (已暂存 {staged}, 未暂存 {unstaged})',
   'graph.loading': '正在加载提交',
   'graph.noCommits': '未找到提交',
   'graph.notGitRepo': '此文件夹不是 Git 仓库。',

@@ -9,7 +9,8 @@ export class GitError extends Error {
   constructor(
     public stderr: string,
     public exitCode: number | null,
-    public args: string[]
+    public args: string[],
+    public stdout: string = ''
   ) {
     super(`git ${args.join(' ')} failed (exit ${exitCode}): ${stderr.trim()}`);
     this.name = 'GitError';
@@ -155,7 +156,7 @@ export class GitService {
         if (code === 0) {
           resolve(stdout);
         } else {
-          reject(new GitError(stderr, code, args));
+          reject(new GitError(stderr, code, args, stdout));
         }
       });
 
@@ -271,6 +272,37 @@ export class GitService {
       }
     }
 
+    if (commits.length > 0) {
+      try {
+        const porcelain = await this.exec(['status', '--porcelain']);
+        const lines = porcelain.split('\n').filter(Boolean);
+        if (lines.length > 0) {
+          let staged = 0, unstaged = 0;
+          for (const line of lines) {
+            const x = line[0], y = line[1];
+            if (x !== ' ' && x !== '?') staged++;
+            if (y !== ' ' && y !== '?') unstaged++;
+            if (x === '?' && y === '?') unstaged++;
+          }
+          const parts: string[] = [];
+          if (staged > 0) parts.push(`${staged} staged`);
+          if (unstaged > 0) parts.push(`${unstaged} unstaged`);
+          commits.unshift({
+            hash: 'UNCOMMITTED',
+            abbreviatedHash: 'UNCOMMITTED',
+            parents: [],
+            refs: [],
+            subject: 'UNCOMMITTED',
+            body: JSON.stringify({ staged, unstaged }),
+            author: { name: '', email: '', date: '' },
+            committer: { name: '', email: '', date: '' },
+          });
+        }
+      } catch (err) {
+        console.warn('Git Graph+: failed to check uncommitted status:', err instanceof Error ? err.message : err);
+      }
+    }
+
     return commits;
   }
 
@@ -352,6 +384,49 @@ export class GitService {
   async isDirty(): Promise<boolean> {
     const raw = await this.exec(['status', '--porcelain', '-uno']);
     return raw.trim().length > 0;
+  }
+
+  async getUncommittedDiff(): Promise<{ staged: Array<{ path: string; status: string }>; unstaged: Array<{ path: string; status: string }> }> {
+    const raw = await this.exec(['status', '--porcelain']);
+    const staged: Array<{ path: string; status: string }> = [];
+    const unstaged: Array<{ path: string; status: string }> = [];
+    // Do not trim the whole output: porcelain lines may start with a space
+    // (e.g. " M file" for unstaged-only modifications), and a leading trim
+    // would shift the first line's columns and chop the filename's first char.
+    for (const line of raw.split('\n').filter(Boolean)) {
+      const x = line[0];
+      const y = line[1];
+      let path = line.slice(3);
+      if (path.includes(' -> ')) path = path.split(' -> ')[1];
+      path = path.trim();
+      if (x !== ' ' && x !== '?') staged.push({ path, status: x });
+      if (y !== ' ' && y !== '?') unstaged.push({ path, status: y });
+      if (x === '?' && y === '?') unstaged.push({ path, status: 'U' });
+    }
+    return { staged, unstaged };
+  }
+
+  async getUncommittedFileDiff(file: string, staged: boolean): Promise<DiffData | null> {
+    if (staged) {
+      const raw = await this.exec(['diff', '--no-color', '--cached', '--', file]).catch(() => '');
+      return parseDiff(raw, file)[0] ?? null;
+    }
+    const isTracked = await this.exec(['ls-files', '--error-unmatch', '--', file]).then(() => true).catch(() => false);
+    if (!isTracked) {
+      // --no-index exits with code 1 when differences found (normal); stdout has the diff
+      const raw = await this.exec(['diff', '--no-color', '--no-index', '--', '/dev/null', file])
+        .catch(err => (err instanceof GitError && err.exitCode === 1) ? err.stdout : '');
+      return parseDiff(raw, file)[0] ?? null;
+    }
+    const raw = await this.exec(['diff', '--no-color', '--', file]).catch(() => '');
+    return parseDiff(raw, file)[0] ?? null;
+  }
+
+  private parseNameStatus(raw: string): Array<{ path: string; status: string }> {
+    return raw.trim().split('\n').filter(Boolean).map(line => {
+      const parts = line.split('\t');
+      return { path: parts.slice(1).join('\t'), status: parts[0].charAt(0) };
+    });
   }
 
   async checkout(ref: string, options?: { force?: boolean; merge?: boolean }): Promise<void> {
