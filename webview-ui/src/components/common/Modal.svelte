@@ -249,7 +249,6 @@
   :global(.modal-input:focus) {
     border-color: var(--vscode-focusBorder, #007fd4);
   }
-
   :global(.modal-textarea) {
     width: 100%;
     box-sizing: border-box;

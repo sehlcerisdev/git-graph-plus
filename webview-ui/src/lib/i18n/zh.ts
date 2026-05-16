@@ -266,6 +266,7 @@ export const zh: Record<string, string> = {
   'checkoutCommit.desc': '检出提交',
   'checkoutCommit.branchDesc': '切换到该分支。',
   'checkoutCommit.checkout': '检出',
+  'checkoutCommit.selectBranch': '分支',
   'checkoutCommit.checkoutBranch': '检出 {name}',
   'checkoutCommit.checkoutRemote': '检出 {name}',
   'checkoutCommit.detachedWarning': '此提交处没有分支。您将处于分离头指针状态。',

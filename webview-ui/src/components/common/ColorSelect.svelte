@@ -5,6 +5,7 @@
     color: string;
     warning?: string;
     flag?: string;
+    icon?: string;
   }
 
   interface Props {
@@ -60,6 +61,7 @@
     {#each options as opt}
       <span class="sizer-item">
         {#if showDot}<span class="dot" style="background: transparent"></span>{/if}
+        {#if opt.icon}<i class="codicon {opt.icon} option-icon"></i>{/if}
         <span>{opt.label}</span>
         {#if opt.flag}<span class="flag-badge">{opt.flag}</span>{/if}
         <i class="codicon codicon-chevron-down chevron"></i>
@@ -68,6 +70,7 @@
   </div>
   <button class="color-select-btn" bind:this={btnEl} onclick={(e) => { e.stopPropagation(); toggle(); }}>
     {#if showDot}<span class="dot" style="background: {current.color}"></span>{/if}
+    {#if current.icon}<i class="codicon {current.icon} option-icon"></i>{/if}
     <span class="label">{current.label}</span>
     {#if current.flag}<span class="flag-badge">{current.flag}</span>{/if}
     <i class="codicon codicon-chevron-down chevron"></i>
@@ -81,6 +84,7 @@
           onclick={(e) => { e.stopPropagation(); select(opt.value); }}
         >
           {#if showDot}<span class="dot" style="background: {opt.color}"></span>{/if}
+          {#if opt.icon}<i class="codicon {opt.icon} option-icon"></i>{/if}
           <span>{opt.label}</span>
           {#if opt.flag}<span class="flag-badge">{opt.flag}</span>{/if}
           {#if opt.warning}<i class="codicon codicon-warning warning-icon"></i>{/if}
@@ -161,6 +165,11 @@
     height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
+  }
+
+  .option-icon {
+    flex-shrink: 0;
+    opacity: 0.8;
   }
 
   .color-select-dropdown {

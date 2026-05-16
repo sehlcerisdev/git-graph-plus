@@ -265,6 +265,7 @@ export const en: Record<string, string> = {
   'checkoutCommit.desc': 'Checkout commit',
   'checkoutCommit.branchDesc': 'Switch to this branch.',
   'checkoutCommit.checkout': 'Checkout',
+  'checkoutCommit.selectBranch': 'Branch',
   'checkoutCommit.checkoutBranch': 'Checkout {name}',
   'checkoutCommit.checkoutRemote': 'Checkout {name}',
   'checkoutCommit.detachedWarning': 'No branch at this commit. You will be in detached HEAD state.',

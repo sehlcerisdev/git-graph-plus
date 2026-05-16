@@ -654,9 +654,11 @@
         {
           label: t('graph.checkoutCommit'),
           action: () => {
-            const localRef = commit.refs.find(r => r.type === 'head' || r.type === 'branch');
-            if (localRef) {
-              doCheckout(localRef.name);
+            const localRefs = commit.refs.filter(r => r.type === 'head' || r.type === 'branch');
+            if (localRefs.length === 1) {
+              doCheckout(localRefs[0].name);
+            } else if (localRefs.length > 1) {
+              openCheckoutCommitModal(commit.hash);
             } else {
               const remoteRef = commit.refs.find(r => r.type === 'remote-branch' && r.name !== 'HEAD');
               if (remoteRef) { doCheckoutRemote(`${remoteRef.remote}/${remoteRef.name}`, remoteRef.name); }
@@ -882,9 +884,11 @@
             }}
             ondblclick={() => {
               if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-              const localRef = commit.refs.find(r => r.type === 'head' || r.type === 'branch');
-              if (localRef) {
-                doCheckout(localRef.name, false, {}, true);
+              const localRefs = commit.refs.filter(r => r.type === 'head' || r.type === 'branch');
+              if (localRefs.length === 1) {
+                doCheckout(localRefs[0].name, false, {}, true);
+              } else if (localRefs.length > 1) {
+                openCheckoutCommitModal(commit.hash);
               } else {
                 const remoteRef = commit.refs.find(r => r.type === 'remote-branch' && r.name !== 'HEAD');
                 if (remoteRef) {
@@ -1139,6 +1143,7 @@
     hash={checkoutCommitHash}
     {linkedBranches}
     {linkedRemoteBranches}
+    currentBranch={branchStore.currentBranch?.name}
     onCheckout={(ref, dirty) => {
       if (linkedBranches.includes(ref)) {
         doCheckout(ref, false, dirty);
