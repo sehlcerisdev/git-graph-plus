@@ -193,6 +193,8 @@ export const en: Record<string, string> = {
   'details.inline': 'Inline',
   'details.sideBySide': 'Side by Side',
   'details.binaryFile': 'Binary file',
+  'details.nestedRepoLabel': 'Nested repository',
+  'details.nestedRepoHint': 'This is a nested git repository that is not registered as a submodule. Its contents cannot be tracked from the parent repository.',
   'details.selectCommit': 'Select a commit to view details',
   'details.fullscreen': 'Expand panel',
   'details.restore': 'Restore panel',

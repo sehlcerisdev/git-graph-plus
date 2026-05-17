@@ -193,6 +193,8 @@ export const zh: Record<string, string> = {
   'details.inline': '内联',
   'details.sideBySide': '并排',
   'details.binaryFile': '二进制文件',
+  'details.nestedRepoLabel': '嵌套仓库',
+  'details.nestedRepoHint': '这是一个未注册为子模块的嵌套 git 仓库。无法从父仓库追踪其内容。',
   'details.selectCommit': '选择一个提交以查看详情',
   'details.fullscreen': '展开面板',
   'details.restore': '恢复面板',

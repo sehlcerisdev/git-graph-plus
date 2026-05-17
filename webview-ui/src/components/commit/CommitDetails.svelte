@@ -60,6 +60,17 @@
       : (diffs.find(d => d.file === (selectedFile ?? '')) ?? null)
   );
 
+  // True when the selected uncommitted entry is a nested git repo that isn't
+  // registered as a submodule — git can't diff inside it, so we show a hint
+  // instead of an empty diff pane.
+  let selectedIsNestedRepo = $derived.by(() => {
+    if (activeHash !== 'UNCOMMITTED' || !selectedFile || !uncommittedFiles) return false;
+    const isStaged = selectedFile.startsWith('staged:');
+    const filePath = selectedFile.replace(/^(staged|unstaged):/, '');
+    const list = isStaged ? uncommittedFiles.staged : uncommittedFiles.unstaged;
+    return list.some(f => f.path === filePath && f.status === 'N');
+  });
+
   function startResize(e: MouseEvent) {
     isResizing = true;
     resizeStartX = e.clientX;
@@ -306,6 +317,7 @@
         case 'D': return '#b71c1c';
         case 'R': return '#1565c0';
         case 'C': return '#6a1b9a';
+        case 'N': return '#616161';
         default: return 'var(--text-secondary)';
       }
     }
@@ -315,6 +327,7 @@
       case 'D': return '#f44336';
       case 'R': return '#2196f3';
       case 'C': return '#9c27b0';
+      case 'N': return '#9e9e9e';
       default: return 'var(--text-secondary)';
     }
   }
@@ -327,6 +340,7 @@
       case 'R': return 'Renamed';
       case 'C': return 'Copied';
       case 'U': return 'Untracked';
+      case 'N': return t('details.nestedRepoLabel');
       default: return '';
     }
   }
@@ -571,7 +585,9 @@
                     onclick={() => {
                       const key = `${staged ? 'staged' : 'unstaged'}:${node.path}`;
                       selectedFile = selectedFile === key ? null : key;
-                      if (selectedFile && !uncommittedDiffCache.has(key)) {
+                      // Nested repos can't be diffed from the parent — skip the fetch
+                      // and let the UI render the dedicated hint pane instead.
+                      if (selectedFile && node.status !== 'N' && !uncommittedDiffCache.has(key)) {
                         vscode.postMessage({ type: 'getUncommittedFileDiff', payload: { file: node.path, staged } });
                       }
                     }}
@@ -722,7 +738,13 @@
         onmousedown={startResize}
       ></div>
 
-      {#if selectedDiff}
+      {#if selectedIsNestedRepo}
+        <div class="diff-wrapper">
+          <div class="diff-panel">
+            <div class="diff-empty">{t('details.nestedRepoHint')}</div>
+          </div>
+        </div>
+      {:else if selectedDiff}
         <div class="diff-wrapper">
           <div class="diff-toolbar">
             <span class="diff-file-name" title={selectedDiff.file}>

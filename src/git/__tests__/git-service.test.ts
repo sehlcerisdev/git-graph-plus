@@ -381,6 +381,20 @@ describe('GitService', () => {
       expect(result.unstaged).toEqual([]);
     });
 
+    it('marks untracked entries with trailing slash as nested repos', async () => {
+      // Nested git repos (not registered as submodules) surface as untracked
+      // directories with a trailing slash. They should be flagged with status
+      // 'N' so the UI can show a meaningful hint instead of an empty diff.
+      mockExec(service, async () => '?? nested-repo/\n?? submodule-test/\n?? src/new.ts\n');
+
+      const result = await service.getUncommittedDiff();
+      expect(result.unstaged).toEqual([
+        { path: 'nested-repo', status: 'N' },
+        { path: 'submodule-test', status: 'N' },
+        { path: 'src/new.ts', status: 'U' },
+      ]);
+    });
+
     it('preserves leading space when first line is unstaged-only', async () => {
       // Regression: trimming the whole output dropped the first line's leading
       // space, shifting columns so the file landed in `staged` with its first

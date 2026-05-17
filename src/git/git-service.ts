@@ -334,7 +334,7 @@ export class GitService {
 
     if (commits.length > 0) {
       try {
-        const porcelain = await this.exec(['status', '--porcelain']);
+        const porcelain = await this.exec(['status', '--porcelain', '-uall']);
         const lines = porcelain.split('\n').filter(Boolean);
         if (lines.length > 0) {
           let staged = 0, unstaged = 0;
@@ -459,7 +459,7 @@ export class GitService {
   }
 
   async getUncommittedDiff(): Promise<{ staged: Array<{ path: string; status: string }>; unstaged: Array<{ path: string; status: string }> }> {
-    const raw = await this.exec(['status', '--porcelain']);
+    const raw = await this.exec(['status', '--porcelain', '-uall']);
     const staged: Array<{ path: string; status: string }> = [];
     const unstaged: Array<{ path: string; status: string }> = [];
     // Do not trim the whole output: porcelain lines may start with a space
@@ -471,9 +471,15 @@ export class GitService {
       let path = line.slice(3);
       if (path.includes(' -> ')) path = path.split(' -> ')[1];
       path = path.trim();
+      // Untracked entries with a trailing slash are nested git repositories that
+      // aren't registered as submodules — git refuses to descend into them, so
+      // they surface as a single directory entry. Strip the slash and mark them
+      // so the UI can show a meaningful label instead of an empty diff.
+      const isNestedRepo = x === '?' && y === '?' && path.endsWith('/');
+      if (isNestedRepo) path = path.slice(0, -1);
       if (x !== ' ' && x !== '?') staged.push({ path, status: x });
       if (y !== ' ' && y !== '?') unstaged.push({ path, status: y });
-      if (x === '?' && y === '?') unstaged.push({ path, status: 'U' });
+      if (x === '?' && y === '?') unstaged.push({ path, status: isNestedRepo ? 'N' : 'U' });
     }
     return { staged, unstaged };
   }
