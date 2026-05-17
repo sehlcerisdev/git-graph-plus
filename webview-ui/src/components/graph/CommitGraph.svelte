@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import { commitStore } from '../../lib/stores/commits.svelte';
   import { branchStore } from '../../lib/stores/branches.svelte';
   import { uiStore } from '../../lib/stores/ui.svelte';
   import { getVsCodeApi } from '../../lib/vscode-api';
   import { t } from '../../lib/i18n/index.svelte';
   import { getGravatarUrl } from '../../lib/utils/gravatar';
+  import { requestDirtyState } from '../../lib/utils/dirty-check';
   import ContextMenu from '../common/ContextMenu.svelte';
   import InteractiveRebase from '../rebase/InteractiveRebase.svelte';
   import Modal from '../common/Modal.svelte';
@@ -19,34 +19,6 @@
   import { modalStore } from '../../lib/stores/modals.svelte';
   import type { Commit, CommitGraphData } from '../../lib/types';
   import { tooltip } from '../../lib/actions/tooltip';
-
-  // Track pending message handlers for cleanup on destroy
-  const pendingHandlers = new Map<(event: MessageEvent) => void, ReturnType<typeof setTimeout>>();
-  const HANDLER_TIMEOUT_MS = 30_000;
-
-  function addTimedMessageHandler(handler: (event: MessageEvent) => void): void {
-    window.addEventListener('message', handler);
-    const timer = setTimeout(() => {
-      window.removeEventListener('message', handler);
-      pendingHandlers.delete(handler);
-    }, HANDLER_TIMEOUT_MS);
-    pendingHandlers.set(handler, timer);
-  }
-
-  function removeTimedMessageHandler(handler: (event: MessageEvent) => void): void {
-    window.removeEventListener('message', handler);
-    const timer = pendingHandlers.get(handler);
-    if (timer !== undefined) clearTimeout(timer);
-    pendingHandlers.delete(handler);
-  }
-
-  onDestroy(() => {
-    for (const [handler, timer] of pendingHandlers) {
-      window.removeEventListener('message', handler);
-      clearTimeout(timer);
-    }
-    pendingHandlers.clear();
-  });
 
   const COLOR_PALETTE = [
     '#63b0f4', '#73d13d', '#ff7a45', '#b37feb',
@@ -111,11 +83,26 @@
   const localBranchMap = $derived(new Map(branchStore.branches.filter(b => !b.remote).map(b => [b.name, b])));
   const upstreamBranchMap = $derived(new Map(branchStore.branches.filter(b => !b.remote && b.upstream).map(b => [b.upstream!, b])));
 
+  // Cache key fingerprint avoids rerunning BFS when commits array is recreated
+  // but logically identical (e.g., file watcher refresh while only the synthesized
+  // "Uncommitted changes" virtual node body changes — first/last hash, length, and
+  // branch sync state stay stable).
+  type BranchSets = {
+    currentBranchCommits: Set<string>;
+    currentBranchLocalOnly: Set<string>;
+    currentBranchRemoteAhead: Set<string>;
+  };
+  let branchSetsCache: { fp: string; value: BranchSets } | null = null;
+
   // Single pass: build hashIndex once, run all BFS traversals together
-  const branchSets = $derived.by(() => {
+  const branchSets = $derived.by<BranchSets>(() => {
     const commits = commitStore.commits;
-    const empty = { currentBranchCommits: new Set<string>(), currentBranchLocalOnly: new Set<string>(), currentBranchRemoteAhead: new Set<string>() };
+    const empty: BranchSets = { currentBranchCommits: new Set(), currentBranchLocalOnly: new Set(), currentBranchRemoteAhead: new Set() };
     if (commits.length === 0) return empty;
+
+    const current = branchStore.currentBranch;
+    const fp = `${commits.length}|${commits[0].hash}|${commits[commits.length - 1].hash}|${current?.name ?? ''}|${current?.upstream ?? ''}|${current?.ahead ?? 0}|${current?.behind ?? 0}`;
+    if (branchSetsCache && branchSetsCache.fp === fp) return branchSetsCache.value;
 
     const hashIndex = new Map<string, number>();
     for (let i = 0; i < commits.length; i++) hashIndex.set(commits[i].hash, i);
@@ -138,7 +125,6 @@
       }
     }
 
-    const current = branchStore.currentBranch;
     const currentBranchLocalOnly = new Set<string>();
     const currentBranchRemoteAhead = new Set<string>();
 
@@ -188,7 +174,9 @@
       }
     }
 
-    return { currentBranchCommits, currentBranchLocalOnly, currentBranchRemoteAhead };
+    const value: BranchSets = { currentBranchCommits, currentBranchLocalOnly, currentBranchRemoteAhead };
+    branchSetsCache = { fp, value };
+    return value;
   });
 
   const currentBranchCommits = $derived(branchSets.currentBranchCommits);
@@ -275,21 +263,16 @@
       return;
     }
     // Check dirty first, then either checkout directly or show modal
-    const handler = (event: MessageEvent) => {
-      if (event.data.type === 'dirtyState') {
-        removeTimedMessageHandler(handler);
-        if (event.data.payload.dirty) {
-          const branchCommit = commitStore.commits.find(c =>
-            c.refs.some(r => r.name === ref && (r.type === 'branch' || r.type === 'head'))
-          );
-          openCheckoutCommitModal(branchCommit?.hash ?? ref);
-        } else {
-          vscode.postMessage({ type: 'checkout', payload: { ref, pullAfter } });
-        }
+    requestDirtyState().then(dirty => {
+      if (dirty) {
+        const branchCommit = commitStore.commits.find(c =>
+          c.refs.some(r => r.name === ref && (r.type === 'branch' || r.type === 'head'))
+        );
+        openCheckoutCommitModal(branchCommit?.hash ?? ref);
+      } else {
+        vscode.postMessage({ type: 'checkout', payload: { ref, pullAfter } });
       }
-    };
-    addTimedMessageHandler(handler);
-    vscode.postMessage({ type: 'checkDirty' });
+    }).catch(() => {});
   }
 
   function doCheckoutRemote(remoteName: string, branchName: string, dirtyPayload: Record<string, boolean> = {}) {
@@ -302,14 +285,9 @@
       modalStore.openCheckoutRemote(remoteName, branchName, false, dirtyPayload);
     } else {
       // No local branch → check dirty, then show create modal
-      const handler = (event: MessageEvent) => {
-        if (event.data.type === 'dirtyState') {
-          removeTimedMessageHandler(handler);
-          modalStore.openCheckoutRemote(remoteName, branchName, event.data.payload.dirty);
-        }
-      };
-      addTimedMessageHandler(handler);
-      vscode.postMessage({ type: 'checkDirty' });
+      requestDirtyState()
+        .then(dirty => modalStore.openCheckoutRemote(remoteName, branchName, dirty))
+        .catch(() => {});
     }
   }
 
@@ -372,23 +350,36 @@
     }))
   );
 
-  // Filter SVG elements to visible row range to avoid rendering thousands of off-screen elements
-  let visiblePaths = $derived(displayPaths.filter(path => {
-    let minY = Infinity, maxY = -Infinity;
-    for (const p of path.points) {
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
+  // Precompute path Y-bounds once per paths change so scroll-time filtering is O(1) per path
+  // instead of iterating each path's points on every scroll event.
+  let pathBounds = $derived.by(() => {
+    const bounds: Array<{ minY: number; maxY: number }> = new Array(displayPaths.length);
+    for (let i = 0; i < displayPaths.length; i++) {
+      const points = displayPaths[i].points;
+      let minY = Infinity, maxY = -Infinity;
+      for (let j = 0; j < points.length; j++) {
+        const y = points[j].y;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+      bounds[i] = { minY, maxY };
     }
-    return maxY >= startIndex && minY <= endIndex;
+    return bounds;
+  });
+
+  let visiblePaths = $derived(displayPaths.filter((_, i) => {
+    const b = pathBounds[i];
+    return b.maxY >= startIndex && b.minY <= endIndex;
   }));
   let visibleLinks = $derived(displayLinks.filter(link => {
-    const minY = Math.min(link.start.y, link.end.y);
-    const maxY = Math.max(link.start.y, link.end.y);
+    const sy = link.start.y, ey = link.end.y;
+    const minY = sy < ey ? sy : ey;
+    const maxY = sy > ey ? sy : ey;
     return maxY >= startIndex && minY <= endIndex;
   }));
-  let visibleDots = $derived(displayDots.filter(dot =>
-    dot.center.y >= startIndex && dot.center.y < endIndex
-  ));
+  // Dots are pushed 1:1 in commit order by the graph builder (dot[i].center.y === i + 0.5),
+  // so slicing by [startIndex, endIndex) is equivalent to the previous y-range filter.
+  let visibleDots = $derived(displayDots.slice(startIndex, endIndex));
 
   // Hash → commit lookup map
   let commitMap = $derived.by(() => {

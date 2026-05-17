@@ -5,7 +5,7 @@ export type WebviewMessage =
   | { type: 'getLog'; payload: { branch?: string; branches?: string[]; limit?: number; skip?: number; remoteFilter?: string[] } }
   | { type: 'getBranches' }
   | { type: 'getRepoList' }
-  | { type: 'checkDirty' }
+  | { type: 'checkDirty'; payload?: { requestId?: string } }
   | { type: 'predictConflicts'; payload: { ours: string; theirs: string; mode?: 'rebase'; mergeBase?: string } }
   | { type: 'checkout'; payload: { ref: string; pullAfter?: boolean; force?: boolean; merge?: boolean; stash?: boolean; stashUntracked?: boolean; clean?: boolean } }
   | { type: 'getCommitDiff'; payload: { hash: string } }
@@ -102,7 +102,7 @@ export type ExtensionMessage =
   | { type: 'operationComplete'; payload: { operation: string; success: boolean } }
   | { type: 'operationPaused'; payload: { operation: 'rebase' } }
   | { type: 'checkoutBlocked'; payload: { ref: string; pullAfter?: boolean } }
-  | { type: 'dirtyState'; payload: { dirty: boolean } }
+  | { type: 'dirtyState'; payload: { dirty: boolean; requestId?: string } }
   | { type: 'conflictPrediction'; payload: { hasConflict: boolean; files: string[] } }
   | { type: 'bisectResult'; payload: { message: string } }
   | { type: 'statsData'; payload: { byAuthor: Array<{ author: string; email: string; count: number }>; byWeekdayHour: Array<{ weekday: number; hour: number; count: number }> } }

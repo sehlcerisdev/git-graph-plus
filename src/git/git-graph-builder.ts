@@ -277,6 +277,12 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
 
   const unsolved: PathHelper[] = [];
   const ended: PathHelper[] = [];
+  // Index `unsolved` by `.next` for O(1) merge-parent lookup. Matches `.find()`
+  // "first wins" semantics: if multiple paths share the same `next`, the
+  // earliest-inserted one is kept in the map.
+  const nextMap = new Map<string, PathHelper>();
+  const trackNext = (l: PathHelper) => { if (!nextMap.has(l.next)) nextMap.set(l.next, l); };
+  const untrackNext = (l: PathHelper) => { if (nextMap.get(l.next) === l) nextMap.delete(l.next); };
   let offsetY = -HALF_H;
   const { tipSet: remoteTipSet, allSet: remoteOnlySet } = buildRemoteOnlyData(commits, branches);
   const pushedSet = buildPushedSet(commits);
@@ -294,7 +300,9 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
           offsetX += UNIT_W;
           major = l;
           if (commit.parents.length > 0) {
+            untrackNext(major);
             major.next = commit.parents[0];
+            trackNext(major);
             major.goto(offsetX, offsetY, HALF_H);
           } else {
             major.end(offsetX, offsetY, HALF_H);
@@ -318,6 +326,7 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
         if (!toRemove.has(unsolved[r])) unsolved[w++] = unsolved[r];
       }
       unsolved.length = w;
+      for (const e of ended) untrackNext(e);
       ended.length = 0;
     }
 
@@ -327,6 +336,7 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
       if (commit.parents.length > 0) {
         major = new PathHelper(commit.parents[0], pickColor(unsolved), { x: offsetX, y: offsetY });
         unsolved.push(major);
+        trackNext(major);
         result.paths.push(major.path);
       }
     }
@@ -345,7 +355,7 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
     if (!remoteTipSet.has(commit.hash) || commit.parents.length > 1) {
       for (let j = 1; j < commit.parents.length; j++) {
         const parentHash = commit.parents[j];
-        const parent = unsolved.find(p => p.next === parentHash);
+        const parent = nextMap.get(parentHash);
 
         if (parent) {
           // Existing path → create link
@@ -360,6 +370,7 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
           offsetX += UNIT_W;
           const l = new PathHelper(parentHash, pickColor(unsolved), position, { x: offsetX, y: position.y + HALF_H });
           unsolved.push(l);
+          trackNext(l);
           result.paths.push(l.path);
         }
       }

@@ -21,9 +21,21 @@ export class GitService {
   private activityLog: Array<{ command: string; timestamp: string; success: boolean; duration: number }> = [];
   private cachedRemoteNames: string[] | null = null;
   private remoteNamesCacheTime = 0;
+  private pendingRemoteNames: Promise<string[]> | null = null;
   private extraEnv: Record<string, string> = {};
+  private warningHandler: ((message: string) => void) | null = null;
 
   constructor(private repoPath: string) {}
+
+  /** Register a callback for non-fatal warnings (e.g., auxiliary git command failures). */
+  setWarningHandler(handler: ((message: string) => void) | null): void {
+    this.warningHandler = handler;
+  }
+
+  private warn(message: string): void {
+    console.warn(`Git Graph+: ${message}`);
+    try { this.warningHandler?.(message); } catch { /* never let a handler break a git call */ }
+  }
 
   private assertSafeRef(ref: string, context: string): void {
     if (typeof ref !== 'string' || ref.length === 0) {
@@ -268,7 +280,7 @@ export class GitService {
             if (idx < 0) commits.unshift(commit);
             else commits.splice(idx, 0, commit);
           }
-        } catch (err) { console.warn('Git Graph+: stash log error:', err instanceof Error ? err.message : err); }
+        } catch (err) { this.warn(`stash log error: ${err instanceof Error ? err.message : err}`); }
       }
     }
 
@@ -299,7 +311,7 @@ export class GitService {
           });
         }
       } catch (err) {
-        console.warn('Git Graph+: failed to check uncommitted status:', err instanceof Error ? err.message : err);
+        this.warn(`failed to check uncommitted status: ${err instanceof Error ? err.message : err}`);
       }
     }
 
@@ -311,15 +323,27 @@ export class GitService {
     if (this.cachedRemoteNames && now - this.remoteNamesCacheTime < 30000) {
       return this.cachedRemoteNames;
     }
-    try {
-      const raw = await this.exec(['remote']);
-      this.cachedRemoteNames = raw.trim().split('\n').filter(Boolean);
-      this.remoteNamesCacheTime = now;
-      return this.cachedRemoteNames;
-    } catch (err) {
-      console.warn('Git Graph+: failed to get remote names:', err instanceof Error ? err.message : err);
-      return [];
+    // Dedupe concurrent callers: if a request is already in flight, await it
+    // instead of spawning a duplicate `git remote` process.
+    if (this.pendingRemoteNames) {
+      return this.pendingRemoteNames;
     }
+    const inflight = (async () => {
+      try {
+        const raw = await this.exec(['remote']);
+        const names = raw.trim().split('\n').filter(Boolean);
+        this.cachedRemoteNames = names;
+        this.remoteNamesCacheTime = Date.now();
+        return names;
+      } catch (err) {
+        this.warn(`failed to get remote names: ${err instanceof Error ? err.message : err}`);
+        return [];
+      } finally {
+        this.pendingRemoteNames = null;
+      }
+    })();
+    this.pendingRemoteNames = inflight;
+    return inflight;
   }
 
   /**

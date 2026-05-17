@@ -2,7 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import Modal from '../common/Modal.svelte';
   import ColorSelect from '../common/ColorSelect.svelte';
-  import { getVsCodeApi } from '../../lib/vscode-api';
+  import { requestDirtyState } from '../../lib/utils/dirty-check';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
 
@@ -22,20 +22,13 @@
   const selectableBranches = untrack(() => linkedBranches.filter(b => b !== currentBranch));
   let selectedBranch = $state(selectableBranches[0] ?? '');
 
-  const vscode = getVsCodeApi();
   let dirty = $state(false);
   let dirtyOption = $state<'keep' | 'stash' | 'discard'>('keep');
 
   onMount(() => {
-    const handler = (e: MessageEvent) => {
-      if (e.data.type === 'dirtyState') {
-        dirty = e.data.payload.dirty;
-        window.removeEventListener('message', handler);
-      }
-    };
-    window.addEventListener('message', handler);
-    vscode.postMessage({ type: 'checkDirty' });
-    return () => window.removeEventListener('message', handler);
+    let cancelled = false;
+    requestDirtyState().then(d => { if (!cancelled) dirty = d; }).catch(() => {});
+    return () => { cancelled = true; };
   });
 
   function buildDirtyPayload(): DirtyPayload {

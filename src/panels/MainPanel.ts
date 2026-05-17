@@ -38,6 +38,17 @@ export class MainPanel {
     }
   }
 
+  private createGitService(repoPath: string): GitService {
+    const svc = new GitService(repoPath);
+    if (MainPanel.extraEnv) svc.setExtraEnv(MainPanel.extraEnv);
+    svc.setWarningHandler(msg => {
+      // Surface non-fatal git failures (e.g., stash log / uncommitted status / remote list
+      // failures) to the webview so the user knows the displayed graph may be incomplete.
+      this.panel.webview.postMessage({ type: 'error', payload: { message: `Git Graph+: ${msg}` } });
+    });
+    return svc;
+  }
+
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
@@ -46,10 +57,7 @@ export class MainPanel {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.repoPath = repoPath;
-    this.gitService = new GitService(repoPath);
-    if (MainPanel.extraEnv) {
-      this.gitService.setExtraEnv(MainPanel.extraEnv);
-    }
+    this.gitService = this.createGitService(repoPath);
 
     this.fileWatcher = new FileWatcher(repoPath, (what) => {
       this.onRepoChanged(what);
@@ -156,10 +164,7 @@ export class MainPanel {
   public async switchRepo(newPath: string): Promise<void> {
     if (path.resolve(newPath) === path.resolve(this.repoPath)) { return; }
     this.repoPath = newPath;
-    this.gitService = new GitService(newPath);
-    if (MainPanel.extraEnv) {
-      this.gitService.setExtraEnv(MainPanel.extraEnv);
-    }
+    this.gitService = this.createGitService(newPath);
 
     this.allConflictFiles = [];
     this.isFirstGetLog = true;
@@ -292,7 +297,7 @@ export class MainPanel {
         }
         case 'checkDirty': {
           const dirty = await this.gitService.isDirty();
-          this.panel.webview.postMessage({ type: 'dirtyState', payload: { dirty } });
+          this.panel.webview.postMessage({ type: 'dirtyState', payload: { dirty, requestId: message.payload?.requestId } });
           break;
         }
         case 'getUncommittedDiff': {
@@ -986,10 +991,7 @@ export class MainPanel {
         case 'switchRepo': {
           const newPath = message.payload.path;
           this.repoPath = newPath;
-          this.gitService = new GitService(newPath);
-          if (MainPanel.extraEnv) {
-            this.gitService.setExtraEnv(MainPanel.extraEnv);
-          }
+          this.gitService = this.createGitService(newPath);
 
           // Reset repo-specific state
           this.allConflictFiles = [];
@@ -1291,10 +1293,7 @@ export class MainPanel {
         // Current path is not a repo, switch to the first discovered one
         active = repos[0].path;
         this.repoPath = active;
-        this.gitService = new GitService(active);
-        if (MainPanel.extraEnv) {
-          this.gitService.setExtraEnv(MainPanel.extraEnv);
-        }
+        this.gitService = this.createGitService(active);
         const oldWatcher = this.fileWatcher;
         const oldIdx = this.disposables.indexOf(oldWatcher);
         if (oldIdx !== -1) this.disposables.splice(oldIdx, 1);
