@@ -1000,17 +1000,22 @@ export class GitService {
   }
 
   async getOperationState(): Promise<{ type: 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'squash' | null }> {
-    const [merge, rebase, cherryPick, revert] = await Promise.allSettled([
+    const [merge, cherryPick, revert] = await Promise.allSettled([
       this.exec(['rev-parse', '--verify', 'MERGE_HEAD'], { silent: true }),
-      this.exec(['rev-parse', '--verify', 'REBASE_HEAD'], { silent: true }),
       this.exec(['rev-parse', '--verify', 'CHERRY_PICK_HEAD'], { silent: true }),
       this.exec(['rev-parse', '--verify', 'REVERT_HEAD'], { silent: true }),
     ]);
     if (merge.status === 'fulfilled') return { type: 'merge' };
-    if (rebase.status === 'fulfilled') return { type: 'rebase' };
+    // Don't rely on REBASE_HEAD: git leaves it behind after `rebase --continue`
+    // succeeds, which would falsely report a rebase as still in progress. The
+    // canonical marker is the rebase state directory.
+    const gitDir = join(this.repoPath, '.git');
+    if (existsSync(join(gitDir, 'rebase-merge')) || existsSync(join(gitDir, 'rebase-apply'))) {
+      return { type: 'rebase' };
+    }
     if (cherryPick.status === 'fulfilled') return { type: 'cherry-pick' };
     if (revert.status === 'fulfilled') return { type: 'revert' };
-    if (existsSync(join(this.repoPath, '.git', 'SQUASH_MSG'))) return { type: 'squash' };
+    if (existsSync(join(gitDir, 'SQUASH_MSG'))) return { type: 'squash' };
     return { type: null };
   }
 
