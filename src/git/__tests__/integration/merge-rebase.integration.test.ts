@@ -223,6 +223,23 @@ describe('GitService integration — merge / rebase / cherry-pick / revert', () 
       expect(result.files).toEqual([]);
     });
 
+    it('falls back to single merge-tree check when histories share no merge base', async () => {
+      // Two unrelated histories (no common ancestor): `git merge-base` exits
+      // non-zero, so predictRebaseConflicts goes through the early catch
+      // block and runs a single mergeTreeCheck instead of walking commits.
+      commit(repo.path, 'main only', { 'main.txt': 'm\n' });
+      // Create an orphan branch with no shared history.
+      runGit(repo.path, ['checkout', '--orphan', 'orphan']);
+      runGit(repo.path, ['rm', '-rf', '.']);
+      commit(repo.path, 'orphan only', { 'orphan.txt': 'o\n' });
+      runGit(repo.path, ['checkout', 'main']);
+
+      // Should resolve without throwing despite the missing merge-base.
+      const result = await svc.predictRebaseConflicts('orphan', 'main');
+      expect(result).toBeDefined();
+      expect(typeof result.hasConflict).toBe('boolean');
+    });
+
     it('aggregates conflict files across multiple commits in the topic', async () => {
       // Multi-commit topic with each commit touching a different conflicting
       // file. Verifies the per-commit walk loop merges files into a Set.

@@ -217,6 +217,23 @@ describe('GitService integration — basic queries', () => {
       expect(diffs.length).toBeGreaterThan(0);
       expect(diffs[0].file).toBe('a.txt');
     });
+
+    it('filters to a single file when `file` argument given', async () => {
+      commit(repo.path, 'init', { 'a.txt': 'one\n', 'b.txt': 'one\n' });
+      const target = commit(repo.path, 'modify both', { 'a.txt': 'two\n', 'b.txt': 'two\n' });
+
+      const diffs = await svc.showCommitDiff(target, 'a.txt');
+      // Filter to only a.txt; b.txt's change must be absent.
+      expect(diffs).toHaveLength(1);
+      expect(diffs[0].file).toBe('a.txt');
+    });
+
+    it('filters to a single file on a root commit (show fallback path)', async () => {
+      const root = commit(repo.path, 'genesis', { 'a.txt': 'one\n', 'b.txt': 'one\n' });
+      const diffs = await svc.showCommitDiff(root, 'a.txt');
+      expect(diffs).toHaveLength(1);
+      expect(diffs[0].file).toBe('a.txt');
+    });
   });
 
   describe('diff (working tree)', () => {

@@ -82,6 +82,44 @@ describe('GitService integration — submodule', () => {
       standalone.cleanup();
     }
   });
+
+  it('submoduleUpdate({ init: true }) initialises and checks out submodules', async () => {
+    // Simulate a fresh clone: deinit the submodule so its working tree is
+    // empty, then ask GitService to init+update it back.
+    runGit(parent.path, ['submodule', 'deinit', '-f', 'libs/lib']);
+    // Sanity: the working dir of the submodule is now empty.
+    const { readdirSync } = await import('fs');
+    expect(readdirSync(join(parent.path, 'libs', 'lib')).length).toBe(0);
+
+    await svc.submoduleUpdate(true);
+
+    // After update --init, the submodule is checked out again.
+    expect(readdirSync(join(parent.path, 'libs', 'lib')).length).toBeGreaterThan(0);
+  });
+});
+
+// LFS catch-path checks run regardless of whether git-lfs is installed —
+// in a plain repo with no LFS tracking, both calls should resolve to [].
+describe('GitService integration — LFS in a non-LFS repo', () => {
+  let repo: TempRepo;
+  let svc: GitService;
+
+  beforeEach(() => {
+    repo = createTempRepo();
+    svc = new GitService(repo.path);
+    commit(repo.path, 'init', { 'a.txt': 'a\n' });
+  });
+  afterEach(() => repo.cleanup());
+
+  it('lfsLsFiles returns [] (no .gitattributes / no LFS)', async () => {
+    // If git-lfs is installed, this exits 0 with empty output; if not, the
+    // catch fallback returns []. Either way: [].
+    expect(await svc.lfsLsFiles()).toEqual([]);
+  });
+
+  it('lfsLocks returns [] without a server / without LFS', async () => {
+    expect(await svc.lfsLocks()).toEqual([]);
+  });
 });
 
 describe.skipIf(!hasLfs)('GitService integration — Git LFS', () => {
@@ -194,5 +232,66 @@ describe.skipIf(!hasFlow)('GitService integration — Git Flow', () => {
 
   it('getFlowConfig returns null when not initialised', async () => {
     expect(await svc.getFlowConfig()).toBeNull();
+  });
+
+  describe('flow lifecycle (after init)', () => {
+    beforeEach(async () => {
+      await svc.flowInit({
+        productionBranch: 'main',
+        developBranch: 'develop',
+        featurePrefix: 'feature/',
+        releasePrefix: 'release/',
+        hotfixPrefix: 'hotfix/',
+        versionTagPrefix: 'v',
+      });
+    });
+
+    it('flowFeatureFinish merges the feature into develop and deletes the branch', async () => {
+      await svc.flowFeatureStart('login');
+      // Make at least one commit so the merge has content (git-flow tolerates
+      // empty merges, but a real commit exercises the merge path properly).
+      commit(repo.path, 'feature work', { 'login.ts': 'x\n' });
+
+      await svc.flowFeatureFinish('login');
+
+      const branches = await svc.getFlowBranches();
+      expect(branches.features).not.toContain('feature/login');
+      // Develop should now contain the feature work.
+      runGit(repo.path, ['checkout', 'develop']);
+      const log = runGit(repo.path, ['log', '--format=%s', '-n', '5']);
+      expect(log).toContain('feature work');
+    });
+
+    it('flowReleaseStart + flowReleaseFinish tags the version and merges back', async () => {
+      // Need a develop commit so release start has something to base off of.
+      runGit(repo.path, ['checkout', 'develop']);
+      commit(repo.path, 'pre-release work', { 'feat.ts': 'x\n' });
+
+      await svc.flowReleaseStart('1.0.0');
+      const branches1 = await svc.getFlowBranches();
+      expect(branches1.releases).toContain('release/1.0.0');
+
+      await svc.flowReleaseFinish('1.0.0');
+      // After finish, release branch should be gone and tag should exist.
+      const branchesAfter = await svc.getFlowBranches();
+      expect(branchesAfter.releases).not.toContain('release/1.0.0');
+      const tags = runGit(repo.path, ['tag', '-l']);
+      expect(tags).toContain('v1.0.0');
+    });
+
+    it('flowHotfixStart + flowHotfixFinish tags from main and merges back', async () => {
+      await svc.flowHotfixStart('1.0.1');
+      const branches1 = await svc.getFlowBranches();
+      expect(branches1.hotfixes).toContain('hotfix/1.0.1');
+
+      // git-flow requires at least one commit on the hotfix branch before finish.
+      commit(repo.path, 'hotfix patch', { 'patch.ts': 'p\n' });
+
+      await svc.flowHotfixFinish('1.0.1');
+      const branchesAfter = await svc.getFlowBranches();
+      expect(branchesAfter.hotfixes).not.toContain('hotfix/1.0.1');
+      const tags = runGit(repo.path, ['tag', '-l']);
+      expect(tags).toContain('v1.0.1');
+    });
   });
 });

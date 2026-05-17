@@ -308,6 +308,33 @@ Binary files a/image.png and b/image.png differ`;
     expect(result[0].file).toBe('with\ttab.txt');
   });
 
+  it('falls back to file param when header lacks a/b prefix', () => {
+    // Some git config flags (`diff.noprefix=true`) strip the `a/` `b/`
+    // prefixes from the diff header. parseDiff should still recover the
+    // filename via the explicit `file` argument.
+    const raw = `diff --git foo.ts foo.ts
+--- foo.ts
++++ foo.ts
+@@ -1 +1 @@
+-x
++y`;
+    const result = parseDiff(raw, 'foo.ts');
+    expect(result).toHaveLength(1);
+    expect(result[0].file).toBe('foo.ts');
+  });
+
+  it('falls back to "unknown" when header has no prefix and no file param', () => {
+    const raw = `diff --git foo.ts foo.ts
+--- foo.ts
++++ foo.ts
+@@ -1 +1 @@
+-x
++y`;
+    const result = parseDiff(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].file).toBe('unknown');
+  });
+
   it('should parse multiple file diffs', () => {
     const raw = `diff --git a/file1.ts b/file1.ts
 --- a/file1.ts

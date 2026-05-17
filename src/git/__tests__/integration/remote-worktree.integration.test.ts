@@ -141,6 +141,22 @@ describe('GitService integration — remote operations (local bare)', () => {
       const upstream = runGit(workRepo.path, ['rev-parse', '--abbrev-ref', 'topic@{upstream}']).trim();
       expect(upstream).toBe('origin/topic');
     });
+
+    it('with createRemote: pushes a branch that does not yet exist on the remote', async () => {
+      await svc.push('origin', 'main', { setUpstream: true });
+      runGit(workRepo.path, ['checkout', '-b', 'fresh-topic']);
+      commit(workRepo.path, 'fresh', { 'fresh.txt': 'f\n' });
+
+      // fresh-topic does NOT yet exist on origin. createRemote should push it.
+      await svc.setUpstream('fresh-topic', 'origin', 'fresh-topic', { createRemote: true });
+
+      // The bare repo should now have refs/heads/fresh-topic at our local tip.
+      const remoteSha = runGit(bareRepo.path, ['rev-parse', 'refs/heads/fresh-topic']).trim();
+      expect(remoteSha).toBe(head(workRepo.path));
+      // And upstream tracking should be set.
+      const upstream = runGit(workRepo.path, ['rev-parse', '--abbrev-ref', 'fresh-topic@{upstream}']).trim();
+      expect(upstream).toBe('origin/fresh-topic');
+    });
   });
 });
 
@@ -204,6 +220,21 @@ describe('GitService integration — worktrees', () => {
       const list = await svc.worktreeList();
       expect(list.length).toBe(1);
       expect(existsSync(wtPath)).toBe(false);
+    });
+
+    it('worktreeRemove with force succeeds even when the worktree is dirty', async () => {
+      const wtPath = siblingPath('wt-dirty');
+      await svc.worktreeAdd(wtPath, undefined, 'dirty-branch');
+
+      // Dirty the worktree so non-force remove would be rejected by git.
+      const { writeFileSync } = await import('fs');
+      writeFileSync(`${wtPath}/junk.txt`, 'uncommitted\n');
+
+      await svc.worktreeRemove(wtPath, true);
+
+      expect(existsSync(wtPath)).toBe(false);
+      const list = await svc.worktreeList();
+      expect(list.length).toBe(1);
     });
 
     it('worktreePrune cleans up missing worktree metadata', async () => {

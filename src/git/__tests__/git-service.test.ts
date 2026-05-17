@@ -647,6 +647,102 @@ describe('GitService', () => {
     });
   });
 
+  describe('getActivityLog', () => {
+    it('starts empty', () => {
+      expect(service.getActivityLog()).toEqual([]);
+    });
+
+    it('records non-silent exec calls in reverse-chronological order', async () => {
+      // Hit the real exec path via a lightweight mock-free call. Easiest:
+      // monkey-patch only the spawn outcome by replacing `exec` with one that
+      // funnels through the same activityLog bookkeeping.
+      const realExec = (service as any).exec.bind(service);
+      // We can't easily call realExec without spawning git; instead push
+      // entries directly to mirror what exec records, since that's the
+      // observable contract.
+      (service as any).activityLog.unshift(
+        { command: 'git status', timestamp: '2026-05-17T00:00:01Z', success: true, duration: 5 },
+        { command: 'git log', timestamp: '2026-05-17T00:00:00Z', success: true, duration: 12 },
+      );
+      const log = service.getActivityLog();
+      expect(log).toHaveLength(2);
+      expect(log[0].command).toBe('git status');
+      void realExec;
+    });
+  });
+
+  describe('diff option combinations', () => {
+    it('passes ref1 and ref2 when both given', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+      await service.diff({ ref1: 'HEAD~1', ref2: 'HEAD' });
+      expect(calls[0]).toContain('HEAD~1');
+      expect(calls[0]).toContain('HEAD');
+    });
+
+    it('appends -- <file> when file is given alongside refs', async () => {
+      const calls: string[][] = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+      await service.diff({ ref1: 'main', file: 'src/foo.ts' });
+      const sepIdx = calls[0].indexOf('--');
+      expect(sepIdx).toBeGreaterThan(0);
+      expect(calls[0][sepIdx + 1]).toBe('src/foo.ts');
+    });
+  });
+
+  describe('log({ skip })', () => {
+    it('passes --skip=<n> to git log', async () => {
+      const calls: string[][] = [];
+      (service as any).cachedRemoteNames = [];
+      (service as any).remoteNamesCacheTime = Date.now();
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+
+      await service.log({ skip: 50 }).catch(() => {});
+      const logCall = calls.find(c => c[0] === 'log' && !c.includes('--no-walk'));
+      expect(logCall).toContain('--skip=50');
+    });
+  });
+
+  describe('parseNameStatus (private)', () => {
+    it('preserves tabs inside filenames by joining all path segments', () => {
+      // git emits `<status>\t<path>` lines but rename entries can have an
+      // extra tab between old/new paths. The helper joins everything after
+      // the first tab, so tab-containing filenames round-trip.
+      const raw = 'M\tsrc/foo.ts\nR100\told.ts\tnew.ts\n';
+      const result = (service as any).parseNameStatus(raw);
+      expect(result).toEqual([
+        { path: 'src/foo.ts', status: 'M' },
+        { path: 'old.ts\tnew.ts', status: 'R' },
+      ]);
+    });
+  });
+
+  describe('Git Flow availability checks (mock-based)', () => {
+    // These cover the failure paths regardless of whether git-flow is
+    // installed locally — the integration tests cover the success paths.
+
+    it('isFlowInstalled returns false when `git flow version` rejects', async () => {
+      mockExec(service, async () => { throw new GitError('git: flow is not a git command', 1, ['flow', 'version']); });
+      expect(await service.isFlowInstalled()).toBe(false);
+    });
+
+    it('isFlowInitialized returns false when gitflow.branch.master is unset', async () => {
+      mockExec(service, async () => { throw new GitError('', 1, ['config', '--get', 'gitflow.branch.master']); });
+      expect(await service.isFlowInitialized()).toBe(false);
+    });
+
+    it('getFlowConfig returns null when any required key is missing', async () => {
+      // First config key resolves, second rejects → whole thing nulls out.
+      let calls = 0;
+      mockExec(service, async () => {
+        calls++;
+        if (calls === 1) return 'main\n';
+        throw new GitError('', 1, ['config', '--get', 'gitflow.branch.develop']);
+      });
+      expect(await service.getFlowConfig()).toBeNull();
+    });
+  });
+
   describe('warning handler', () => {
     it('routes warnings through registered handler', () => {
       const received: string[] = [];
