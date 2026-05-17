@@ -1,0 +1,198 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { execSync } from 'child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { GitService } from '../../git-service';
+import { TempRepo, commit, createTempRepo, runGit } from './helpers';
+
+/**
+ * Tools-dependent integrations: we run tests when the underlying CLI is
+ * available, otherwise skip rather than fail — both git-lfs and git-flow
+ * are optional system dependencies that ship the extension's features but
+ * shouldn't gate the test suite on a developer's local install.
+ */
+function isInstalled(cmd: string, args: string[]): boolean {
+  try {
+    execSync(`${cmd} ${args.join(' ')}`, { stdio: ['ignore', 'ignore', 'ignore'] });
+    return true;
+  } catch { return false; }
+}
+
+const hasLfs = isInstalled('git', ['lfs', 'version']);
+const hasFlow = isInstalled('git', ['flow', 'version']);
+
+describe('GitService integration — submodule', () => {
+  let parent: TempRepo;
+  let library: TempRepo;
+  let svc: GitService;
+
+  beforeEach(() => {
+    parent = createTempRepo();
+    library = createTempRepo();
+    svc = new GitService(parent.path);
+
+    commit(library.path, 'lib v1', { 'lib.txt': 'v1\n' });
+    commit(parent.path, 'init', { 'README.md': 'r\n' });
+    // protocol.file.allow=always required since CVE-2022-39253.
+    runGit(parent.path, [
+      '-c', 'protocol.file.allow=always',
+      'submodule', 'add', `file://${library.path}`, 'libs/lib',
+    ]);
+    runGit(parent.path, ['commit', '-m', 'add submodule']);
+  });
+  afterEach(() => {
+    parent.cleanup();
+    library.cleanup();
+  });
+
+  it('submoduleStatus lists registered submodules with hash and path', async () => {
+    // Debug the raw output so test failures show us what's happening on
+    // different git versions.
+    const raw = runGit(parent.path, ['submodule', 'status']);
+    const subs = await svc.submoduleStatus();
+    expect(subs.length, `raw output: ${JSON.stringify(raw)}`).toBeGreaterThanOrEqual(1);
+    const lib = subs.find(s => s.path === 'libs/lib');
+    expect(lib).toBeDefined();
+    expect(lib?.hash).toMatch(/^[0-9a-f]+$/);
+    // Fresh `submodule add` may leave the entry in `clean` state OR the
+    // gitlink may not have been refreshed yet; both are acceptable here as
+    // long as it's not 'uninitialized' (the entry exists in the working tree).
+    expect(['clean', 'modified', 'conflict']).toContain(lib?.status);
+  });
+
+  it('submoduleStatus reports modified state when submodule HEAD drifts', async () => {
+    const libDir = join(parent.path, 'libs', 'lib');
+    // Move the submodule's checked-out commit so it differs from what the
+    // parent's gitlink records → status flips to 'modified'.
+    runGit(libDir, ['commit', '--allow-empty', '-m', 'drift']);
+
+    const subs = await svc.submoduleStatus();
+    const lib = subs.find(s => s.path === 'libs/lib');
+    expect(lib?.status).toBe('modified');
+  });
+
+  it('submoduleStatus returns [] when no submodules', async () => {
+    const standalone = createTempRepo();
+    try {
+      commit(standalone.path, 'init');
+      const standaloneSvc = new GitService(standalone.path);
+      expect(await standaloneSvc.submoduleStatus()).toEqual([]);
+    } finally {
+      standalone.cleanup();
+    }
+  });
+});
+
+describe.skipIf(!hasLfs)('GitService integration — Git LFS', () => {
+  let repo: TempRepo;
+  let svc: GitService;
+
+  beforeEach(() => {
+    repo = createTempRepo();
+    svc = new GitService(repo.path);
+    runGit(repo.path, ['lfs', 'install', '--local']);
+    runGit(repo.path, ['lfs', 'track', '*.bin']);
+    runGit(repo.path, ['add', '.gitattributes']);
+    runGit(repo.path, ['commit', '-m', 'track lfs']);
+    writeFileSync(join(repo.path, 'data.bin'), Buffer.from([0, 1, 2, 3, 4, 5]));
+    runGit(repo.path, ['add', 'data.bin']);
+    runGit(repo.path, ['commit', '-m', 'add binary']);
+  });
+  afterEach(() => repo.cleanup());
+
+  it('lfsLsFiles returns tracked LFS files with oid', async () => {
+    const files = await svc.lfsLsFiles();
+    const bin = files.find(f => f.path === 'data.bin');
+    expect(bin).toBeDefined();
+    expect(bin?.oid).toMatch(/^[0-9a-f]+$/);
+  });
+
+  it('lfsLocks returns [] when no locks set (server-less mode)', async () => {
+    // Without a remote LFS server, `lfs locks` returns empty / errors out;
+    // either way our wrapper resolves to [].
+    const locks = await svc.lfsLocks();
+    expect(Array.isArray(locks)).toBe(true);
+  });
+});
+
+describe.skipIf(!hasFlow)('GitService integration — Git Flow', () => {
+  let repo: TempRepo;
+  let svc: GitService;
+
+  beforeEach(() => {
+    repo = createTempRepo();
+    svc = new GitService(repo.path);
+    // Need at least one commit on `main` (the production branch) so
+    // `flow init` has something to base develop on.
+    commit(repo.path, 'init', { 'README.md': 'r\n' });
+  });
+  afterEach(() => repo.cleanup());
+
+  it('isFlowInstalled reports true when git-flow is on PATH', async () => {
+    expect(await svc.isFlowInstalled()).toBe(true);
+  });
+
+  it('isFlowInitialized is false on a fresh repo', async () => {
+    expect(await svc.isFlowInitialized()).toBe(false);
+  });
+
+  it('flowInit configures branches + prefixes + tag prefix', async () => {
+    await svc.flowInit({
+      productionBranch: 'main',
+      developBranch: 'develop',
+      featurePrefix: 'feature/',
+      releasePrefix: 'release/',
+      hotfixPrefix: 'hotfix/',
+      versionTagPrefix: 'v',
+    });
+    expect(await svc.isFlowInitialized()).toBe(true);
+
+    const cfg = await svc.getFlowConfig();
+    expect(cfg).toMatchObject({
+      productionBranch: 'main',
+      developBranch: 'develop',
+      featurePrefix: 'feature/',
+      releasePrefix: 'release/',
+      hotfixPrefix: 'hotfix/',
+      versionTagPrefix: 'v',
+    });
+  });
+
+  it('flowInit fails clearly when production branch is missing', async () => {
+    const empty = createTempRepo();
+    try {
+      const emptySvc = new GitService(empty.path);
+      // No commits yet → `main` doesn't exist.
+      await expect(emptySvc.flowInit({
+        productionBranch: 'main',
+        developBranch: 'develop',
+        featurePrefix: 'feature/',
+        releasePrefix: 'release/',
+        hotfixPrefix: 'hotfix/',
+        versionTagPrefix: 'v',
+      })).rejects.toThrow(/does not exist/);
+    } finally {
+      empty.cleanup();
+    }
+  });
+
+  it('flowFeatureStart creates a feature branch with the configured prefix', async () => {
+    await svc.flowInit({
+      productionBranch: 'main',
+      developBranch: 'develop',
+      featurePrefix: 'feature/',
+      releasePrefix: 'release/',
+      hotfixPrefix: 'hotfix/',
+      versionTagPrefix: 'v',
+    });
+    await svc.flowFeatureStart('login');
+
+    const branches = await svc.getFlowBranches();
+    expect(branches.features).toContain('feature/login');
+  });
+
+  it('getFlowConfig returns null when not initialised', async () => {
+    expect(await svc.getFlowConfig()).toBeNull();
+  });
+});

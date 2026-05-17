@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseLog, parseRefs, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks } from '../git-parser';
 
+
 describe('parseLog', () => {
   it('should return empty array for empty input', () => {
     expect(parseLog('')).toEqual([]);
@@ -276,6 +277,35 @@ Binary files a/image.png and b/image.png differ`;
     expect(result).toHaveLength(1);
     expect(result[0].isBinary).toBe(true);
     expect(result[0].isImage).toBe(true);
+  });
+
+  it('should parse quoted path with octal escape (non-ASCII filename)', () => {
+    // git quotes paths with non-ASCII chars and emits octal escapes. The
+    // Korean filename "한글.txt" comes back as "\355\225\234\352\270\200.txt"
+    // when wrapped in quotes. parseDiff must unescape it.
+    const raw = [
+      'diff --git "a/\\355\\225\\234\\352\\270\\200.txt" "b/\\355\\225\\234\\352\\270\\200.txt"',
+      '--- "a/\\355\\225\\234\\352\\270\\200.txt"',
+      '+++ "b/\\355\\225\\234\\352\\270\\200.txt"',
+      '@@ -1 +1 @@',
+      '-old',
+      '+new',
+    ].join('\n');
+    const result = parseDiff(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].file).toBe('한글.txt');
+  });
+
+  it('should parse quoted path with backslash escape', () => {
+    const raw = [
+      'diff --git "a/with\\ttab.txt" "b/with\\ttab.txt"',
+      '@@ -1 +1 @@',
+      '-x',
+      '+y',
+    ].join('\n');
+    const result = parseDiff(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].file).toBe('with\ttab.txt');
   });
 
   it('should parse multiple file diffs', () => {

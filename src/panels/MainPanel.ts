@@ -3,7 +3,7 @@ import * as path from 'path';
 import { readFile, access } from 'fs/promises';
 import { GitService, GitError } from '../git/git-service';
 import { formatGitError } from '../git/git-error-formatter';
-import { buildGraph, buildGraphFromGitOutput, buildFullGraph, buildGraphFromFullData } from '../git/git-graph-builder';
+import { buildGraph, buildFullGraph, buildGraphFromFullData } from '../git/git-graph-builder';
 import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
 import { FileWatcher } from '../services/file-watcher';
 import { RepoDiscoveryService, RepoInfo } from '../services/repo-discovery';

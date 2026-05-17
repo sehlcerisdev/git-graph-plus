@@ -17,6 +17,7 @@ test-repo/**
 esbuild.config.mjs
 tsconfig.json
 vitest.config.mts
+coverage/**
 CLAUDE.md
 .gitignore
 **/*.map

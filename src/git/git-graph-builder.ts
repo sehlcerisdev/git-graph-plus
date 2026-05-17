@@ -427,8 +427,3 @@ export function buildGraphFromFullData(commits: Commit[], full: FullGraphData): 
 export function buildGraph(commits: Commit[], branches: BranchInfo[] = []): GraphNode[] {
   return buildGraphFromFullData(commits, buildFullGraph(commits, branches));
 }
-
-export const buildGraphFromGitOutput = (
-  commits: Commit[],
-  _graphLines: string[]
-): GraphNode[] => buildGraph(commits);

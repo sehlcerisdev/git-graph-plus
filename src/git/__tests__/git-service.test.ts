@@ -410,6 +410,264 @@ describe('GitService', () => {
     });
   });
 
+  describe('auth retry (execWithAuthRetry / isAuthError)', () => {
+    // The auth retry plumbing was added in dfd8af6 to drive VS Code's askpass
+    // when the credential helper has nothing cached. Regression coverage for
+    // the heuristic and the retry-once contract lives here.
+
+    function callIsAuthError(stderr: string): boolean {
+      return (service as any).isAuthError(new GitError(stderr, 128, ['push']));
+    }
+
+    it('isAuthError matches HTTP credential failures', () => {
+      expect(callIsAuthError('fatal: Authentication failed for https://github.com/foo/bar')).toBe(true);
+      expect(callIsAuthError('fatal: could not read Username for https://github.com')).toBe(true);
+      expect(callIsAuthError('fatal: could not read Password for https://github.com')).toBe(true);
+      expect(callIsAuthError('fatal: terminal prompts disabled')).toBe(true);
+      expect(callIsAuthError('remote: Invalid username or password')).toBe(true);
+      expect(callIsAuthError('Authentication required')).toBe(true);
+      expect(callIsAuthError('HTTP Basic: Access denied')).toBe(true);
+    });
+
+    it('isAuthError does NOT match SSH key failures (askpass cannot help)', () => {
+      expect(callIsAuthError('Permission denied (publickey).')).toBe(false);
+      expect(callIsAuthError('fatal: Could not read from remote repository.')).toBe(false);
+    });
+
+    it('isAuthError returns false for non-GitError', () => {
+      expect((service as any).isAuthError(new Error('boom'))).toBe(false);
+      expect((service as any).isAuthError('string error')).toBe(false);
+    });
+
+    it('execWithAuthRetry passes through non-auth errors without invoking handler', async () => {
+      const handler = vi.fn(async () => true);
+      service.setAuthRetryHandler(handler);
+      mockExec(service, async () => { throw new GitError('fatal: bad object', 128, ['fetch']); });
+
+      await expect((service as any).execWithAuthRetry(['fetch'])).rejects.toThrow('bad object');
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('execWithAuthRetry throws original error when no handler registered', async () => {
+      mockExec(service, async () => { throw new GitError('fatal: Authentication failed', 128, ['push']); });
+
+      await expect((service as any).execWithAuthRetry(['push'])).rejects.toThrow('Authentication failed');
+    });
+
+    it('execWithAuthRetry throws when handler returns false (no retry possible)', async () => {
+      const handler = vi.fn(async () => false);
+      service.setAuthRetryHandler(handler);
+      let calls = 0;
+      mockExec(service, async () => { calls++; throw new GitError('fatal: Authentication failed', 128, ['push']); });
+
+      await expect((service as any).execWithAuthRetry(['push'], 'origin')).rejects.toThrow('Authentication failed');
+      expect(handler).toHaveBeenCalledWith('origin');
+      expect(calls).toBe(1); // no retry
+    });
+
+    it('execWithAuthRetry retries exactly once when handler returns true', async () => {
+      const handler = vi.fn(async () => true);
+      service.setAuthRetryHandler(handler);
+      let calls = 0;
+      mockExec(service, async () => {
+        calls++;
+        if (calls === 1) throw new GitError('fatal: Authentication failed', 128, ['push']);
+        return 'ok';
+      });
+
+      const result = await (service as any).execWithAuthRetry(['push'], 'origin');
+      expect(result).toBe('ok');
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(calls).toBe(2);
+    });
+
+    it('execWithAuthRetry surfaces second failure (does not retry twice)', async () => {
+      service.setAuthRetryHandler(async () => true);
+      let calls = 0;
+      mockExec(service, async () => {
+        calls++;
+        throw new GitError('fatal: Authentication failed', 128, ['push']);
+      });
+
+      await expect((service as any).execWithAuthRetry(['push'])).rejects.toThrow('Authentication failed');
+      expect(calls).toBe(2); // exactly one retry, then surface
+    });
+
+    it('execWithAuthRetry swallows handler exceptions and treats them as "no retry"', async () => {
+      service.setAuthRetryHandler(async () => { throw new Error('askpass crashed'); });
+      let calls = 0;
+      mockExec(service, async () => {
+        calls++;
+        throw new GitError('fatal: Authentication failed', 128, ['push']);
+      });
+
+      await expect((service as any).execWithAuthRetry(['push'])).rejects.toThrow('Authentication failed');
+      expect(calls).toBe(1); // handler threw → no retry
+    });
+  });
+
+  describe('merge / push / fetch / rebase / stashSave option flags', () => {
+    let calls: string[][];
+    beforeEach(() => {
+      calls = [];
+      (service as any).cachedRemoteNames = [];
+      (service as any).remoteNamesCacheTime = Date.now();
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+    });
+
+    it('merge passes --ff-only', async () => {
+      await service.merge('main', { ffOnly: true });
+      expect(calls[0]).toContain('--ff-only');
+    });
+
+    it('merge passes --squash then commits via separate exec', async () => {
+      await service.merge('feature', { squash: true });
+      // First call: merge --squash; second call: commit --no-edit
+      expect(calls[0]).toContain('--squash');
+      expect(calls[1]).toEqual(['commit', '--no-edit']);
+    });
+
+    it('push passes --force when force=force', async () => {
+      await service.push('origin', 'main', { force: 'force' });
+      expect(calls[0]).toContain('--force');
+      expect(calls[0]).not.toContain('--force-with-lease');
+    });
+
+    it('push passes --force-with-lease when force=with-lease', async () => {
+      await service.push('origin', 'main', { force: 'with-lease' });
+      expect(calls[0]).toContain('--force-with-lease');
+      expect(calls[0]).not.toContain('--force');
+    });
+
+    it('push uses refs/heads/<branch> refspec to disambiguate tag/branch collisions', async () => {
+      await service.push('origin', 'main');
+      expect(calls[0]).toContain('refs/heads/main');
+      expect(calls[0]).not.toContain('main'); // bare 'main' would be ambiguous
+    });
+
+    it('fetch --all when no remote given', async () => {
+      await service.fetch();
+      expect(calls[0]).toContain('--all');
+      expect(calls[0]).toContain('--progress');
+    });
+
+    it('fetch passes --prune', async () => {
+      await service.fetch('origin', { prune: true });
+      expect(calls[0]).toContain('--prune');
+    });
+
+    it('rebase passes --autostash', async () => {
+      await service.rebase('main', { autostash: true });
+      expect(calls[0]).toContain('--autostash');
+    });
+
+    it('stashSave passes -m, --include-untracked, --keep-index', async () => {
+      await service.stashSave('wip', true, true);
+      expect(calls[0]).toContain('-m');
+      expect(calls[0]).toContain('wip');
+      expect(calls[0]).toContain('--include-untracked');
+      expect(calls[0]).toContain('--keep-index');
+    });
+
+    it('worktreeAdd passes -b for newBranch', async () => {
+      await service.worktreeAdd('/tmp/wt', undefined, 'new-branch');
+      expect(calls[0]).toContain('-b');
+      expect(calls[0]).toContain('new-branch');
+    });
+
+    it('worktreeRemove passes --force when force=true', async () => {
+      await service.worktreeRemove('/tmp/wt', true);
+      expect(calls[0]).toContain('--force');
+    });
+
+    it('searchCommits forwards --after and --before', async () => {
+      await service.searchCommits('fix', { after: '2024-01-01', before: '2024-12-31' });
+      const logArgs = calls[0];
+      expect(logArgs.some(a => a === '--after=2024-01-01')).toBe(true);
+      expect(logArgs.some(a => a === '--before=2024-12-31')).toBe(true);
+    });
+
+    it('createTag (annotated) passes -a -m', async () => {
+      await service.createTag('v1.0', undefined, 'release notes');
+      expect(calls[0]).toContain('-a');
+      expect(calls[0]).toContain('-m');
+      expect(calls[0]).toContain('release notes');
+    });
+  });
+
+  describe('getRemoteNames caching', () => {
+    it('returns cached value within TTL window', async () => {
+      let execCalls = 0;
+      mockExec(service, async (args) => {
+        if (args[0] === 'remote') execCalls++;
+        return 'origin\nupstream\n';
+      });
+      const first = await (service as any).getRemoteNames();
+      const second = await (service as any).getRemoteNames();
+      expect(first).toEqual(['origin', 'upstream']);
+      expect(second).toEqual(['origin', 'upstream']);
+      expect(execCalls).toBe(1); // second call hit the cache
+    });
+
+    it('dedupes concurrent callers via pendingRemoteNames', async () => {
+      let execCalls = 0;
+      mockExec(service, async (args) => {
+        if (args[0] === 'remote') execCalls++;
+        // Simulate slow git so concurrent callers race.
+        await new Promise(r => setTimeout(r, 20));
+        return 'origin\n';
+      });
+      const [a, b, c] = await Promise.all([
+        (service as any).getRemoteNames(),
+        (service as any).getRemoteNames(),
+        (service as any).getRemoteNames(),
+      ]);
+      expect(a).toEqual(['origin']);
+      expect(b).toEqual(['origin']);
+      expect(c).toEqual(['origin']);
+      // Three concurrent callers but only one git invocation.
+      expect(execCalls).toBe(1);
+    });
+
+    it('addRemote invalidates the cache', async () => {
+      // Pre-populate as if cached.
+      (service as any).cachedRemoteNames = ['origin'];
+      (service as any).remoteNamesCacheTime = Date.now();
+      mockExec(service, async () => '');
+      await service.addRemote('upstream', 'https://example.com/u.git');
+      expect((service as any).cachedRemoteNames).toBeNull();
+    });
+
+    it('removeRemote invalidates the cache', async () => {
+      (service as any).cachedRemoteNames = ['origin'];
+      (service as any).remoteNamesCacheTime = Date.now();
+      mockExec(service, async () => '');
+      await service.removeRemote('origin');
+      expect((service as any).cachedRemoteNames).toBeNull();
+    });
+  });
+
+  describe('warning handler', () => {
+    it('routes warnings through registered handler', () => {
+      const received: string[] = [];
+      service.setWarningHandler(m => received.push(m));
+      (service as any).warn('disk on fire');
+      expect(received).toEqual(['disk on fire']);
+    });
+
+    it('survives a throwing warning handler', () => {
+      service.setWarningHandler(() => { throw new Error('handler boom'); });
+      // Must not propagate — warn() is called from inside git commands and a
+      // throwing handler would otherwise abort the surrounding git call.
+      expect(() => (service as any).warn('test')).not.toThrow();
+    });
+
+    it('null handler is a no-op', () => {
+      service.setWarningHandler(null);
+      expect(() => (service as any).warn('quiet')).not.toThrow();
+    });
+  });
+
   describe('getUncommittedFileDiff', () => {
     it('passes --cached for staged files', async () => {
       const calls: string[][] = [];

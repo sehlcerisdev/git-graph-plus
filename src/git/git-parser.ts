@@ -3,73 +3,6 @@ import type { Commit, Ref, BranchInfo, TagInfo, RemoteInfo, StashEntry, DiffData
 const RECORD_SEP = '\x01';
 const FIELD_SEP = '\x00';
 
-/**
- * Parse `git log --graph --format=<marker>fields` output.
- * Each commit line looks like:  "| * | \x01hash\x00abbrev\x00..."
- * Non-commit lines are pure graph characters: "| | |", "| |/", etc.
- *
- * We extract:
- * - commits: structured Commit objects
- * - graphLines: one string per commit, containing only the graph prefix chars
- *   from which we determine the node column (position of '*').
- */
-export function parseGraphLog(raw: string, marker = '\x1E', sep = '\x1F', remoteNames?: string[]): { commits: Commit[]; graphLines: string[] } {
-  if (!raw.trim()) {
-    return { commits: [], graphLines: [] };
-  }
-
-  const commits: Commit[] = [];
-  const graphLines: string[] = [];
-
-  const lines = raw.split('\n');
-
-  for (const line of lines) {
-    const markerIdx = line.indexOf(marker);
-    if (markerIdx === -1) {
-      // Pure graph line (between commits) - skip
-      continue;
-    }
-
-    // Graph prefix is everything before the marker
-    const graphPrefix = line.substring(0, markerIdx);
-    const dataStr = line.substring(markerIdx + 1);
-
-    // Parse commit fields
-    const fields = dataStr.split(sep);
-    const hash = fields[0]?.trim() ?? '';
-    if (!hash) continue;
-
-    const abbreviatedHash = fields[1] ?? '';
-    const authorName = fields[2] ?? '';
-    const authorEmail = fields[3] ?? '';
-    const authorDate = fields[4] ?? '';
-    const committerName = fields[5] ?? '';
-    const committerEmail = fields[6] ?? '';
-    const committerDate = fields[7] ?? '';
-    const subject = fields[8] ?? '';
-    const parentStr = fields[9] ?? '';
-    const refStr = fields[10]?.trim() ?? '';
-
-    const parents = parentStr.trim() ? parentStr.trim().split(' ') : [];
-    const refs = refStr ? parseRefs(refStr, remoteNames) : [];
-
-    commits.push({
-      hash,
-      abbreviatedHash,
-      author: { name: authorName, email: authorEmail, date: authorDate },
-      committer: { name: committerName, email: committerEmail, date: committerDate },
-      subject,
-      body: '',
-      parents,
-      refs,
-    });
-
-    graphLines.push(graphPrefix);
-  }
-
-  return { commits, graphLines };
-}
-
 export function parseLog(raw: string, remoteNames?: string[]): Commit[] {
   if (!raw.trim()) {
     return [];
@@ -433,17 +366,38 @@ function unescapeGitPath(p: string): string {
   if (p.startsWith('"') && p.endsWith('"')) {
     p = p.slice(1, -1);
   }
-  // Unescape common git escape sequences
-  return p.replace(/\\([nrt\\"])|\\([0-3][0-7]{2})/g, (_, esc, oct) => {
-    if (oct) { return String.fromCharCode(parseInt(oct, 8)); }
-    switch (esc) {
-      case 'n': return '\n';
-      case 'r': return '\r';
-      case 't': return '\t';
-      case '\\': return '\\';
-      case '"': return '"';
-      default: return esc;
+  // git emits non-ASCII bytes as runs of octal escapes (\NNN\NNN\NNN per
+  // UTF-8 sequence). Collect consecutive runs into a byte buffer so we can
+  // decode the multi-byte sequence as UTF-8 in one shot — `\355\225\234` is
+  // "한" (U+D55C), not three U+00xx chars.
+  let result = '';
+  let i = 0;
+  while (i < p.length) {
+    if (p[i] === '\\' && i + 3 < p.length && /[0-3]/.test(p[i + 1]) && /[0-7]/.test(p[i + 2]) && /[0-7]/.test(p[i + 3])) {
+      const bytes: number[] = [];
+      while (i < p.length && p[i] === '\\' && i + 3 < p.length && /[0-3]/.test(p[i + 1]) && /[0-7]/.test(p[i + 2]) && /[0-7]/.test(p[i + 3])) {
+        bytes.push(parseInt(p.slice(i + 1, i + 4), 8));
+        i += 4;
+      }
+      result += Buffer.from(bytes).toString('utf-8');
+      continue;
     }
-  });
+    if (p[i] === '\\' && i + 1 < p.length) {
+      const esc = p[i + 1];
+      switch (esc) {
+        case 'n': result += '\n'; break;
+        case 'r': result += '\r'; break;
+        case 't': result += '\t'; break;
+        case '\\': result += '\\'; break;
+        case '"': result += '"'; break;
+        default: result += esc;
+      }
+      i += 2;
+      continue;
+    }
+    result += p[i];
+    i++;
+  }
+  return result;
 }
 
