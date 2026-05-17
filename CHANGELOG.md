@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.12 (2026-05-17)
+
+### Improvements
+- **Stricter Git Input Validation** - File paths and search inputs are now validated against git's own rules before being passed to the CLI, preventing malformed names (paths starting with `-`, control characters in search queries, file:// remote URLs without scheme allowlist) from being misinterpreted
+- **Branch/Tag Name Checks** - Names are now rejected if any slash-separated component is empty, starts with `.`, or ends with `.lock` — matching `git check-ref-format` more closely
+
+### Bug Fixes
+- **Interactive Rebase: Reword in Squash Groups** - A reword target followed by squash/fixup now honors the typed final message instead of git's combined-message default
+- **Interactive Rebase: Fixup-only Group Message** - Edited target message is no longer silently dropped in fixup-only groups
+- **Interactive Rebase: Order-only Changes** - The "Start Rebase" button is now enabled when only commit order has changed
+- **Rebase Pause No Longer Shows Error Dialog** - When `edit` step or a conflict pauses the rebase, the redundant error dialog on top of the banner is gone — the banner alone guides next steps
+- **Modals Stay Open After Operation Fails** - Failed operations now close the modal that triggered them instead of leaving it sitting open in a stale state
+- **Tooltip Escape Inside Modals** - The Escape key now dismisses tooltips even when focus is trapped inside a modal
+- **Closing the Panel During a Long Operation** - Closing the Git Graph+ panel while a long git operation is in flight no longer triggers errors when the result tries to post back to the (now-gone) webview
+- **Sidebar Auto-refresh Overlap** - Rapid file watcher events can no longer trigger overlapping refreshes that produced inconsistent sidebar state
+- **LFS Warning Noise** - Warnings for known-harmless LFS configurations (file:// remote, missing lock server) are suppressed while real failures are still surfaced
+- **Windows Repo Paths with Special Characters** - Interactive rebase now works correctly when the repository path contains `&`, `|`, `%`, parentheses, etc.
+- **Conflict Banner Localization** - "Merge/Rebase/Revert/Cherry-Pick Conflict" labels and the "Abort" button are now translated in Korean and Chinese
+
 ## 0.3.11 (2026-05-17)
 
 ### New Features
