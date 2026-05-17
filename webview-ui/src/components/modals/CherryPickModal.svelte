@@ -20,12 +20,14 @@
   onMount(() => {
     cherryPickBtn?.focus();
     const vscode = getVsCodeApi();
-    vscode.postMessage({ type: 'predictConflicts', payload: { ours: 'HEAD', theirs: commit, mergeBase: commit + '^' } });
+    const requestId = `cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    vscode.postMessage({ type: 'predictConflicts', payload: { ours: 'HEAD', theirs: commit, mergeBase: commit + '^', requestId } });
     const handler = (event: MessageEvent) => {
-      if (event.data.type === 'conflictPrediction') {
-        conflictPrediction = event.data.payload;
-        window.removeEventListener('message', handler);
-      }
+      if (event.data.type !== 'conflictPrediction') { return; }
+      // Reject stale responses from prior mounts (modal closed and reopened before reply arrived).
+      if (event.data.payload?.requestId !== requestId) { return; }
+      conflictPrediction = event.data.payload;
+      window.removeEventListener('message', handler);
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);

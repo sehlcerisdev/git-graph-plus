@@ -67,6 +67,13 @@ export const zh: Record<string, string> = {
   'createBranch.createAndCheckout': '创建并检出',
   'createBranch.branchExists': '名为“{name}”的分支已存在。',
   'createBranch.tagConflict': '名为“{name}”的标签已存在。',
+  'gitRef.empty': '名称不能为空。',
+  'gitRef.atOnly': '名称不能仅为 \'@\'。',
+  'gitRef.whitespaceOrControl': '名称不能包含空白或控制字符。',
+  'gitRef.forbiddenChars': '名称不能包含以下任意字符：^ ~ : ? * [ \\',
+  'gitRef.forbiddenSequence': '名称不能包含 \'..\' 或 \'@{\' 序列。',
+  'gitRef.badStart': '名称不能以 \'-\', \'.\', \'/\' 开头。',
+  'gitRef.badEnd': '名称不能以 \'.\', \'/\', \'.lock\' 结尾。',
 
   // Rename branch modal
   'renameBranch.title': '重命名分支',

@@ -4,6 +4,7 @@
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
   import { branchStore } from '../../lib/stores/branches.svelte';
+  import { validateGitRefName } from '../../lib/utils/git-ref';
 
   interface Props {
     startPoint: string;
@@ -22,13 +23,14 @@
   let nameInput: HTMLInputElement | undefined = $state();
   const isStartPointHash = $derived(/^[0-9a-f]{7,40}$/i.test(startPoint));
   const tagExists = $derived(name.trim() !== '' && branchStore.tags.some(tag => tag.name === name.trim()));
+  const refError = $derived(name.trim() !== '' ? validateGitRefName(name.trim()) : null);
 
   onMount(() => { nameInput?.focus(); });
 
   function handleSubmit() {
-    if (name.trim()) {
-      onCreate(name.trim(), message.trim(), startPoint.trim() || 'HEAD', push);
-    }
+    const trimmed = name.trim();
+    if (!trimmed || tagExists || refError) { return; }
+    onCreate(trimmed, message.trim(), startPoint.trim() || 'HEAD', push);
   }
 </script>
 
@@ -81,9 +83,11 @@
   </div>
   {#if tagExists}
     <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i>{t('createTag.tagExists', { name: name.trim() })}</p>
+  {:else if refError}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i>{t(refError)}</p>
   {/if}
   <div class="form-actions">
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="primary" onclick={handleSubmit} disabled={!name.trim() || tagExists}>{push ? t('createTag.createAndPush') : t('createTag.create')}</button>
+    <button class="primary" onclick={handleSubmit} disabled={!name.trim() || tagExists || !!refError}>{push ? t('createTag.createAndPush') : t('createTag.create')}</button>
   </div>
 </Modal>

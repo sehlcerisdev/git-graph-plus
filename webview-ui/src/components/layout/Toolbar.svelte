@@ -60,6 +60,11 @@
   }
 
   onMount(() => {
+    // Note: App.svelte also listens for `message` events. The two handlers write to
+    // disjoint state (App: rebasePaused/conflict, this: uiStore.operating) and read
+    // nothing from each other, so the registration order is irrelevant. If a future
+    // change introduces cross-dependency between them, route everything through a
+    // single dispatcher instead.
     function handler(event: MessageEvent) {
       const msg = event.data;
       if ((msg.type === 'operationComplete' || msg.type === 'error') && uiStore.operating) {

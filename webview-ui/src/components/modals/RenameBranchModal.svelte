@@ -3,6 +3,7 @@
   import Modal from '../common/Modal.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
+  import { validateGitRefName } from '../../lib/utils/git-ref';
 
   interface Props {
     oldName: string;
@@ -12,7 +13,8 @@
 
   let { oldName, onClose, onRename }: Props = $props();
   let newName = $state(untrack(() => oldName));
-  const canSubmit = $derived(newName.trim().length > 0 && newName !== oldName);
+  const refError = $derived(newName.trim() !== '' ? validateGitRefName(newName.trim()) : null);
+  const canSubmit = $derived(newName.trim().length > 0 && newName !== oldName && !refError);
 
   function submit() {
     if (canSubmit) onRename(newName);
@@ -29,6 +31,9 @@
     <input id="rename-branch-input" class="modal-input" type="text" bind:value={newName} autofocus
       onkeydown={(e) => { if (e.key === 'Enter') submit(); }} />
   </div>
+  {#if refError}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i>{t(refError)}</p>
+  {/if}
   <div class="form-actions">
     <button onclick={onClose}>{t('common.cancel')}</button>
     <button class="primary" disabled={!canSubmit} onclick={submit}>{t('renameBranch.rename')}</button>

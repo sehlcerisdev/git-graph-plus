@@ -4,6 +4,7 @@
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
   import { branchStore } from '../../lib/stores/branches.svelte';
+  import { validateGitRefName } from '../../lib/utils/git-ref';
 
   interface Props {
     startPoint: string;
@@ -22,13 +23,14 @@
   const isStartPointHash = $derived(/^[0-9a-f]{7,40}$/i.test(startPoint));
   const branchExists = $derived(name.trim() !== '' && branchStore.localBranches.some(b => b.name === name.trim()));
   const tagConflict = $derived(name.trim() !== '' && !branchExists && branchStore.tags.some(tag => tag.name === name.trim()));
+  const refError = $derived(name.trim() !== '' ? validateGitRefName(name.trim()) : null);
 
   onMount(() => { nameInput?.focus(); });
 
   function handleSubmit() {
-    if (name.trim()) {
-      onCreate(name.trim(), startPoint.trim() || 'HEAD', checkout);
-    }
+    const trimmed = name.trim();
+    if (!trimmed || branchExists || tagConflict || refError) { return; }
+    onCreate(trimmed, startPoint.trim() || 'HEAD', checkout);
   }
 </script>
 
@@ -74,9 +76,11 @@
     <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i>{t('createBranch.branchExists', { name: name.trim() })}</p>
   {:else if tagConflict}
     <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i>{t('createBranch.tagConflict', { name: name.trim() })}</p>
+  {:else if refError}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i>{t(refError)}</p>
   {/if}
   <div class="form-actions">
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="primary" onclick={handleSubmit} disabled={!name.trim() || branchExists || tagConflict}>{checkout ? t('createBranch.createAndCheckout') : t('createBranch.create')}</button>
+    <button class="primary" onclick={handleSubmit} disabled={!name.trim() || branchExists || tagConflict || !!refError}>{checkout ? t('createBranch.createAndCheckout') : t('createBranch.create')}</button>
   </div>
 </Modal>

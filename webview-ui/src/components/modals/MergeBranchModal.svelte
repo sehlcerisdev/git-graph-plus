@@ -24,12 +24,13 @@
   onMount(() => {
     mergeBtn?.focus();
     const vscode = getVsCodeApi();
-    vscode.postMessage({ type: 'predictConflicts', payload: { ours: target, theirs: source } });
+    const requestId = `mg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    vscode.postMessage({ type: 'predictConflicts', payload: { ours: target, theirs: source, requestId } });
     const handler = (event: MessageEvent) => {
-      if (event.data.type === 'conflictPrediction') {
-        conflictPrediction = event.data.payload;
-        window.removeEventListener('message', handler);
-      }
+      if (event.data.type !== 'conflictPrediction') { return; }
+      if (event.data.payload?.requestId !== requestId) { return; }
+      conflictPrediction = event.data.payload;
+      window.removeEventListener('message', handler);
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);

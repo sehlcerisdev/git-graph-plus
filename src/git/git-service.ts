@@ -94,6 +94,20 @@ export class GitService {
     }
   }
 
+  /** Reject paths that escape the repo (absolute, parent traversal) or that git
+   * could misinterpret as a flag. Paired with `--` in the actual command. */
+  private assertSafePath(filePath: string, context: string): void {
+    if (typeof filePath !== 'string' || filePath.length === 0) {
+      throw new GitError(`Invalid path for ${context}`, null, []);
+    }
+    if (filePath.startsWith('-')) {
+      throw new GitError(`Path must not start with '-': ${filePath}`, null, []);
+    }
+    if (filePath.startsWith('/') || filePath.split(/[\\/]/).includes('..')) {
+      throw new GitError(`Unsafe path for ${context}: ${filePath}`, null, []);
+    }
+  }
+
   setExtraEnv(env: Record<string, string>): void {
     this.extraEnv = env;
   }
@@ -444,6 +458,7 @@ export class GitService {
     }
 
     if (options?.file) {
+      this.assertSafePath(options.file, 'diff');
       args.push('--', options.file);
     }
 
@@ -896,6 +911,37 @@ export class GitService {
     while (i < todos.length) {
       const todo = todos[i];
 
+      // Squash group: a non-squash target followed by one or more squash/fixup members.
+      // Checked before the standalone reword path so that "reword + squash" honors the
+      // user's typed final message instead of letting git's default-editor combine messages.
+      const isGroupTarget =
+        !isSquashLike(todo.action) &&
+        i + 1 < todos.length &&
+        isSquashLike(todos[i + 1].action);
+
+      if (isGroupTarget) {
+        // reword as a group target is equivalent to pick + amend, which we already do via exec below.
+        const targetAction = todo.action === 'reword' ? 'pick' : todo.action;
+        lines.push(`${targetAction} ${todo.hash}`);
+
+        const finalMessage = (todo.message ?? todo.subject).trim();
+        const messageChanged = finalMessage !== todo.subject.trim();
+        const userWantsReword = todo.action === 'reword';
+        i++;
+        while (i < todos.length && isSquashLike(todos[i].action)) {
+          lines.push(`${todos[i].action} ${todos[i].hash}`);
+          i++;
+        }
+        // Force the final message when the user changed it OR explicitly chose reword on the target.
+        // Without this, fixup-only groups would silently discard the user's edited message, and
+        // squash groups would inherit git's default-editor combined message.
+        if (finalMessage && (messageChanged || userWantsReword)) {
+          lines.push(`exec git commit --amend --no-edit ${this.buildMFlags([finalMessage])}`);
+        }
+        continue;
+      }
+
+      // Standalone reword (no squash/fixup following).
       if (todo.action === 'reword') {
         const msg = (todo.message ?? todo.subject).trim();
         lines.push(`pick ${todo.hash}`);
@@ -903,25 +949,6 @@ export class GitService {
           lines.push(`exec git commit --amend --no-edit ${this.buildMFlags([msg])}`);
         }
         i++;
-        continue;
-      }
-
-      // Detect start of squash group (pick/edit followed by squash/fixup entries)
-      if (!isSquashLike(todo.action) && i + 1 < todos.length && isSquashLike(todos[i + 1].action)) {
-        lines.push(`${todo.action} ${todo.hash}`);
-        const finalMessage = (todo.message ?? todo.subject).trim();
-        let hasSquash = false;
-        i++;
-        while (i < todos.length && isSquashLike(todos[i].action)) {
-          lines.push(`${todos[i].action} ${todos[i].hash}`);
-          if (todos[i].action === 'squash') {
-            hasSquash = true;
-          }
-          i++;
-        }
-        if (hasSquash) {
-          lines.push(`exec git commit --amend --no-edit ${this.buildMFlags([finalMessage])}`);
-        }
         continue;
       }
 
@@ -954,9 +981,19 @@ export class GitService {
 
         let stderr = '';
         proc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
-        proc.on('close', (code) => {
-          if (code === 0) { resolve(); }
-          else { reject(new GitError(stderr, code, ['rebase', '-i', base])); }
+        proc.on('close', async (code) => {
+          if (code === 0) { resolve(); return; }
+          // git rebase -i exits non-zero when it intentionally pauses for an `edit`
+          // step or a conflict. In both cases `.git/rebase-merge` (or rebase-apply)
+          // remains on disk and the UI banner will guide the user to continue / abort.
+          // Treat that as a successful "paused" outcome instead of throwing, which
+          // would surface a redundant error dialog on top of the banner.
+          const gitDir = join(this.repoPath, '.git');
+          const paused =
+            existsSync(join(gitDir, 'rebase-merge')) ||
+            existsSync(join(gitDir, 'rebase-apply'));
+          if (paused) { resolve(); return; }
+          reject(new GitError(stderr, code, ['rebase', '-i', base]));
         });
         proc.on('error', (err) => {
           reject(new GitError(err.message, null, ['rebase', '-i', base]));

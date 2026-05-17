@@ -67,6 +67,13 @@ export const en: Record<string, string> = {
   'createBranch.createAndCheckout': 'Create and Checkout',
   'createBranch.branchExists': 'A branch named \'{name}\' already exists.',
   'createBranch.tagConflict': 'A tag named \'{name}\' already exists.',
+  'gitRef.empty': 'Name cannot be empty.',
+  'gitRef.atOnly': 'Name cannot be \'@\'.',
+  'gitRef.whitespaceOrControl': 'Name cannot contain whitespace or control characters.',
+  'gitRef.forbiddenChars': 'Name cannot contain any of: ^ ~ : ? * [ \\',
+  'gitRef.forbiddenSequence': 'Name cannot contain \'..\' or \'@{\'.',
+  'gitRef.badStart': 'Name cannot start with \'-\', \'.\' or \'/\'.',
+  'gitRef.badEnd': 'Name cannot end with \'.\', \'/\' or \'.lock\'.',
 
   // Rename branch modal
   'renameBranch.title': 'Rename Branch',

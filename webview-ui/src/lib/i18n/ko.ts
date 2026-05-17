@@ -67,6 +67,13 @@ export const ko: Record<string, string> = {
   'createBranch.createAndCheckout': '생성 및 Checkout',
   'createBranch.branchExists': '\'{name}\' 이름의 브랜치가 이미 존재합니다.',
   'createBranch.tagConflict': '\'{name}\' 이름의 태그가 이미 존재합니다.',
+  'gitRef.empty': '이름은 비어 있을 수 없습니다.',
+  'gitRef.atOnly': '이름은 \'@\' 단독으로 사용할 수 없습니다.',
+  'gitRef.whitespaceOrControl': '이름에 공백이나 제어 문자를 포함할 수 없습니다.',
+  'gitRef.forbiddenChars': '이름에 다음 문자를 사용할 수 없습니다: ^ ~ : ? * [ \\',
+  'gitRef.forbiddenSequence': '이름에 \'..\' 또는 \'@{\' 시퀀스를 포함할 수 없습니다.',
+  'gitRef.badStart': '이름은 \'-\', \'.\', \'/\'로 시작할 수 없습니다.',
+  'gitRef.badEnd': '이름은 \'.\', \'/\', \'.lock\'으로 끝날 수 없습니다.',
 
   // Rename branch modal
   'renameBranch.title': '브랜치 이름 변경',

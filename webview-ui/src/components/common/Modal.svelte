@@ -31,6 +31,21 @@
   function handleOverlayClick() {
     if (ready) { onClose(); }
   }
+
+  // Fallback Enter handler: if focus is still on the dialog (e.g. the primary button
+  // was disabled at mount while conflict prediction loaded), Enter would otherwise
+  // do nothing. Trigger the first non-disabled `.primary` button inside the modal.
+  function handleDialogKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter') { return; }
+    const target = e.target as HTMLElement | null;
+    // Don't hijack Enter from inputs/textareas/selects — they have their own behavior.
+    if (target && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName)) { return; }
+    const primary = dialogEl?.querySelector<HTMLButtonElement>('button.primary:not([disabled])');
+    if (primary) {
+      e.preventDefault();
+      primary.click();
+    }
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -42,7 +57,7 @@
     class="modal"
     bind:this={dialogEl}
     onclick={(e) => e.stopPropagation()}
-    onkeydown={() => {}}
+    onkeydown={handleDialogKeydown}
     role="document"
     tabindex={-1}
   >

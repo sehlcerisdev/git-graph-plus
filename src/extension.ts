@@ -150,6 +150,14 @@ export function activate(context: vscode.ExtensionContext) {
   }).catch((err) => { console.warn('Git Graph+: repo discovery failed:', err instanceof Error ? err.message : err); });
 
   let sidebarRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  context.subscriptions.push({
+    dispose: () => {
+      if (sidebarRefreshTimer) {
+        clearTimeout(sidebarRefreshTimer);
+        sidebarRefreshTimer = null;
+      }
+    },
+  });
   function refreshAll() {
     if (sidebarRefreshTimer) { clearTimeout(sidebarRefreshTimer); }
     sidebarRefreshTimer = setTimeout(async () => {

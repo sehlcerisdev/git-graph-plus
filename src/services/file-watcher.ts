@@ -137,6 +137,30 @@ export class FileWatcher implements vscode.Disposable {
     }, this.DEBOUNCE_MS);
   }
 
+  /** Absorb watcher events for `durationMs` ms. Call this immediately after the
+   *  extension performs its own git operation + explicit refresh, so the
+   *  filesystem changes caused by that operation don't trigger a redundant
+   *  second refresh. Any events arriving during the window are coalesced into
+   *  a single re-trigger after it expires (same path as pendingWhileRefreshing). */
+  public suppress(durationMs = 1000): void {
+    if (this.disposed) { return; }
+    this.refreshing = true;
+    if (this.cooldownTimer) {
+      clearTimeout(this.cooldownTimer);
+    }
+    this.cooldownTimer = setTimeout(() => {
+      this.cooldownTimer = null;
+      this.refreshing = false;
+      if (this.disposed) { return; }
+      if (this.pendingWhileRefreshing) {
+        this.pendingWhileRefreshing = false;
+        if (this.pendingChanges.size > 0) {
+          this.scheduleRefresh('unknown');
+        }
+      }
+    }, durationMs);
+  }
+
   dispose(): void {
     this.disposed = true;
     if (this.debounceTimer) {

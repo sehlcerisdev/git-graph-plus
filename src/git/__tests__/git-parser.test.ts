@@ -296,6 +296,33 @@ Binary files a/image.png and b/image.png differ`;
     expect(result[0].file).toBe('한글.txt');
   });
 
+  it('parses unquoted path containing spaces', () => {
+    // git does not quote paths that contain only spaces (no other special chars).
+    // The header looks like "a/my file.txt b/my file.txt" — the regex must split
+    // on the " b/" boundary, not the first whitespace.
+    const raw = [
+      'diff --git a/my file.txt b/my file.txt',
+      '@@ -1 +1 @@',
+      '-x',
+      '+y',
+    ].join('\n');
+    const result = parseDiff(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].file).toBe('my file.txt');
+  });
+
+  it('parses unquoted path whose name contains a "b/" substring', () => {
+    const raw = [
+      'diff --git a/src/b/util.ts b/src/b/util.ts',
+      '@@ -1 +1 @@',
+      '-x',
+      '+y',
+    ].join('\n');
+    const result = parseDiff(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].file).toBe('src/b/util.ts');
+  });
+
   it('should parse quoted path with backslash escape', () => {
     const raw = [
       'diff --git "a/with\\ttab.txt" "b/with\\ttab.txt"',

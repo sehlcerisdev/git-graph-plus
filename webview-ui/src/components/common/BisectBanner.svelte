@@ -11,8 +11,9 @@
 
   const vscode = getVsCodeApi();
 
-  // Parse bisect result message
-  const isFinished = $derived(message.includes('is the first bad commit') || message.includes('첫 번째 나쁜 커밋'));
+  // Parse bisect result message. Git output is forced to English via LC_ALL=C
+  // in GitService.exec, so a single English match is sufficient regardless of UI locale.
+  const isFinished = $derived(message.includes('is the first bad commit'));
 
   // Extract remaining steps from message like "Bisecting: 3 revisions left to test after this (roughly 2 steps)"
   const remainingSteps = $derived.by(() => {

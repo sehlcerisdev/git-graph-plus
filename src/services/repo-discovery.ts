@@ -173,6 +173,10 @@ export class RepoDiscoveryService {
   }
 
   private static async hasGitDir(dir: string): Promise<boolean> {
+    // fs.access accepts both directories and files, so worktree-linked checkouts
+    // (where `.git` is a file pointing at the real gitdir) are detected too.
+    // Bare repositories (no `.git` entry; HEAD/refs/objects at the top level) are
+    // intentionally not surfaced — the rest of the extension assumes a working tree.
     try {
       await fs.promises.access(path.join(dir, '.git'));
       return true;

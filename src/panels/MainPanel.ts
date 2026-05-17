@@ -321,7 +321,10 @@ export class MainPanel {
           const result = message.payload.mode === 'rebase'
             ? await this.gitService.predictRebaseConflicts(message.payload.ours, message.payload.theirs)
             : await this.gitService.predictConflicts(message.payload.ours, message.payload.theirs, message.payload.mergeBase);
-          this.panel.webview.postMessage({ type: 'conflictPrediction', payload: result });
+          this.panel.webview.postMessage({
+            type: 'conflictPrediction',
+            payload: { ...result, requestId: message.payload.requestId },
+          });
           break;
         }
         case 'checkout': {
@@ -1152,6 +1155,15 @@ export class MainPanel {
           type: 'conflictData',
           payload: { operation: (opState.type === 'squash' ? 'merge' : opState.type) ?? 'merge', files: conflictFiles.map(f => ({ path: f, resolved: false })) },
         });
+        // If we entered the catch with an existing conflict (e.g. stageFile / refreshConflicts
+        // failed while in a paused merge), still surface the underlying error — otherwise
+        // the failure is invisible because the conflict UI just re-renders unchanged.
+        if (message.type === 'stageFile' || message.type === 'refreshConflicts') {
+          this.panel.webview.postMessage({
+            type: 'error',
+            payload: { message: errorMessage },
+          });
+        }
         // Focus the Source Control sidebar so the user can resolve conflicts
         vscode.commands.executeCommand('workbench.view.scm');
         await this.refreshAll();
@@ -1232,6 +1244,9 @@ export class MainPanel {
     }
     this.refreshing = true;
     this.refreshQueued = false;
+    // Watcher events caused by the same git operation that triggered this refresh
+    // would arrive ~immediately after; absorb them so they don't fire a second pass.
+    this.fileWatcher.suppress();
     try {
       const sortOrder = vscode.workspace.getConfiguration('gitGraphPlus').get<'author-date' | 'date' | 'topological'>('graphSortOrder', 'topological');
       const refreshLimit = this.currentLimit || 1000;

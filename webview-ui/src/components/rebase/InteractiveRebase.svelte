@@ -25,6 +25,7 @@
   }
 
   let todos = $state<TodoEntry[]>([]);
+  let initialOrder = $state<string[]>([]);
   let loading = $state(true);
   let dragIndex = $state<number | null>(null);
   let showActionMenu = $state<number | null>(null);
@@ -41,7 +42,12 @@
 
   const dropCount = $derived(todos.filter(t => t.action === 'drop').length);
 
-  const hasChanges = $derived(todos.some(t => t.action !== 'pick'));
+  const orderChanged = $derived(
+    todos.length === initialOrder.length &&
+    todos.some((t, i) => t.hash !== initialOrder[i])
+  );
+
+  const hasChanges = $derived(todos.some(t => t.action !== 'pick') || orderChanged);
 
   const squashGroups = $derived(todos.map((todo, i) => {
     const isSquashLike = (entry?: TodoEntry) => entry?.action === 'squash' || entry?.action === 'fixup';
@@ -70,6 +76,7 @@
           hash: c.hash,
           subject: c.subject,
         }));
+        initialOrder = msg.payload.commits.map((c: Commit) => c.hash);
         loading = false;
       }
     }
