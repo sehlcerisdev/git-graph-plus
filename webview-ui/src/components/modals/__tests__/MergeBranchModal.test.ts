@@ -1,0 +1,78 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
+import MergeBranchModal from '../MergeBranchModal.svelte';
+import { i18n } from '../../../lib/i18n/index.svelte';
+
+beforeEach(() => { i18n.setLocale('en'); });
+
+describe('MergeBranchModal', () => {
+  it('on mount, posts predictConflicts with ours=target, theirs=source', () => {
+    render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge: vi.fn() },
+    });
+    const posted = globalThis.__postedMessages.map(m => m.data) as Array<{ type: string; payload?: Record<string, unknown> }>;
+    const predict = posted.find(p => p.type === 'predictConflicts');
+    expect(predict).toBeDefined();
+    // For a merge, we apply `source` into `target`, so the prediction uses
+    // ours=target, theirs=source.
+    expect(predict!.payload!.ours).toBe('main');
+    expect(predict!.payload!.theirs).toBe('feature/x');
+  });
+
+  it('default click sends noFf=false, ffOnly=false, squash=false', async () => {
+    const onMerge = vi.fn();
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
+    });
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false });
+  });
+
+  it('selecting no-ff via the ColorSelect dropdown sets noFf=true, squash=false', async () => {
+    const onMerge = vi.fn();
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
+    });
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.color-select-btn')!);
+    const noFfOption = Array.from(container.querySelectorAll<HTMLButtonElement>('.color-select-option'))
+      .find(o => o.textContent?.toLowerCase().includes('no fast'));
+    expect(noFfOption).toBeDefined();
+    await fireEvent.click(noFfOption!);
+    await tick();
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onMerge).toHaveBeenCalledWith({ noFf: true, ffOnly: false, squash: false });
+  });
+
+  it('selecting squash sets squash=true, noFf=false (mutually exclusive with no-ff)', async () => {
+    const onMerge = vi.fn();
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
+    });
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.color-select-btn')!);
+    const squashOption = Array.from(container.querySelectorAll<HTMLButtonElement>('.color-select-option'))
+      .find(o => o.textContent?.toLowerCase().includes('squash'));
+    expect(squashOption).toBeDefined();
+    await fireEvent.click(squashOption!);
+    await tick();
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: true });
+  });
+
+  it('warning banner appears for conflict prediction with hasConflict=true', async () => {
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge: vi.fn() },
+    });
+    const requestId = (globalThis.__postedMessages.find(m =>
+      (m.data as { type: string }).type === 'predictConflicts',
+    )!.data as { payload: { requestId: string } }).payload.requestId;
+
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'conflictPrediction', payload: { hasConflict: true, files: ['a.ts'], requestId } },
+    }));
+    await tick();
+
+    expect(container.querySelector('.conflict-status.is-warning')).not.toBeNull();
+    expect(container.querySelector('.spinner')).toBeNull();
+  });
+});
