@@ -1,0 +1,174 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { tooltip } from '../tooltip';
+
+function makeNode(): HTMLButtonElement {
+  const btn = document.createElement('button');
+  document.body.appendChild(btn);
+  return btn;
+}
+
+function mouseEvent(type: string, x = 100, y = 100): MouseEvent {
+  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true });
+}
+
+function getTooltipEl(): HTMLElement | null {
+  return document.body.querySelector('.vsg-tooltip');
+}
+
+describe('tooltip action', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '';
+    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+  });
+
+  it('does nothing on hover when text is undefined', () => {
+    const node = makeNode();
+    tooltip(node, undefined);
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(1000);
+    expect(getTooltipEl()).toBeNull();
+  });
+
+  it('creates a tooltip element after the 500ms delay on mouseenter', () => {
+    const node = makeNode();
+    tooltip(node, 'hello');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    expect(getTooltipEl()).toBeNull(); // not yet
+    vi.advanceTimersByTime(500);
+    const el = getTooltipEl();
+    expect(el).not.toBeNull();
+    expect(el!.textContent).toBe('hello');
+  });
+
+  it('mouseleave hides the tooltip', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).not.toBeNull();
+    node.dispatchEvent(mouseEvent('mouseleave'));
+    expect(getTooltipEl()).toBeNull();
+  });
+
+  it('mouseleave before the delay cancels the pending tooltip', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(200);
+    node.dispatchEvent(mouseEvent('mouseleave'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).toBeNull();
+  });
+
+  it('mousemove repositions the tooltip', () => {
+    const node = makeNode();
+    tooltip(node, 'pos');
+    node.dispatchEvent(mouseEvent('mouseenter', 50, 50));
+    vi.advanceTimersByTime(500);
+    const el = getTooltipEl()!;
+    const left1 = el.style.left;
+    node.dispatchEvent(mouseEvent('mousemove', 300, 300));
+    expect(el.style.left).not.toBe(left1);
+  });
+
+  it('update() changes the visible text', () => {
+    const node = makeNode();
+    const action = tooltip(node, 'first');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()!.textContent).toBe('first');
+    action.update('second');
+    expect(getTooltipEl()!.textContent).toBe('second');
+  });
+
+  it('update() while not visible just stores the text for next hover', () => {
+    const node = makeNode();
+    const action = tooltip(node, 'first');
+    action.update('second');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()!.textContent).toBe('second');
+  });
+
+  it('update(undefined) makes future hovers no-op', () => {
+    const node = makeNode();
+    const action = tooltip(node, 'first');
+    action.update(undefined);
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).toBeNull();
+  });
+
+  it('Escape keydown hides the visible tooltip', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).not.toBeNull();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(getTooltipEl()).toBeNull();
+  });
+
+  it('non-Escape keys do not hide the tooltip', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(getTooltipEl()).not.toBeNull();
+  });
+
+  it('window blur hides the tooltip', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    window.dispatchEvent(new Event('blur'));
+    expect(getTooltipEl()).toBeNull();
+  });
+
+  it('hides when the node becomes disabled (mutation observer)', async () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).not.toBeNull();
+    node.disabled = true;
+    // MutationObserver fires asynchronously as a microtask
+    await Promise.resolve();
+    expect(getTooltipEl()).toBeNull();
+  });
+
+  it('destroy() removes tooltip and unbinds listeners', () => {
+    const node = makeNode();
+    const action = tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).not.toBeNull();
+    action.destroy();
+    expect(getTooltipEl()).toBeNull();
+    // Further events on the node do not bring it back
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).toBeNull();
+  });
+
+  it('hovering near the viewport edge flips position to the other side', () => {
+    const node = makeNode();
+    tooltip(node, 'flip me to the left');
+    // Mouse near right/bottom edge — element overflow should trigger flip.
+    node.dispatchEvent(mouseEvent('mouseenter', 1020, 760));
+    vi.advanceTimersByTime(500);
+    const el = getTooltipEl()!;
+    // Should sit at clamped/flipped coords, not at mouseX + 8 / mouseY + 14.
+    expect(parseFloat(el.style.left)).toBeLessThan(1020);
+    expect(parseFloat(el.style.top)).toBeLessThan(760);
+  });
+});

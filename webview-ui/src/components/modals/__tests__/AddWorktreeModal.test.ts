@@ -81,6 +81,39 @@ describe('AddWorktreeModal', () => {
     expect(locationInput.value).toBe('/my/custom/path');
   });
 
+  it('Enter on the branch input submits when ready', async () => {
+    const onAdd = vi.fn();
+    const { container } = render(AddWorktreeModal, {
+      defaultPath: '/wt/',
+      onClose: vi.fn(),
+      onAdd,
+    });
+    const branchInput = container.querySelector<HTMLInputElement>('#wt-branch')!;
+    await fireEvent.input(branchInput, { target: { value: 'feat' } });
+    await tick();
+    await fireEvent.keyDown(branchInput, { key: 'Enter' });
+    expect(onAdd).toHaveBeenCalled();
+  });
+
+  it('switching startAt branch via the dropdown propagates to onAdd', async () => {
+    const onAdd = vi.fn();
+    const { container } = render(AddWorktreeModal, {
+      defaultPath: '/wt/',
+      onClose: vi.fn(),
+      onAdd,
+    });
+    // Open the startAt ColorSelect and pick "develop"
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.color-select-btn')!);
+    const opts = container.querySelectorAll<HTMLButtonElement>('.color-select-option');
+    const develop = Array.from(opts).find(o => o.textContent?.includes('develop'))!;
+    await fireEvent.click(develop);
+    const branchInput = container.querySelector<HTMLInputElement>('#wt-branch')!;
+    await fireEvent.input(branchInput, { target: { value: 'feat' } });
+    await tick();
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onAdd).toHaveBeenCalledWith('/wt/feat', 'develop', 'feat');
+  });
+
   it('submit forwards (location, startAt, branchName) trimmed', async () => {
     const onAdd = vi.fn();
     const { container } = render(AddWorktreeModal, {

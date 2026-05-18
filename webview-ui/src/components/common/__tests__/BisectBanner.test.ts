@@ -102,4 +102,20 @@ describe('BisectBanner — finished message parsing', () => {
     expect(onReset).toHaveBeenCalledTimes(1);
     expect(globalThis.__postedMessages).toEqual([]);
   });
+
+  it('Skip button posts bisectSkip', async () => {
+    globalThis.__postedMessages = [];
+    const { container } = render(BisectBanner, {
+      message: 'Bisecting: 3 revisions left to test after this (roughly 2 steps)\n[abcdef1234] Some subject',
+      onReset: vi.fn(),
+    });
+    // Skip is the third action button (Good, Bad, Skip, Reset)
+    const buttons = container.querySelectorAll<HTMLButtonElement>('button');
+    // Find by text — the order in the DOM may be Good, Bad, Skip, Reset.
+    const skipBtn = Array.from(buttons).find(b => /skip/i.test(b.textContent ?? ''))!;
+    await fireEvent.click(skipBtn);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'bisectSkip'
+    )).toBe(true);
+  });
 });

@@ -140,6 +140,70 @@ describe('SetUpstreamModal', () => {
     expect(notice!.textContent).toContain('git push -u');
   });
 
+  it('toggle to manual input mode then back, then submit uses textBranch', async () => {
+    setRemoteState(
+      [{ name: 'origin', fetchUrl: '', pushUrl: '' }],
+      [remoteBranch('origin', 'main')],
+    );
+    const onSet = vi.fn();
+    const { container } = render(SetUpstreamModal, {
+      branchName: 'main',
+      currentUpstream: 'origin/main',
+      onClose: vi.fn(),
+      onSet,
+    });
+    // hasBranchOptions=true (origin/main exists) and currentUpstream truthy
+    // → manualInput starts false (useDropdown=true). Click the toggle to flip
+    // to manual input, then back to dropdown.
+    const toggle = container.querySelector<HTMLButtonElement>('.toggle-btn')!;
+    expect(toggle).not.toBeNull();
+    await fireEvent.click(toggle);
+    // Now in manual input mode — there's an <input>, no ColorSelect for branch
+    const input = container.querySelector<HTMLInputElement>('input.modal-input')!;
+    expect(input).not.toBeNull();
+    await fireEvent.input(input, { target: { value: 'custom-branch' } });
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    // remote branch doesn't exist on remote → createRemote=true
+    expect(onSet).toHaveBeenCalledWith('origin', 'custom-branch', true);
+  });
+
+  it('switching remote via the picker re-derives the branch options', async () => {
+    setRemoteState(
+      [
+        { name: 'origin', fetchUrl: '', pushUrl: '' },
+        { name: 'fork', fetchUrl: '', pushUrl: '' },
+      ],
+      [
+        remoteBranch('origin', 'main'),
+        remoteBranch('fork', 'experiment'),
+      ],
+    );
+    const onSet = vi.fn();
+    const { container } = render(SetUpstreamModal, {
+      branchName: 'main',
+      currentUpstream: 'origin/main',
+      onClose: vi.fn(),
+      onSet,
+    });
+    // Two .color-select instances: [remote picker, branch picker].
+    const selects = container.querySelectorAll<HTMLButtonElement>('.color-select-btn');
+    // Open the remote picker (first) and switch to "fork".
+    await fireEvent.click(selects[0]);
+    const opts = container.querySelectorAll<HTMLButtonElement>('.color-select-option');
+    const forkOpt = Array.from(opts).find(o => o.textContent?.includes('fork'))!;
+    await fireEvent.click(forkOpt);
+    // Branch picker now should show "fork/experiment" as the available option.
+    // Open it and confirm.
+    const selects2 = container.querySelectorAll<HTMLButtonElement>('.color-select-btn');
+    await fireEvent.click(selects2[1]);
+    const branchOpts = container.querySelectorAll<HTMLButtonElement>('.color-select-option');
+    const experiment = Array.from(branchOpts).find(o => o.textContent?.includes('experiment'));
+    expect(experiment).not.toBeUndefined();
+    await fireEvent.click(experiment!);
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onSet).toHaveBeenCalledWith('fork', 'experiment', false);
+  });
+
   it('submit is disabled when the active branch is blank', async () => {
     setRemoteState([{ name: 'origin', fetchUrl: '', pushUrl: '' }]);
     const { container } = render(SetUpstreamModal, {

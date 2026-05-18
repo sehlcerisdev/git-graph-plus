@@ -77,6 +77,34 @@ describe('modalStore.anyOpen', () => {
   });
 });
 
+describe('modalStore — remaining open methods', () => {
+  it('openStashRename captures index and message', () => {
+    modalStore.openStashRename(3, 'wip thing');
+    expect(modalStore.stashRename).toEqual({ show: true, index: 3, message: 'wip thing' });
+  });
+
+  it('openSetUpstream captures branch and currentUpstream (defaults blank)', () => {
+    modalStore.openSetUpstream('feat');
+    expect(modalStore.setUpstream).toEqual({ show: true, branchName: 'feat', currentUpstream: '' });
+    modalStore.closeSetUpstream();
+    modalStore.openSetUpstream('feat', 'origin/feat');
+    expect(modalStore.setUpstream.currentUpstream).toBe('origin/feat');
+  });
+
+  it('openFlowStart captures the flow type', () => {
+    modalStore.openFlowStart('release');
+    expect(modalStore.flowStart).toEqual({ show: true, flowType: 'release' });
+  });
+
+  it('openPushTag defaults remote to origin', () => {
+    modalStore.openPushTag('v1.0');
+    expect(modalStore.pushTag).toEqual({ show: true, tagName: 'v1.0', remote: 'origin' });
+    modalStore.closePushTag();
+    modalStore.openPushTag('v1.0', 'fork');
+    expect(modalStore.pushTag.remote).toBe('fork');
+  });
+});
+
 describe('modalStore.closeAll', () => {
   it('closes every open modal in one call (used on extension error)', () => {
     modalStore.openCreateBranch('main');

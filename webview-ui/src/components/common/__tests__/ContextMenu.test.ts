@@ -123,6 +123,26 @@ describe('ContextMenu', () => {
     expect(container.querySelector('.submenu')).toBeNull();
   });
 
+  it('mouseleave from submenu-wrapper clears activeSubmenu', async () => {
+    const { container } = render(ContextMenu, {
+      x: 0, y: 0,
+      onClose: vi.fn(),
+      items: [
+        {
+          label: 'More',
+          action: vi.fn(),
+          children: [{ label: 'Sub', action: vi.fn() }],
+        },
+      ],
+    });
+    const parent = container.querySelector<HTMLButtonElement>('button.has-children')!;
+    await fireEvent.mouseEnter(parent);
+    expect(container.querySelector('.submenu')).not.toBeNull();
+    const wrapper = container.querySelector<HTMLDivElement>('.submenu-wrapper')!;
+    await fireEvent.mouseLeave(wrapper);
+    expect(container.querySelector('.submenu')).toBeNull();
+  });
+
   it('clicking a submenu child invokes its action and closes the parent menu', async () => {
     const childAction = vi.fn();
     const onClose = vi.fn();

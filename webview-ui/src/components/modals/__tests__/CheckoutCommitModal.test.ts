@@ -129,6 +129,25 @@ describe('CheckoutCommitModal — dirty payload', () => {
     expect(onCheckout).toHaveBeenCalledWith('feature/x', { force: true, clean: true });
   });
 
+  it('switching branch via the ColorSelect dropdown propagates to onCheckout', async () => {
+    const onCheckout = vi.fn();
+    const { container } = render(CheckoutCommitModal, {
+      hash: 'abc1234',
+      linkedBranches: ['feature/x', 'feature/y', 'feature/z'],
+      currentBranch: 'main',
+      onCheckout, onClose: vi.fn(),
+    });
+    respondToDirtyCheck(false);
+    await tick();
+    // Open the branch picker and pick "feature/z"
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.color-select-btn')!);
+    const opts = container.querySelectorAll<HTMLButtonElement>('.color-select-option');
+    const z = Array.from(opts).find(o => o.textContent?.includes('feature/z'))!;
+    await fireEvent.click(z);
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onCheckout).toHaveBeenCalledWith('feature/z', {});
+  });
+
   it('omits dirty payload entirely (empty object) when working tree is clean', async () => {
     const onCheckout = vi.fn();
     const { container } = render(CheckoutCommitModal, {
