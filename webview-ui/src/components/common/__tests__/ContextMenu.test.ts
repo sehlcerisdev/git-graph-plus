@@ -123,6 +123,98 @@ describe('ContextMenu', () => {
     expect(container.querySelector('.submenu')).toBeNull();
   });
 
+  it('renders item icon when icon prop is provided', () => {
+    const { container } = render(ContextMenu, {
+      x: 0, y: 0,
+      onClose: vi.fn(),
+      items: [{ label: 'Copy', action: vi.fn(), icon: 'copy' }],
+    });
+    expect(container.querySelector('.menu-item .codicon-copy')).not.toBeNull();
+  });
+
+  it('renders child icons inside submenu items', async () => {
+    const { container } = render(ContextMenu, {
+      x: 0, y: 0,
+      onClose: vi.fn(),
+      items: [
+        {
+          label: 'More',
+          action: vi.fn(),
+          children: [{ label: 'Sub', action: vi.fn(), icon: 'trash' }],
+        },
+      ],
+    });
+    const parent = container.querySelector<HTMLButtonElement>('button.has-children')!;
+    await fireEvent.mouseEnter(parent);
+    expect(container.querySelector('.submenu .codicon-trash')).not.toBeNull();
+  });
+
+  it('clamps adjustedX when menu would overflow the viewport right edge', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 800, writable: true, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 600, writable: true, configurable: true });
+    // Stub getBoundingClientRect on the prototype BEFORE mount so the $effect
+    // reads the overflowing size on its first run.
+    const origRect = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function () {
+      return { x: 0, y: 0, top: 0, left: 0, right: 200, bottom: 30, width: 200, height: 30, toJSON() {} };
+    };
+    try {
+      const { container } = render(ContextMenu, {
+        x: 750, y: 100,
+        onClose: vi.fn(),
+        items: [{ label: 'Open', action: vi.fn() }],
+      });
+      await new Promise(r => queueMicrotask(() => r(null)));
+      const menu = container.querySelector<HTMLDivElement>('.context-menu')!;
+      const left = parseFloat(menu.style.left);
+      expect(left).toBeLessThanOrEqual(596);
+    } finally {
+      Element.prototype.getBoundingClientRect = origRect;
+    }
+  });
+
+  it('clamps adjustedY when menu would overflow the viewport bottom', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 800, writable: true, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 600, writable: true, configurable: true });
+    const origRect = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function () {
+      return { x: 0, y: 0, top: 0, left: 0, right: 200, bottom: 300, width: 200, height: 300, toJSON() {} };
+    };
+    try {
+      const { container } = render(ContextMenu, {
+        x: 100, y: 580,
+        onClose: vi.fn(),
+        items: [{ label: 'Open', action: vi.fn() }],
+      });
+      await new Promise(r => queueMicrotask(() => r(null)));
+      const menu = container.querySelector<HTMLDivElement>('.context-menu')!;
+      const top = parseFloat(menu.style.top);
+      expect(top).toBeLessThanOrEqual(296);
+    } finally {
+      Element.prototype.getBoundingClientRect = origRect;
+    }
+  });
+
+  it('flips submenu to the left side when right would overflow', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 800, writable: true, configurable: true });
+    const { container } = render(ContextMenu, {
+      x: 0, y: 0,
+      onClose: vi.fn(),
+      items: [
+        { label: 'More', action: vi.fn(), children: [{ label: 'Sub', action: vi.fn() }] },
+      ],
+    });
+    const parent = container.querySelector<HTMLButtonElement>('button.has-children')!;
+    // Stub wrapper rect so right + 190 > 800
+    const wrapper = parent.closest('.submenu-wrapper') as HTMLElement;
+    wrapper.getBoundingClientRect = () => ({
+      x: 0, y: 0, top: 0, left: 700, right: 700, bottom: 30, width: 100, height: 30, toJSON() {},
+    });
+    await fireEvent.mouseEnter(parent);
+    const submenu = container.querySelector('.submenu');
+    expect(submenu?.classList.contains('on-left')).toBe(true);
+  });
+
   it('mouseleave from submenu-wrapper clears activeSubmenu', async () => {
     const { container } = render(ContextMenu, {
       x: 0, y: 0,

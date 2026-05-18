@@ -1026,3 +1026,257 @@ describe('App — bottom panel resize handle', () => {
     await fireEvent.mouseUp(window);
   });
 });
+
+describe('App — modal cancel/close callbacks', () => {
+  // Each test opens a modal via store, clicks the dedicated header X button
+  // (.modal-close) or the cancel button in form-actions, then verifies the
+  // modal closes WITHOUT firing its action handler.
+
+  async function clickHeaderClose() {
+    const btn = document.querySelector<HTMLButtonElement>('.modal .modal-close');
+    expect(btn).not.toBeNull();
+    await fireEvent.click(btn!);
+  }
+
+  function commonRemotes() {
+    branchStore.branches = [
+      { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h', upstream: 'origin/main' },
+    ];
+    branchStore.remotes = [{ name: 'origin', fetchUrl: '', pushUrl: '' }];
+  }
+
+  it('Fetch modal X button closes without posting fetch', async () => {
+    commonRemotes();
+    render(App);
+    modalStore.openFetch('origin');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.fetch.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'fetch'
+    )).toBe(false);
+  });
+
+  it('Pull modal X button closes without posting pull', async () => {
+    commonRemotes();
+    render(App);
+    modalStore.openPull();
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.pull.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'pull'
+    )).toBe(false);
+  });
+
+  it('Push modal X button closes without posting push', async () => {
+    commonRemotes();
+    render(App);
+    modalStore.openPush('origin');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.push.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'push'
+    )).toBe(false);
+  });
+
+  it('Merge modal X button closes without posting merge', async () => {
+    render(App);
+    modalStore.openMerge('feat', 'main');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.merge.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'merge'
+    )).toBe(false);
+  });
+
+  it('CreateBranch modal X button closes without posting createBranch', async () => {
+    render(App);
+    modalStore.openCreateBranch('HEAD');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.createBranch.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'createBranch'
+    )).toBe(false);
+  });
+
+  it('CreateTag modal X button closes without posting createTag', async () => {
+    commonRemotes();
+    render(App);
+    modalStore.openCreateTag('HEAD');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.createTag.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'createTag'
+    )).toBe(false);
+  });
+
+  it('StashSave modal X button closes without posting stashSave', async () => {
+    render(App);
+    modalStore.openStashSave();
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.stashSave.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'stashSave'
+    )).toBe(false);
+  });
+
+  it('StashApply modal X button closes without posting stashApply', async () => {
+    render(App);
+    modalStore.openStashApply(0, 'wip', false);
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.stashApply.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'stashApply'
+    )).toBe(false);
+  });
+
+  it('StashRename modal X button closes without posting stashRename', async () => {
+    render(App);
+    modalStore.openStashRename(0, 'initial');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.stashRename.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'stashRename'
+    )).toBe(false);
+  });
+
+  it('RenameBranch modal X button closes without posting renameBranch', async () => {
+    render(App);
+    modalStore.openRenameBranch('old');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.renameBranch.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'renameBranch'
+    )).toBe(false);
+  });
+
+  it('CheckoutRemote modal X button closes without posting createBranch', async () => {
+    commonRemotes();
+    render(App);
+    modalStore.openCheckoutRemote('origin/feat', 'feat');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.checkoutRemote.show).toBe(false);
+  });
+
+  it('SetUpstream modal X button closes without posting setUpstream', async () => {
+    commonRemotes();
+    render(App);
+    modalStore.openSetUpstream('main', 'origin/main');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.setUpstream.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'setUpstream'
+    )).toBe(false);
+  });
+
+  it('PushTag modal X button closes without posting pushTag', async () => {
+    commonRemotes();
+    render(App);
+    modalStore.openPushTag('v1.0');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.pushTag.show).toBe(false);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'pushTag'
+    )).toBe(false);
+  });
+
+  it('DeleteRemoteBranch modal X closes without posting', async () => {
+    render(App);
+    modalStore.openDeleteRemoteBranch('origin', 'feat');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.deleteRemoteBranch.show).toBe(false);
+  });
+
+  it('RemoveWorktree modal X closes without posting', async () => {
+    render(App);
+    modalStore.openRemoveWorktree('/wt', 'feat');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.removeWorktree.show).toBe(false);
+  });
+
+  it('FlowInit modal X closes without posting', async () => {
+    render(App);
+    modalStore.openFlowInit();
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.flowInit.show).toBe(false);
+  });
+
+  it('FlowStart modal X closes without posting', async () => {
+    render(App);
+    postMsg('flowStatus', {
+      installed: true, initialized: true,
+      config: {
+        productionBranch: 'main', developBranch: 'develop',
+        featurePrefix: 'feature/', releasePrefix: 'release/',
+        hotfixPrefix: 'hotfix/', versionTagPrefix: 'v',
+      },
+    });
+    modalStore.openFlowStart('feature');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.flowStart.show).toBe(false);
+  });
+
+  it('FlowFinish modal X closes without posting', async () => {
+    render(App);
+    postMsg('flowStatus', {
+      installed: true, initialized: true,
+      config: {
+        productionBranch: 'main', developBranch: 'develop',
+        featurePrefix: 'feature/', releasePrefix: 'release/',
+        hotfixPrefix: 'hotfix/', versionTagPrefix: 'v',
+      },
+    });
+    modalStore.openFlowFinish('feature', 'feature/login');
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(modalStore.flowFinish.show).toBe(false);
+  });
+
+  it('AbortConfirm modal X closes the modal without posting abortOperation', async () => {
+    const { container } = render(App);
+    postMsg('conflictData', { operation: 'merge', files: [{ path: 'a.ts', resolved: false }] });
+    await waitFor(() => container.querySelector('.conflict-banner'));
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.conflict-actions .banner-btn.danger')!);
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await clickHeaderClose();
+    expect(document.querySelector('.modal')).toBeNull();
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'abortOperation'
+    )).toBe(false);
+  });
+});

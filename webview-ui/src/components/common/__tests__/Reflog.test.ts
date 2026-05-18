@@ -185,6 +185,75 @@ describe('Reflog — search and filter', () => {
   });
 });
 
+describe('Reflog — relativeTime branches', () => {
+  function entryAt(date: Date) {
+    return entry({ date: date.toISOString() });
+  }
+  function deliverAt(date: Date) {
+    deliverReflog([entryAt(date)]);
+  }
+
+  it('formats minutes-old entries with the minute key', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverAt(new Date(Date.now() - 5 * 60 * 1000));
+    await waitFor(() => container.querySelector('.reflog-row'));
+    expect(container.querySelector('.reflog-row .col-date')?.textContent ?? '').toMatch(/5m/i);
+  });
+
+  it('formats hours-old entries with "hour" key', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverAt(new Date(Date.now() - 3 * 60 * 60 * 1000));
+    await waitFor(() => container.querySelector('.reflog-row'));
+    expect(container.querySelector('.reflog-row .col-date')?.textContent ?? '').toMatch(/hour|h/i);
+  });
+
+  it('formats days-old entries with "day" key', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverAt(new Date(Date.now() - 5 * 24 * 60 * 60 * 1000));
+    await waitFor(() => container.querySelector('.reflog-row'));
+    expect(container.querySelector('.reflog-row .col-date')?.textContent ?? '').toMatch(/day|d/i);
+  });
+
+  it('formats months-old entries with "month" key', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverAt(new Date(Date.now() - 100 * 24 * 60 * 60 * 1000));
+    await waitFor(() => container.querySelector('.reflog-row'));
+    expect(container.querySelector('.reflog-row .col-date')?.textContent ?? '').toMatch(/month|mo/i);
+  });
+
+  it('formats years-old entries with "year" key', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverAt(new Date(Date.now() - 400 * 24 * 60 * 60 * 1000));
+    await waitFor(() => container.querySelector('.reflog-row'));
+    expect(container.querySelector('.reflog-row .col-date')?.textContent ?? '').toMatch(/year|y/i);
+  });
+
+  it('returns the raw date string when the date is invalid', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry({ date: 'not a real date' })]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    expect(container.querySelector('.reflog-row .col-date')?.textContent).toContain('not a real date');
+  });
+
+  it('returns empty string when date is empty', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry({ date: '' })]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    expect(container.querySelector('.reflog-row .col-date')?.textContent?.trim()).toBe('');
+  });
+
+  it('Escape with nothing open and empty query blurs the input', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry()]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    const input = container.querySelector<HTMLInputElement>('.search-input')!;
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    await fireEvent.keyDown(container.querySelector('.search-bar')!, { key: 'Escape' });
+    expect(document.activeElement).not.toBe(input);
+  });
+});
+
 describe('Reflog — action parsing and display', () => {
   it('renders action type tag and sub-action for "commit (amend)"', async () => {
     const { container } = render(Reflog, { active: true });
@@ -274,6 +343,72 @@ describe('Reflog — context menu', () => {
       (m) => (m.data as { type?: string }).type === 'copyToClipboard'
     );
     expect((req!.data as { payload: { text: string } }).payload.text).toBe('fullSha12345');
+  });
+});
+
+describe('Reflog — modal action callbacks', () => {
+  async function openContextMenuAndClick(container: HTMLElement, label: RegExp) {
+    const row = container.querySelector('.reflog-row')!;
+    await fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+    await waitFor(() => {
+      expect(document.body.textContent ?? '').toMatch(/reset|checkout|sha/i);
+    });
+    const item = Array.from(document.querySelectorAll<HTMLButtonElement>('button, [role="menuitem"]'))
+      .find(b => label.test(b.textContent ?? ''))!;
+    await fireEvent.click(item);
+  }
+
+  it('ResetModal confirm (Reset) posts reset with the entry hash', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry({ hash: 'targetHash9' })]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    await openContextMenuAndClick(container, /reset/i);
+    await waitFor(() => document.querySelector('.modal button.primary'));
+    globalThis.__postedMessages = [];
+    await fireEvent.click(document.querySelector<HTMLButtonElement>('.modal button.primary')!);
+    const req = globalThis.__postedMessages.find(
+      (m) => (m.data as { type?: string }).type === 'reset'
+    );
+    expect(req).toBeDefined();
+    expect((req!.data as { payload: { ref: string; mode: string } }).payload).toMatchObject({
+      ref: 'targetHash9',
+    });
+  });
+
+  it('ResetModal cancel (X) closes without posting reset', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry()]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    await openContextMenuAndClick(container, /reset/i);
+    await waitFor(() => document.querySelector('.modal'));
+    globalThis.__postedMessages = [];
+    await fireEvent.click(document.querySelector<HTMLButtonElement>('.modal .modal-close')!);
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'reset'
+    )).toBe(false);
+  });
+
+  it('CheckoutCommitModal confirm posts checkout', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry({ hash: 'fullHash7' })]);
+    await waitFor(() => container.querySelector('.reflog-row'));
+    await openContextMenuAndClick(container, /checkout/i);
+    await waitFor(() => document.querySelector('.modal'));
+    // CheckoutCommitModal fires checkDirty on mount; respond to it.
+    const posted = globalThis.__postedMessages.map(m => m.data) as Array<{ type: string; payload?: Record<string, unknown> }>;
+    const dirtyReq = posted.find(p => p.type === 'checkDirty');
+    if (dirtyReq) {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'dirtyState', payload: { requestId: dirtyReq.payload!.requestId, dirty: false } },
+      }));
+    }
+    await waitFor(() => document.querySelector('.modal button.primary'));
+    globalThis.__postedMessages = [];
+    await fireEvent.click(document.querySelector<HTMLButtonElement>('.modal button.primary')!);
+    const req = globalThis.__postedMessages.find(
+      (m) => (m.data as { type?: string }).type === 'checkout'
+    );
+    expect(req).toBeDefined();
   });
 });
 

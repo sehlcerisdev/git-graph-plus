@@ -161,18 +161,51 @@ describe('ImageDiff — swipe interaction', () => {
 });
 
 describe('ImageDiff — image info & onion slider', () => {
-  it('formatBytes shows bytes/KB/MB depending on size', async () => {
-    const { container } = render(ImageDiff, { file: 'x.png', staged: false });
-    // Provide base64 sized so loadImageInfo cb fires (Image.onload happens
-    // synchronously in happy-dom because the src is a data URL).
-    deliverImage({ ref: ':0', path: 'x.png', base64: 'a'.repeat(2000), mimeType: 'image/png' });
-    deliverImage({ ref: 'working', path: 'x.png', base64: 'a'.repeat(2_000_000), mimeType: 'image/png' });
-    // We can't reliably wait for Image.onload across happy-dom versions; just
-    // verify the data URLs are rendered (formatBytes will run if onload fires).
-    await waitFor(() => {
-      const imgs = container.querySelectorAll<HTMLImageElement>('.diff-image');
-      expect(imgs.length).toBeGreaterThan(0);
-    });
+  it('formatBytes formats bytes/KB/MB depending on size', async () => {
+    // happy-dom does not fire Image.onload when src is assigned, so loadImageInfo's
+    // callback never runs. Stub Image to invoke onload synchronously on src set.
+    const OriginalImage = globalThis.Image;
+    class StubImage {
+      onload: (() => void) | null = null;
+      naturalWidth = 100;
+      naturalHeight = 50;
+      private _src = '';
+      set src(v: string) { this._src = v; queueMicrotask(() => this.onload?.()); }
+      get src() { return this._src; }
+    }
+    (globalThis as unknown as { Image: typeof StubImage }).Image = StubImage;
+    try {
+      const { container } = render(ImageDiff, { file: 'x.png', staged: false });
+      // Three sizes: B (< 1024), KB (< 1MB), MB (>= 1MB).
+      // base64.length * 3/4 = bytes — so 12-char base64 ≈ 9 bytes (B branch),
+      // 2000-char ≈ 1500 bytes (KB branch), 2,000,000-char ≈ 1.5MB (MB branch).
+      deliverImage({ ref: ':0', path: 'x.png', base64: 'aGVsbG8=', mimeType: 'image/png' });
+      await new Promise(r => setTimeout(r, 0));
+      await waitFor(() => {
+        const info = container.querySelector('.image-info');
+        expect(info?.textContent).toMatch(/B\)|KB\)|MB\)/);
+      });
+
+      // Re-render with bigger payload to hit KB branch
+      const k = render(ImageDiff, { file: 'k.png', staged: false });
+      deliverImage({ ref: ':0', path: 'k.png', base64: 'a'.repeat(2000), mimeType: 'image/png' });
+      await new Promise(r => setTimeout(r, 0));
+      await waitFor(() => {
+        const info = k.container.querySelector('.image-info');
+        expect(info?.textContent).toMatch(/KB\)/);
+      });
+
+      // Re-render with multi-MB payload to hit MB branch
+      const m = render(ImageDiff, { file: 'm.png', staged: false });
+      deliverImage({ ref: ':0', path: 'm.png', base64: 'a'.repeat(2_000_000), mimeType: 'image/png' });
+      await new Promise(r => setTimeout(r, 0));
+      await waitFor(() => {
+        const info = m.container.querySelector('.image-info');
+        expect(info?.textContent).toMatch(/MB\)/);
+      });
+    } finally {
+      globalThis.Image = OriginalImage;
+    }
   });
 
   it('onion slider updates the overlay opacity', async () => {

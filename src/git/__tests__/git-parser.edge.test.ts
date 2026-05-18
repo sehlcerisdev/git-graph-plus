@@ -8,6 +8,8 @@ import {
   parseStashList,
   parseDiff,
   parseWorktreeList,
+  parseLfsFiles,
+  parseLfsLocks,
 } from '../git-parser';
 
 describe('parseRefs — edge cases', () => {
@@ -169,6 +171,118 @@ describe('parseWorktreeList — edge cases', () => {
     const result = parseWorktreeList(raw);
     expect(result[1].locked).toBe(true);
     expect(result[1].prunable).toBe(true);
+  });
+});
+
+describe('parseLog — defensive field fallbacks', () => {
+  it('handles a record with all fields missing (every ?? "" branch)', () => {
+    // RECORD_SEP only, no FIELD_SEP — fields[1..11] are undefined
+    const raw = '\x01';
+    const result = parseLog(raw);
+    // Empty trimmed record is filtered out by parseLog
+    expect(result).toEqual([]);
+  });
+
+  it('handles a record with only a hash (rest of fields undefined)', () => {
+    const raw = '\x01abc123';
+    const result = parseLog(raw);
+    expect(result[0].hash).toBe('abc123');
+    expect(result[0].abbreviatedHash).toBe('');
+    expect(result[0].author.name).toBe('');
+    expect(result[0].author.email).toBe('');
+    expect(result[0].subject).toBe('');
+    expect(result[0].body).toBe('');
+    expect(result[0].parents).toEqual([]);
+    expect(result[0].refs).toEqual([]);
+  });
+
+  it('strips trailing whitespace from hash field', () => {
+    const raw = '\x01  hashy  \x00short\x00';
+    expect(parseLog(raw)[0].hash).toBe('hashy');
+  });
+});
+
+describe('parseBranches — defensive fallbacks', () => {
+  it('handles a line with only a name (other fields undefined)', () => {
+    const raw = ' lonely';
+    const result = parseBranches(raw);
+    expect(result[0].name).toBe('lonely');
+    expect(result[0].hash).toBe('');
+    expect(result[0].upstream).toBeUndefined();
+    expect(result[0].ahead).toBe(0);
+    expect(result[0].behind).toBe(0);
+  });
+
+  it('drops the trailing "heads/" prefix only when not a remote branch', () => {
+    const raw = ' heads/foo\x00h\x00\x00\x00refs/heads/heads/foo';
+    expect(parseBranches(raw)[0].name).toBe('foo');
+  });
+});
+
+describe('parseTags — annotated tag edge cases', () => {
+  it('handles a tag line with no fields beyond name', () => {
+    const raw = 'v1';
+    const result = parseTags(raw);
+    expect(result[0].name).toBe('v1');
+    expect(result[0].hash).toBe('');
+    expect(result[0].isAnnotated).toBe(false);
+  });
+});
+
+describe('parseStashList — defensive fallbacks', () => {
+  it('handles a line with all fields missing except refStr', () => {
+    const raw = 'stash@{0}';
+    const result = parseStashList(raw);
+    expect(result[0].index).toBe(0);
+    expect(result[0].message).toBe('');
+    expect(result[0].date).toBe('');
+    expect(result[0].parentHash).toBeUndefined();
+    expect(result[0].hash).toBeUndefined();
+  });
+});
+
+describe('parseDiff — hunk header without context tail', () => {
+  it('hunk header with no trailing context comment still parses lines', () => {
+    const raw = `diff --git a/f.ts b/f.ts
+@@ -10,2 +10,2 @@
+ ctx
+-old
++new`;
+    const result = parseDiff(raw);
+    expect(result[0].hunks).toHaveLength(1);
+    expect(result[0].hunks[0].oldStart).toBe(10);
+    expect(result[0].hunks[0].newStart).toBe(10);
+  });
+
+  it('hunk header missing whole new range falls back to defaults', () => {
+    // Malformed: should still bail out (no hunkMatch) — produces empty hunks
+    const raw = `diff --git a/f.ts b/f.ts
+not a hunk
++line`;
+    const result = parseDiff(raw);
+    expect(result[0].hunks).toEqual([]);
+  });
+});
+
+describe('parseLfsFiles — defensive fallbacks', () => {
+  it('handles lines without the recognized delimiter (single token)', () => {
+    const raw = 'just-a-single-line';
+    const result = parseLfsFiles(raw);
+    expect(result[0]).toEqual({ oid: 'just-a-single-line', path: '' });
+  });
+});
+
+describe('parseLfsLocks — defensive fallbacks', () => {
+  it('handles lines missing some tab-separated fields', () => {
+    const raw = 'path-only';
+    const result = parseLfsLocks(raw);
+    expect(result[0]).toEqual({ path: 'path-only', owner: '', id: '' });
+  });
+
+  it('handles lines with just path and owner (no id)', () => {
+    const raw = 'logo.png\talice';
+    const result = parseLfsLocks(raw);
+    expect(result[0]).toEqual({ path: 'logo.png', owner: 'alice', id: '' });
   });
 });
 

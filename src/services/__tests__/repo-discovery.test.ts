@@ -241,4 +241,57 @@ describe('RepoDiscoveryService', () => {
       expect(nested.map(r => r.name)).toEqual(['a-nested', 'z-nested']);
     });
   });
+
+  describe('error handling', () => {
+    it('returns empty repo list when a workspace folder does not exist', async () => {
+      const repos = await RepoDiscoveryService.discoverRepos([
+        join(root, 'does-not-exist'),
+      ]);
+      expect(repos).toEqual([]);
+    });
+
+    it('skips a workspace folder with a fake .git file (not a real repo)', async () => {
+      // Create a `.git` file that doesn't point anywhere — git rev-parse will fail.
+      mkdirSync(join(root, 'fake'), { recursive: true });
+      writeFileSync(join(root, 'fake/.git'), 'gitdir: /nowhere\n');
+      const repos = await RepoDiscoveryService.discoverRepos([join(root, 'fake')]);
+      expect(repos.filter(r => r.type === 'root')).toEqual([]);
+    });
+
+    it('ignores false-positive .git directory (not a real git repo)', async () => {
+      // A folder named `.git` that is not actually a git repo metadata dir.
+      mkdirSync(join(root, 'child/.git/objects'), { recursive: true });
+      // Add a regular file so it looks like an unintialised .git dir
+      writeFileSync(join(root, 'child/.git/HEAD'), 'garbage\n');
+      initRepo(root);
+      const repos = await RepoDiscoveryService.discoverRepos([root]);
+      // The fake child should not show up as a nested repo
+      expect(repos.find(r => r.path.endsWith('child'))).toBeUndefined();
+    });
+
+    it('returns empty when discoverRepos is called with no workspace folders', async () => {
+      const repos = await RepoDiscoveryService.discoverRepos([]);
+      expect(repos).toEqual([]);
+    });
+  });
+
+  describe('caching', () => {
+    it('returns the cached result on the second call with the same workspaces', async () => {
+      initRepo(root);
+      const first = await RepoDiscoveryService.discoverRepos([root]);
+      const second = await RepoDiscoveryService.discoverRepos([root]);
+      // Same reference indicates the cached value was returned
+      expect(second).toBe(first);
+    });
+
+    it('clearCache forces re-discovery on the next call', async () => {
+      initRepo(root);
+      const first = await RepoDiscoveryService.discoverRepos([root]);
+      RepoDiscoveryService.clearCache();
+      const second = await RepoDiscoveryService.discoverRepos([root]);
+      // Cleared cache → new array instance (still equal contents)
+      expect(second).not.toBe(first);
+      expect(second.length).toBe(first.length);
+    });
+  });
 });

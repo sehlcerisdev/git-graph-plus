@@ -387,6 +387,55 @@ describe('Toolbar — no-remotes error modal', () => {
   });
 });
 
+describe('Toolbar — AddRemote modal flow', () => {
+  it('submitting AddRemote modal closes it and posts addRemote', async () => {
+    const { container } = render(Toolbar);
+    // Trigger the no-remotes error path
+    const btns = container.querySelectorAll<HTMLButtonElement>('.toolbar-btn');
+    await fireEvent.click(btns[1]); // fetch
+    await waitFor(() => container.querySelector('button.primary'));
+    // Click "Add Remote" in the error modal
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    await waitFor(() => {
+      const inputs = container.querySelectorAll('input.modal-input');
+      expect(inputs.length).toBeGreaterThanOrEqual(2);
+    });
+    const inputs = container.querySelectorAll<HTMLInputElement>('input.modal-input');
+    await fireEvent.input(inputs[0], { target: { value: 'upstream' } });
+    await fireEvent.input(inputs[1], { target: { value: 'https://github.com/x/y.git' } });
+    globalThis.__postedMessages = [];
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.modal button.primary')!);
+    const req = globalThis.__postedMessages.find(
+      (m) => (m.data as { type?: string }).type === 'addRemote'
+    );
+    expect(req).toBeDefined();
+    expect((req!.data as { payload: { name: string; url: string } }).payload).toEqual({
+      name: 'upstream', url: 'https://github.com/x/y.git',
+    });
+    // Modal should close after submit
+    await waitFor(() => {
+      expect(container.querySelector('input.modal-input')).toBeNull();
+    });
+  });
+
+  it('AddRemote modal X button closes the modal without posting', async () => {
+    const { container } = render(Toolbar);
+    const btns = container.querySelectorAll<HTMLButtonElement>('.toolbar-btn');
+    await fireEvent.click(btns[1]);
+    await waitFor(() => container.querySelector('button.primary'));
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    await waitFor(() => container.querySelector('input.modal-input'));
+    globalThis.__postedMessages = [];
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.modal .modal-close')!);
+    await waitFor(() => {
+      expect(container.querySelector('input.modal-input')).toBeNull();
+    });
+    expect(globalThis.__postedMessages.some(
+      (m) => (m.data as { type?: string }).type === 'addRemote'
+    )).toBe(false);
+  });
+});
+
 describe('Toolbar — stash', () => {
   it('stash button calls modalStore.openStashSave', async () => {
     const openStashSave = vi.spyOn(modalStore, 'openStashSave');

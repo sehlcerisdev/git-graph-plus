@@ -41,6 +41,11 @@ export default defineConfig({
           name: 'backend',
           include: ['src/**/*.test.ts'],
           environment: 'node',
+          // Integration tests spawn real git/git-flow/git-lfs processes and
+          // can exceed the default 5s budget on slower runners (CI). Raise
+          // both the test timeout and the per-hook timeout for setup/cleanup.
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
         },
       },
       {

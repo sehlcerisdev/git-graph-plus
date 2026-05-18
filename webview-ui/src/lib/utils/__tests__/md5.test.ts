@@ -38,4 +38,24 @@ describe('md5', () => {
     // Verify it's not the empty hash (regression: utf8 path returning '')
     expect(result).not.toBe('d41d8cd98f00b204e9800998ecf8427e');
   });
+
+  it('handles 2-byte UTF-8 characters (Latin-1 supplement range)', () => {
+    // "é" (U+00E9) encodes as 0xc3 0xa9 — exercises the 0x80..0x800 branch
+    const result = md5('é');
+    expect(result).toMatch(/^[0-9a-f]{32}$/);
+    expect(result).not.toBe('d41d8cd98f00b204e9800998ecf8427e');
+  });
+
+  it('handles surrogate-pair characters (4-byte UTF-8)', () => {
+    // "💩" (U+1F4A9) is a high+low surrogate pair, encoded as 4-byte UTF-8.
+    // This exercises the surrogate-pair branch (0xd800..0xe000 path).
+    const result = md5('💩');
+    expect(result).toMatch(/^[0-9a-f]{32}$/);
+    expect(result).not.toBe('d41d8cd98f00b204e9800998ecf8427e');
+  });
+
+  it('handles mixed ASCII + 2-byte + surrogate-pair input', () => {
+    const result = md5('hi 한글 💩');
+    expect(result).toMatch(/^[0-9a-f]{32}$/);
+  });
 });

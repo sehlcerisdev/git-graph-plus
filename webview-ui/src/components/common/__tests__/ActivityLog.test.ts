@@ -103,6 +103,20 @@ describe('ActivityLog', () => {
     )).toBe(true);
   });
 
+  it('formats duration in ms for sub-second commands', async () => {
+    const { container } = render(ActivityLog);
+    deliverLog([entry({ command: 'git commit fast', duration: 50 })]);
+    await waitFor(() => container.querySelector('.log-duration'));
+    expect(container.querySelector('.log-duration')?.textContent?.trim()).toBe('50ms');
+  });
+
+  it('formats duration in seconds for commands taking >= 1s', async () => {
+    const { container } = render(ActivityLog);
+    deliverLog([entry({ command: 'git rebase slow', duration: 2500 })]);
+    await waitFor(() => container.querySelector('.log-duration'));
+    expect(container.querySelector('.log-duration')?.textContent?.trim()).toBe('2.5s');
+  });
+
   it('truncates --format=... values in the displayed command', async () => {
     const { container } = render(ActivityLog);
     deliverLog([entry({ command: 'git commit --format=%H' })]);

@@ -205,6 +205,31 @@ describe('SearchBar — filter UI', () => {
     expect(onFilterChange).toHaveBeenCalledWith([]);
   });
 
+  it('Enter with empty query clears (no search posted)', async () => {
+    setCommits([commit({ hash: 'h1', subject: 'foo' })]);
+    const onResults = vi.fn();
+    const { container } = render(SearchBar, { ...baseProps, onResults });
+    onResults.mockClear();
+    // Press Enter without typing anything — Enter with no matches and no query
+    // falls through to doSearch(), which sees empty query and calls clear().
+    await fireEvent.keyDown(container.querySelector('.search-bar')!, { key: 'Enter' });
+    expect(onResults).toHaveBeenLastCalledWith(null);
+  });
+
+  it('Escape closes the open branch-filter dropdown without clearing the query', async () => {
+    setCommits([commit({ hash: 'h1', subject: 'foo' })]);
+    const branches = [{ name: 'main', current: true, ahead: 0, behind: 0, hash: 'h' }];
+    const { container } = render(SearchBar, { ...baseProps, branches });
+    const input = container.querySelector<HTMLInputElement>('.search-input')!;
+    await fireEvent.input(input, { target: { value: 'foo' } });
+    vi.advanceTimersByTime(150);
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[1]);
+    expect(container.querySelector('.dropdown')).not.toBeNull();
+    await fireEvent.keyDown(container.querySelector('.search-bar')!, { key: 'Escape' });
+    expect(container.querySelector('.dropdown')).toBeNull();
+    expect(input.value).toBe('foo');
+  });
+
   it('source filter backdrop click closes the dropdown', async () => {
     const { container } = render(SearchBar, { ...baseProps, remotes: ['origin'] });
     await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[0]);
