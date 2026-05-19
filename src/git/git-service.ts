@@ -193,19 +193,38 @@ export class GitService {
       });
 
       if (entries.length > 0) {
-        try {
-          const reachable = await this.exec(['log', '--all', '--format=%H', '-n', '5000'], { silent: true });
-          const reachableSet = new Set(reachable.trim().split('\n').filter(Boolean));
-          for (const entry of entries) {
-            entry.dangling = entry.hash.length > 0 && !reachableSet.has(entry.hash);
+        // Probe the exact reflog hashes with `cat-file --batch-check` instead
+        // of walking the 5000 newest reachable commits. The old cap caused
+        // false-positive dangling flags on any repo larger than 5000 commits.
+        // cat-file emits "<hash> missing" for objects that no longer exist
+        // and "<hash> <type> <size>" for ones that do, so we treat the
+        // entry as dangling only when explicitly reported missing.
+        const uniqueHashes = Array.from(new Set(entries.map(e => e.hash).filter(Boolean)));
+        if (uniqueHashes.length > 0) {
+          try {
+            const out = await this.exec(['cat-file', '--batch-check'], {
+              silent: true,
+              stdin: uniqueHashes.join('\n') + '\n',
+            });
+            const missing = new Set<string>();
+            for (const line of out.split('\n')) {
+              const m = line.match(/^([0-9a-f]+)\s+missing\b/);
+              if (m) missing.add(m[1]);
+            }
+            for (const entry of entries) {
+              entry.dangling = missing.has(entry.hash);
+            }
+          } catch (err) {
+            this.warn(`reflog dangling detection failed: ${err instanceof Error ? err.message : err}`);
           }
-        } catch {
-          // dangling detection failed — leave all as false
         }
       }
 
       return { entries, hasMore };
-    } catch {
+    } catch (err) {
+      // Surface real failures so the user sees that the reflog tab didn't load
+      // for a reason (bad ref, permission, missing HEAD), not just an empty list.
+      this.warn(`failed to get reflog: ${err instanceof Error ? err.message : err}`);
       return { entries: [], hasMore: false };
     }
   }
