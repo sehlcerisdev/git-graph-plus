@@ -1334,9 +1334,12 @@ export class MainPanel {
       ]);
       const hasMore = allFetched.length > refreshLimit;
       const allCommits = hasMore ? allFetched.slice(0, refreshLimit) : allFetched;
-      // Handle empty repository (0 commits) gracefully
-      const graph = allCommits.length > 0 ? buildGraph(allCommits, branches) : [];
+      // Handle empty repository (0 commits) gracefully.
+      // Compute the layout once and derive the legacy GraphNode[] from it —
+      // calling buildGraph() *and* buildFullGraph() separately would run the
+      // (BFS-heavy) layout twice on every watcher-triggered refresh.
       const fg = allCommits.length > 0 ? buildFullGraph(allCommits, branches) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
+      const graph = allCommits.length > 0 ? buildGraphFromFullData(allCommits, fg) : [];
       // Send as single combined message to ensure atomic update
       this.post({
         type: 'fullRefresh',
