@@ -1369,7 +1369,7 @@ export class MainPanel {
 
   private repoListPending: Promise<void> | null = null;
 
-  private sendRepoList(forceDiscovery = false): Promise<void> {
+  public sendRepoList(forceDiscovery = false): Promise<void> {
     // Deduplicate concurrent calls
     if (!this.repoListPending) {
       this.repoListPending = this.doSendRepoList(forceDiscovery).finally(() => { this.repoListPending = null; });

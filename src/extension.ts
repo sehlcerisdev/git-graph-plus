@@ -27,6 +27,23 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage('Git Graph+: No workspace folder open.');
       }),
     );
+    // VS Code does not re-run activate() when the user opens a folder later
+    // (e.g. starts from an empty window and uses File → Open Folder). The
+    // extension would silently stay in no-workspace mode forever. When a
+    // folder appears, prompt to reload so a fresh activate runs against the
+    // new workspace.
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(async (e) => {
+        if (e.added.length === 0) return;
+        const reload = await vscode.window.showInformationMessage(
+          vscode.l10n.t('Git Graph+: Reload window to activate the extension for the newly opened folder?'),
+          vscode.l10n.t('Reload'),
+        );
+        if (reload) {
+          vscode.commands.executeCommand('workbench.action.reloadWindow');
+        }
+      }),
+    );
     return;
   }
 
@@ -148,6 +165,17 @@ export function activate(context: vscode.ExtensionContext) {
       fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
     }
   }).catch((err) => { console.warn('Git Graph+: repo discovery failed:', err instanceof Error ? err.message : err); });
+
+  // When workspace folders change (multi-root add/remove), re-discover repos
+  // so the repo dropdown in the panel reflects reality. The panel-side
+  // discovery cache is invalidated by sendRepoList(true).
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      RepoDiscoveryService.clearCache();
+      MainPanel.currentPanel?.sendRepoList(true).catch(() => {});
+      doSidebarRefresh();
+    }),
+  );
 
   let sidebarRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let sidebarRefreshing = false;
