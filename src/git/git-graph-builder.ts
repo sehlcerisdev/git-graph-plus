@@ -131,12 +131,7 @@ function buildUpstreamMap(branches: BranchInfo[]): Map<string, string> {
   return map;
 }
 
-function buildRemoteOnlyData(commits: Commit[], branches: BranchInfo[]): { tipSet: Set<string>; allSet: Set<string> } {
-  const hashIndex = new Map<string, number>();
-  for (let i = 0; i < commits.length; i++) {
-    hashIndex.set(commits[i].hash, i);
-  }
-
+function buildRemoteOnlyData(commits: Commit[], branches: BranchInfo[], hashIndex: Map<string, number>): { tipSet: Set<string>; allSet: Set<string> } {
   // upstream map: "origin/main" → local branch hash
   const upstreamMap = buildUpstreamMap(branches);
 
@@ -217,12 +212,7 @@ function buildRemoteOnlyData(commits: Commit[], branches: BranchInfo[]): { tipSe
 
 // ── Local-only detection ──
 
-function buildPushedSet(commits: Commit[]): Set<string> {
-  const hashIndex = new Map<string, number>();
-  for (let i = 0; i < commits.length; i++) {
-    hashIndex.set(commits[i].hash, i);
-  }
-
+function buildPushedSet(commits: Commit[], hashIndex: Map<string, number>): Set<string> {
   const pushed = new Set<string>();
   const queue: number[] = [];
 
@@ -284,8 +274,14 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
   const trackNext = (l: PathHelper) => { if (!nextMap.has(l.next)) nextMap.set(l.next, l); };
   const untrackNext = (l: PathHelper) => { if (nextMap.get(l.next) === l) nextMap.delete(l.next); };
   let offsetY = -HALF_H;
-  const { tipSet: remoteTipSet, allSet: remoteOnlySet } = buildRemoteOnlyData(commits, branches);
-  const pushedSet = buildPushedSet(commits);
+  // Build the hash→index map once and share it across the two reachability
+  // passes below instead of letting each rebuild its own O(n) copy.
+  const hashIndex = new Map<string, number>();
+  for (let i = 0; i < commits.length; i++) {
+    hashIndex.set(commits[i].hash, i);
+  }
+  const { tipSet: remoteTipSet, allSet: remoteOnlySet } = buildRemoteOnlyData(commits, branches, hashIndex);
+  const pushedSet = buildPushedSet(commits, hashIndex);
 
   for (const commit of commits) {
     let major: PathHelper | null = null;
