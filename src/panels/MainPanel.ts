@@ -1403,6 +1403,20 @@ export class MainPanel {
       await this.refreshAll();
     }
 
+    // Skip the conflict + operation state probe (2 git subprocess spawns)
+    // when we already know no operation is in progress: nothing in memory
+    // says we have unresolved conflicts, and none of the on-disk markers
+    // (MERGE_HEAD / REBASE_HEAD / CHERRY_PICK_HEAD / REVERT_HEAD) exist.
+    // For pure working-tree edits the watcher fires often; this avoids
+    // spawning two git processes for every keystroke.
+    if (this.allConflictFiles.length === 0) {
+      const markers = ['MERGE_HEAD', 'REBASE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD'];
+      const anyMarker = (await Promise.all(markers.map(m =>
+        access(path.join(this.repoPath, '.git', m)).then(() => true).catch(() => false),
+      ))).some(Boolean);
+      if (!anyMarker) return;
+    }
+
     // Detect conflict state (from external terminal operations or index changes)
     const conflictFiles = await this.gitService.getConflictFiles();
     const opState = await this.gitService.getOperationState();
