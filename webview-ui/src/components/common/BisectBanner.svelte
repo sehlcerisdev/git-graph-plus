@@ -54,13 +54,6 @@
     return null;
   });
 
-  // Extract author from culprit
-  const culpritAuthor = $derived.by(() => {
-    if (!isFinished) return null;
-    const match = message.match(/Author:\s*(.+?)\s*</);
-    return match ? match[1] : null;
-  });
-
   function markGood() {
     vscode.postMessage({ type: 'bisectGood', payload: {} });
   }

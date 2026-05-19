@@ -103,28 +103,6 @@ describe('BisectBanner — finished message parsing', () => {
     expect(globalThis.__postedMessages).toEqual([]);
   });
 
-  it('exercises culpritAuthor derived (Author: line present)', () => {
-    const finished =
-      'abc1234 is the first bad commit\n' +
-      'commit abc1234\n' +
-      'Author: Alice <alice@example.com>\n' +
-      'Date:   2024-01-15 10:00:00\n' +
-      '\n' +
-      '    Broke the parser by inverting the condition\n';
-    const { container } = render(BisectBanner, { message: finished, onReset: vi.fn() });
-    // culpritAuthor is a $derived value not currently shown in the template;
-    // just verify the banner mounts (the derivation runs without crashing).
-    expect(container.querySelector('.bisect-banner')).not.toBeNull();
-  });
-
-  it('exercises culpritAuthor null branch (no Author: line)', () => {
-    const finished =
-      'abc1234 is the first bad commit\n' +
-      'commit abc1234\n' +
-      '    Broke things\n';
-    const { container } = render(BisectBanner, { message: finished, onReset: vi.fn() });
-    expect(container.querySelector('.bisect-banner')).not.toBeNull();
-  });
 
   it('Skip button posts bisectSkip', async () => {
     globalThis.__postedMessages = [];
