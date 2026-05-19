@@ -68,18 +68,27 @@ describe('Reflog — loading & data flow', () => {
     deliverReflog([]); // settle initial load
     globalThis.__postedMessages = [];
 
-    // Pick a non-HEAD entry from the dropdown if present.
-    const select = container.querySelector<HTMLSelectElement>('select');
-    if (select) {
-      select.value = 'feat';
-      await fireEvent.change(select);
-      await waitFor(() => {
-        const reqs = globalThis.__postedMessages.filter(
-          (m) => (m.data as { type?: string }).type === 'getReflog'
-        );
-        expect(reqs.length).toBe(1);
-      });
-    }
+    // Open the ref dropdown — it's a custom .filter-btn + .dropdown, not
+    // a <select>. The first .filter-btn is the ref filter (git-branch icon).
+    const filterBtns = container.querySelectorAll<HTMLButtonElement>('.filter-btn');
+    expect(filterBtns.length).toBeGreaterThan(0);
+    await fireEvent.click(filterBtns[0]);
+
+    // Pick a non-HEAD entry — find the dd-item whose text is 'feat'.
+    const items = container.querySelectorAll<HTMLButtonElement>('.dropdown .dd-item');
+    const featItem = Array.from(items).find(b => b.textContent?.includes('feat'));
+    expect(featItem).toBeDefined();
+    await fireEvent.click(featItem!);
+
+    await waitFor(() => {
+      const reqs = globalThis.__postedMessages.filter(
+        (m) => (m.data as { type?: string }).type === 'getReflog'
+      );
+      // Exactly one — pre-fix, the $effect auto-tracked selectedRef and
+      // re-fired load() on top of changeRef's manual post.
+      expect(reqs.length).toBe(1);
+      expect((reqs[0].data as { payload: { ref: string } }).payload.ref).toBe('feat');
+    });
   });
 
   it('renders entries when reflogData arrives', async () => {
