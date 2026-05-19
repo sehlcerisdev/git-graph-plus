@@ -1244,7 +1244,11 @@ export class MainPanel {
     staged?: boolean,
     commitHash?: string,
   ): Promise<void> {
-    const fileUri = vscode.Uri.file(path.join(this.repoPath, file));
+    // Validate that the webview-supplied path stays inside the repo before
+    // we feed it to vscode.diff / build URIs. resolveRepoRelativePath throws
+    // on traversal (`../etc/passwd`) and absolute paths.
+    const fullPath = this.resolveRepoRelativePath(file, 'openDiff');
+    const fileUri = vscode.Uri.file(fullPath);
 
     if (commitHash) {
       // Commit diff: parent vs commit
@@ -1276,13 +1280,16 @@ export class MainPanel {
   }
 
   private async openCompareDiffInEditor(file: string, ref1: string, ref2: string): Promise<void> {
+    // Same validation as openDiffInEditor — the path must stay inside the repo
+    // before being embedded in the diff editor and our content-provider URI.
+    const fullPath = this.resolveRepoRelativePath(file, 'openCompareDiff');
     // ref1 = 'working' means compare ref2 against working tree
     if (ref1 === 'working' || ref2 === 'working') {
       const commitRef = ref1 === 'working' ? ref2 : ref1;
       const commitUri = vscode.Uri.parse(`git-graph-plus://show/${commitRef}/${file}`).with({
         query: JSON.stringify({ ref: commitRef, path: file, repoPath: this.repoPath }),
       });
-      const fileUri = vscode.Uri.file(path.join(this.repoPath, file));
+      const fileUri = vscode.Uri.file(fullPath);
       await vscode.commands.executeCommand('vscode.diff', commitUri, fileUri, `${file} (${commitRef.substring(0, 7)} ↔ Working Tree)`);
     } else {
       const leftUri = vscode.Uri.parse(`git-graph-plus://show/${ref1}/${file}`).with({
