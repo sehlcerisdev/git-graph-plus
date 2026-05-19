@@ -860,6 +860,7 @@ export class GitService {
 
   async showCommitDiff(hash: string, file?: string): Promise<DiffData[]> {
     this.assertSafeRef(hash, 'show');
+    if (file) this.assertSafePath(file, 'show');
     const parents = await this.commitParents(hash);
 
     if (parents.length === 0) {
@@ -1372,6 +1373,7 @@ export class GitService {
   }
 
   async searchByFile(filePath: string, limit: number = 100): Promise<Commit[]> {
+    this.assertSafePath(filePath, 'log');
     const args = [
       'log',
       '--format=%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%D%x00%b',
@@ -1489,12 +1491,15 @@ export class GitService {
   }
 
   async lfsLock(file: string): Promise<string> {
-    return this.exec(['lfs', 'lock', file]);
+    this.assertSafePath(file, 'lfs lock');
+    return this.exec(['lfs', 'lock', '--', file]);
   }
 
   async lfsUnlock(file: string, force?: boolean): Promise<string> {
-    const args = ['lfs', 'unlock', file];
+    this.assertSafePath(file, 'lfs unlock');
+    const args = ['lfs', 'unlock'];
     if (force) { args.push('--force'); }
+    args.push('--', file);
     return this.exec(args);
   }
 

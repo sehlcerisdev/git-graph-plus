@@ -101,25 +101,33 @@ describe('GitService — LFS', () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  it('lfsLock posts the file via git lfs lock', async () => {
+  it('lfsLock posts the file via git lfs lock with -- separator', async () => {
     const calls: string[][] = [];
     mockExec(service, async (args) => { calls.push(args); return 'locked'; });
     await service.lfsLock('assets/big.bin');
-    expect(calls[0]).toEqual(['lfs', 'lock', 'assets/big.bin']);
+    expect(calls[0]).toEqual(['lfs', 'lock', '--', 'assets/big.bin']);
   });
 
-  it('lfsUnlock posts the file via git lfs unlock', async () => {
+  it('lfsUnlock posts the file via git lfs unlock with -- separator', async () => {
     const calls: string[][] = [];
     mockExec(service, async (args) => { calls.push(args); return ''; });
     await service.lfsUnlock('a.bin');
-    expect(calls[0]).toEqual(['lfs', 'unlock', 'a.bin']);
+    expect(calls[0]).toEqual(['lfs', 'unlock', '--', 'a.bin']);
   });
 
-  it('lfsUnlock appends --force when force=true', async () => {
+  it('lfsUnlock prepends --force before the -- separator when force=true', async () => {
     const calls: string[][] = [];
     mockExec(service, async (args) => { calls.push(args); return ''; });
     await service.lfsUnlock('a.bin', true);
-    expect(calls[0]).toEqual(['lfs', 'unlock', 'a.bin', '--force']);
+    expect(calls[0]).toEqual(['lfs', 'unlock', '--force', '--', 'a.bin']);
+  });
+
+  it('lfsLock rejects an option-like file name', async () => {
+    await expect(service.lfsLock('-evil')).rejects.toThrow();
+  });
+
+  it('lfsUnlock rejects an option-like file name', async () => {
+    await expect(service.lfsUnlock('-evil')).rejects.toThrow();
   });
 
   it('lfsLocks returns parsed locks on success', async () => {

@@ -1051,6 +1051,16 @@ export class MainPanel {
         // --- Repo Switch ---
         case 'switchRepo': {
           const newPath = message.payload.path;
+          // Constrain to repos we discovered for the workspace. Without this
+          // guard the webview could point the extension at any directory on
+          // disk and every subsequent git command would run there.
+          if (typeof newPath !== 'string' || newPath.length === 0) {
+            throw new Error('Invalid path for switchRepo');
+          }
+          const allowed = this.cachedRepos.some(r => r.path === newPath);
+          if (!allowed) {
+            throw new Error(`Repo not in discovered list: ${newPath}`);
+          }
           this.repoPath = newPath;
           this.gitService = this.createGitService(newPath);
 
