@@ -53,6 +53,35 @@ export class MainPanel {
     }
   }
 
+  /** Resolve a webview-supplied repo-relative path and assert it stays inside
+   *  the repository root. Throws on traversal attempts (`../etc/passwd`) or
+   *  absolute paths.
+   *  Returns the absolute resolved path. */
+  private resolveRepoRelativePath(rel: unknown, op: string): string {
+    if (typeof rel !== 'string' || rel.length === 0) {
+      throw new Error(`Invalid path for ${op}`);
+    }
+    const fullPath = path.resolve(this.repoPath, rel);
+    const fromRoot = path.relative(this.repoPath, fullPath);
+    if (fromRoot.startsWith('..') || path.isAbsolute(fromRoot)) {
+      throw new Error(`Path escapes repository: ${rel}`);
+    }
+    return fullPath;
+  }
+
+  /** Validate a path that will be passed to git as a positional argument
+   *  (worktree destinations, etc.). Rejects values that look like CLI options
+   *  to prevent argument injection (`--upload-pack=...`, `-x`). */
+  private assertSafeArgPath(p: unknown, op: string): string {
+    if (typeof p !== 'string' || p.length === 0) {
+      throw new Error(`Invalid path for ${op}`);
+    }
+    if (p.startsWith('-')) {
+      throw new Error(`Path may not start with '-': ${p}`);
+    }
+    return p;
+  }
+
   private createGitService(repoPath: string): GitService {
     const svc = new GitService(repoPath);
     if (MainPanel.extraEnv) svc.setExtraEnv(MainPanel.extraEnv);
@@ -516,7 +545,8 @@ export class MainPanel {
           break;
         }
         case 'openFile': {
-          const fileUri = vscode.Uri.file(path.join(this.repoPath, message.payload.file));
+          const fullPath = this.resolveRepoRelativePath(message.payload.file, 'openFile');
+          const fileUri = vscode.Uri.file(fullPath);
           await vscode.window.showTextDocument(fileUri, { preview: false });
           break;
         }
@@ -673,7 +703,10 @@ export class MainPanel {
         }
         case 'worktreeAdd': {
           const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-          const wtPath = message.payload.path.replace(/^~/, homeDir);
+          const wtPath = this.assertSafeArgPath(
+            message.payload.path.replace(/^~/, homeDir),
+            'worktreeAdd',
+          );
           await this.gitService.worktreeAdd(wtPath, message.payload.branch, message.payload.newBranch);
           this.post({ type: 'operationComplete', payload: { operation: 'worktreeAdd', success: true } });
           vscode.window.showInformationMessage(vscode.l10n.t('worktreeAdded', message.payload.path));
@@ -692,7 +725,11 @@ export class MainPanel {
           break;
         }
         case 'openWorktreeInNewWindow': {
-          const wtUri = vscode.Uri.file(message.payload.path.replace(/^~/, process.env.HOME || process.env.USERPROFILE || ''));
+          const resolved = this.assertSafeArgPath(
+            message.payload.path.replace(/^~/, process.env.HOME || process.env.USERPROFILE || ''),
+            'openWorktreeInNewWindow',
+          );
+          const wtUri = vscode.Uri.file(resolved);
           await vscode.commands.executeCommand('vscode.openFolder', wtUri, true);
           break;
         }
@@ -1098,7 +1135,8 @@ export class MainPanel {
           break;
         }
         case 'openConflictFile': {
-          const fileUri = vscode.Uri.file(`${this.repoPath}/${message.payload.file}`);
+          const fullPath = this.resolveRepoRelativePath(message.payload.file, 'openConflictFile');
+          const fileUri = vscode.Uri.file(fullPath);
           // Try to open in VS Code's 3-way merge editor, fallback to normal editor
           try {
             await vscode.commands.executeCommand('git.openMergeEditor', fileUri);
