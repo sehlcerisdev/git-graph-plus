@@ -26,6 +26,18 @@ export class GitService {
   private extraEnv: Record<string, string> = {};
   private warningHandler: ((message: string) => void) | null = null;
   private authRetryHandler: ((remote?: string) => Promise<boolean>) | null = null;
+  // In-flight read-only operations, keyed by op name. Lets two callers (e.g.
+  // a tree-view sidebar refresh and the webview panel refresh kicked off in
+  // the same tick during repo switch) collapse onto a single git subprocess.
+  private inflight = new Map<string, Promise<unknown>>();
+
+  private dedupe<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const existing = this.inflight.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+    const p = fn().finally(() => { this.inflight.delete(key); });
+    this.inflight.set(key, p);
+    return p;
+  }
 
   constructor(private repoPath: string) {}
 
@@ -414,34 +426,42 @@ export class GitService {
    * The graph characters are parsed to determine exact column positions.
    */
   async branches(): Promise<BranchInfo[]> {
-    const raw = await this.exec([
-      'branch', '-a', '--format=%(HEAD)%(refname:short)%00%(objectname:short)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(refname)',
-    ]);
-    return parseBranches(raw);
+    return this.dedupe('branches', async () => {
+      const raw = await this.exec([
+        'branch', '-a', '--format=%(HEAD)%(refname:short)%00%(objectname:short)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(refname)',
+      ]);
+      return parseBranches(raw);
+    });
   }
 
   async tags(): Promise<TagInfo[]> {
-    const raw = await this.exec([
-      'tag', '-l', '--sort=-creatordate', '--format=%(refname:short)%00%(if)%(*objectname:short)%(then)%(*objectname:short)%(else)%(objectname:short)%(end)%00%(objecttype)%00%(contents:subject)%00%(contents:body)%01%02%03',
-    ]);
-    return parseTags(raw);
+    return this.dedupe('tags', async () => {
+      const raw = await this.exec([
+        'tag', '-l', '--sort=-creatordate', '--format=%(refname:short)%00%(if)%(*objectname:short)%(then)%(*objectname:short)%(else)%(objectname:short)%(end)%00%(objecttype)%00%(contents:subject)%00%(contents:body)%01%02%03',
+      ]);
+      return parseTags(raw);
+    });
   }
 
   async remotes(): Promise<RemoteInfo[]> {
-    const raw = await this.exec(['remote', '-v']);
-    return parseRemotes(raw);
+    return this.dedupe('remotes', async () => {
+      const raw = await this.exec(['remote', '-v']);
+      return parseRemotes(raw);
+    });
   }
 
   async stashList(): Promise<StashEntry[]> {
-    try {
-      const raw = await this.exec([
-        'stash', 'list', '--format=%gd%x00%gs%x00%aI%x00%P%x00%H',
-      ]);
-      return parseStashList(raw);
-    } catch (err) {
-      console.warn('Git Graph+: failed to list stashes:', err instanceof Error ? err.message : err);
-      return [];
-    }
+    return this.dedupe('stashList', async () => {
+      try {
+        const raw = await this.exec([
+          'stash', 'list', '--format=%gd%x00%gs%x00%aI%x00%P%x00%H',
+        ]);
+        return parseStashList(raw);
+      } catch (err) {
+        console.warn('Git Graph+: failed to list stashes:', err instanceof Error ? err.message : err);
+        return [];
+      }
+    });
   }
 
   // --- Diff ---
@@ -1590,8 +1610,10 @@ export class GitService {
   // --- Worktree ---
 
   async worktreeList(): Promise<WorktreeInfo[]> {
-    const raw = await this.exec(['worktree', 'list', '--porcelain']);
-    return parseWorktreeList(raw);
+    return this.dedupe('worktreeList', async () => {
+      const raw = await this.exec(['worktree', 'list', '--porcelain']);
+      return parseWorktreeList(raw);
+    });
   }
 
   async worktreeAdd(worktreePath: string, branch?: string, newBranch?: string): Promise<void> {
