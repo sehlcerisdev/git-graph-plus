@@ -6,6 +6,7 @@ import { formatGitError } from '../git/git-error-formatter';
 import { buildGraph, buildFullGraph, buildGraphFromFullData } from '../git/git-graph-builder';
 import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
 import { FileWatcher } from '../services/file-watcher';
+import { resolveGitDirs } from '../services/file-watcher-helpers';
 import { RepoDiscoveryService, RepoInfo } from '../services/repo-discovery';
 import type { WebviewMessage } from '../utils/message-bus';
 
@@ -1410,9 +1411,14 @@ export class MainPanel {
     // For pure working-tree edits the watcher fires often; this avoids
     // spawning two git processes for every keystroke.
     if (this.allConflictFiles.length === 0) {
+      // For linked worktrees, `.git` is a *file* and these markers live in
+      // the worktree's resolved gitdir. Using `<repo>/.git/MERGE_HEAD`
+      // unconditionally would suppress the conflict UI inside a worktree
+      // even when a real merge / rebase is in progress.
+      const gitDir = resolveGitDirs(this.repoPath).gitDir;
       const markers = ['MERGE_HEAD', 'REBASE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD'];
       const anyMarker = (await Promise.all(markers.map(m =>
-        access(path.join(this.repoPath, '.git', m)).then(() => true).catch(() => false),
+        access(path.join(gitDir, m)).then(() => true).catch(() => false),
       ))).some(Boolean);
       if (!anyMarker) return;
     }
@@ -1435,7 +1441,10 @@ export class MainPanel {
         },
       });
     } else if (conflictFiles.length === 0 && opState.type === 'rebase') {
-      const stoppedShaPath = path.join(this.repoPath, '.git', 'rebase-merge', 'stopped-sha');
+      // Same worktree concern as the marker check above — rebase-merge state
+      // lives in the per-worktree gitdir.
+      const gitDir = resolveGitDirs(this.repoPath).gitDir;
+      const stoppedShaPath = path.join(gitDir, 'rebase-merge', 'stopped-sha');
       const editPaused = await access(stoppedShaPath).then(() => true).catch(() => false);
       if (editPaused) {
         this.post({
