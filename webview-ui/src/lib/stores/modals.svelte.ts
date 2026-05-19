@@ -114,6 +114,40 @@ class ModalStore {
       this.flowInit.show || this.flowStart.show || this.flowFinish.show || this.pushTag.show;
   }
 
+  /** Map of WebviewMessage type → close fn. When the extension reports an
+   *  error tagged with `source`, only the modal that originated the failing
+   *  operation is closed — unrelated modals (e.g. CreateBranch being filled
+   *  out while a background getStats errors) stay open. */
+  closeForSource(source: string | undefined): void {
+    if (!source) return;
+    const map: Record<string, () => void> = {
+      deleteBranch: () => this.closeDeleteBranch(),
+      deleteTag: () => this.closeDeleteTag(),
+      createBranch: () => this.closeCreateBranch(),
+      createTag: () => this.closeCreateTag(),
+      merge: () => this.closeMerge(),
+      checkout: () => this.closeCheckoutRemote(),
+      checkoutRemote: () => this.closeCheckoutRemote(),
+      renameBranch: () => this.closeRenameBranch(),
+      deleteRemoteBranch: () => this.closeDeleteRemoteBranch(),
+      worktreeRemove: () => this.closeRemoveWorktree(),
+      stashApply: () => this.closeStashApply(),
+      stashPop: () => this.closeStashApply(),
+      stashRename: () => this.closeStashRename(),
+      stashSave: () => this.closeStashSave(),
+      setUpstream: () => this.closeSetUpstream(),
+      fetch: () => this.closeFetch(),
+      pull: () => this.closePull(),
+      push: () => this.closePush(),
+      flowInit: () => this.closeFlowInit(),
+      flowStart: () => this.closeFlowStart(),
+      flowFinish: () => this.closeFlowFinish(),
+      pushTag: () => this.closePushTag(),
+      pushTagToAllRemotes: () => this.closePushTag(),
+    };
+    map[source]?.();
+  }
+
   /** Close every open modal. Called when the extension reports an error so the
    *  user is not left staring at a stale modal whose operation has already failed. */
   closeAll() {

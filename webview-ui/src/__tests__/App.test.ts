@@ -112,13 +112,29 @@ describe('App — message handling', () => {
     });
   });
 
-  it('error message surfaces via uiStore and closes all modals', async () => {
+  it('error message surfaces via uiStore and closes only the originating modal', async () => {
+    // Two modals open: deleteBranch (matches the error source) and
+    // createBranch (unrelated — its in-progress form data must survive).
     modalStore.openDeleteBranch('feat');
+    modalStore.openCreateBranch('main', 'wip');
     render(App);
-    postMsg('error', { message: 'boom' });
+    postMsg('error', { message: 'boom', source: 'deleteBranch' });
     await waitFor(() => {
       expect(uiStore.errorMessage).toBe('boom');
       expect(modalStore.deleteBranch.show).toBe(false);
+      expect(modalStore.createBranch.show).toBe(true);
+    });
+  });
+
+  it('error without a source leaves all modals open', async () => {
+    // Unscoped errors (e.g. a background getStats failure) used to close
+    // every modal indiscriminately. Now they should leave them alone.
+    modalStore.openCreateBranch('main', 'wip');
+    render(App);
+    postMsg('error', { message: 'background blew up' });
+    await waitFor(() => {
+      expect(uiStore.errorMessage).toBe('background blew up');
+      expect(modalStore.createBranch.show).toBe(true);
     });
   });
 

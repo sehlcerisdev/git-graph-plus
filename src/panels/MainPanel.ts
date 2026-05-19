@@ -1213,7 +1213,7 @@ export class MainPanel {
         if (message.type === 'stageFile' || message.type === 'refreshConflicts') {
           this.post({
             type: 'error',
-            payload: { message: errorMessage },
+            payload: { message: errorMessage, source: message.type },
           });
         }
         // Focus the Source Control sidebar so the user can resolve conflicts
@@ -1222,7 +1222,7 @@ export class MainPanel {
       } else {
         this.post({
           type: 'error',
-          payload: { message: errorMessage },
+          payload: { message: errorMessage, source: message.type },
         });
       }
     }

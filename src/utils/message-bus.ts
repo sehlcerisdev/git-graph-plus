@@ -97,7 +97,7 @@ export type ExtensionMessage =
   | { type: 'activityLogData'; payload: Array<{ command: string; timestamp: string; success: boolean; duration: number }> }
   | { type: 'reflogData'; payload: { entries: Array<{ hash: string; shortHash: string; selector: string; message: string; date: string; dangling: boolean }>; hasMore: boolean } }
   | { type: 'repoChanged'; payload: { what: string } }
-  | { type: 'error'; payload: { message: string; command?: string } }
+  | { type: 'error'; payload: { message: string; command?: string; source?: string } }
   | { type: 'notGitRepo' }
   | { type: 'operationComplete'; payload: { operation: string; success: boolean } }
   | { type: 'operationPaused'; payload: { operation: 'rebase' } }

@@ -107,9 +107,11 @@
         case 'error':
           uiStore.setError(msg.payload.message);
           commitStore.setLoading(false);
-          // Close any open modal — the operation that opened it has failed and
-          // leaving the modal up would imply it is still pending.
-          modalStore.closeAll();
+          // Close only the modal that originated the failing operation. An
+          // unrelated background failure (e.g. a getStats refresh) used to
+          // close any in-progress modal — including one the user was
+          // composing form data into — which silently destroyed their input.
+          modalStore.closeForSource(msg.payload.source);
           break;
         case 'flowStatus':
           flowConfig = msg.payload.config;
