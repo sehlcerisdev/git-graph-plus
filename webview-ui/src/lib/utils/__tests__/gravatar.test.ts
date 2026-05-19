@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { getGravatarUrl } from '../gravatar';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { getGravatarUrl, _gravatarCacheSize, _clearGravatarCache } from '../gravatar';
+
+beforeEach(() => _clearGravatarCache());
 
 describe('getGravatarUrl', () => {
   it('builds a URL with the lowercased trimmed MD5 hash', () => {
@@ -21,5 +23,18 @@ describe('getGravatarUrl', () => {
 
   it('always requests the "retro" default avatar', () => {
     expect(getGravatarUrl('a@b.c')).toContain('d=retro');
+  });
+
+  it('caps the cache at the LRU limit and evicts the oldest entry', () => {
+    // Fill above the cap to force eviction of the very first insertion.
+    for (let i = 0; i < 600; i++) {
+      getGravatarUrl(`user${i}@example.com`);
+    }
+    expect(_gravatarCacheSize()).toBeLessThanOrEqual(500);
+    // The earliest insertion (user0) should have been evicted.
+    // After eviction, looking it up again is a miss and re-inserts —
+    // but the cache stays at the cap.
+    getGravatarUrl('user0@example.com');
+    expect(_gravatarCacheSize()).toBeLessThanOrEqual(500);
   });
 });

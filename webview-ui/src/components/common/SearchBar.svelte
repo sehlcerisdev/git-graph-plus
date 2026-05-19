@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { commitStore } from '../../lib/stores/commits.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
@@ -163,8 +164,18 @@
       return;
     }
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => doSearch(), 150);
+    debounceTimer = setTimeout(() => { debounceTimer = null; doSearch(); }, 150);
   }
+
+  // Clear the pending debounce on unmount so a delayed callback can't run
+  // after the component is destroyed (would call onResults on a stale
+  // parent closure and could leak the matchedHashes Set across remounts).
+  onDestroy(() => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+  });
 
   function toggleFilter(value: string) {
     const next = remoteFilter.includes(value)
