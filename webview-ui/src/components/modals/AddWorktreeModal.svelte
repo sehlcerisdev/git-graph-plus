@@ -4,6 +4,7 @@
   import ColorSelect from '../common/ColorSelect.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { branchStore } from '../../lib/stores/branches.svelte';
+  import { validateGitRefName } from '../../lib/utils/git-ref';
 
   interface Props {
     defaultPath?: string;
@@ -31,7 +32,8 @@
 
   onMount(() => { branchInput?.focus(); });
 
-  const canSubmit = $derived(branchName.trim() !== '' && location.trim() !== '');
+  const refError = $derived(branchName.trim() !== '' ? validateGitRefName(branchName.trim()) : null);
+  const canSubmit = $derived(branchName.trim() !== '' && location.trim() !== '' && !refError);
 
   function handleSubmit() {
     if (!canSubmit) return;
@@ -66,6 +68,9 @@
     </div>
   </div>
 
+  {#if refError}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i>{t(refError)}</p>
+  {/if}
   <div class="form-actions">
     <button onclick={onClose}>{t('common.cancel')}</button>
     <button class="primary" disabled={!canSubmit} onclick={handleSubmit}>{t('worktree.add')}</button>

@@ -114,6 +114,30 @@ describe('AddWorktreeModal', () => {
     expect(onAdd).toHaveBeenCalledWith('/wt/feat', 'develop', 'feat');
   });
 
+  it('rejects an invalid branch name and shows the warning', async () => {
+    const { container } = render(AddWorktreeModal, {
+      defaultPath: '/wt/',
+      onClose: vi.fn(),
+      onAdd: vi.fn(),
+    });
+    const submit = container.querySelector<HTMLButtonElement>('button.primary')!;
+    const branchInput = container.querySelector<HTMLInputElement>('#wt-branch')!;
+    // Leading dash would otherwise reach git as an option-style positional arg.
+    await fireEvent.input(branchInput, { target: { value: '-evil' } });
+    await tick();
+    expect(submit.disabled).toBe(true);
+    expect(container.querySelector('.modal-warning')).not.toBeNull();
+
+    await fireEvent.input(branchInput, { target: { value: 'foo..bar' } });
+    await tick();
+    expect(submit.disabled).toBe(true);
+
+    await fireEvent.input(branchInput, { target: { value: 'ok-name' } });
+    await tick();
+    expect(submit.disabled).toBe(false);
+    expect(container.querySelector('.modal-warning')).toBeNull();
+  });
+
   it('submit forwards (location, startAt, branchName) trimmed', async () => {
     const onAdd = vi.fn();
     const { container } = render(AddWorktreeModal, {
