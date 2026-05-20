@@ -113,6 +113,9 @@ export function parseBranches(raw: string): BranchInfo[] {
     const behindMatch = trackStr.match(/behind (\d+)/);
     if (aheadMatch) { ahead = parseInt(aheadMatch[1], 10); }
     if (behindMatch) { behind = parseInt(behindMatch[1], 10); }
+    // git reports "gone" when the upstream config still points at a remote
+    // branch that no longer exists (e.g. after deleting the remote branch).
+    const upstreamGone = trackStr === 'gone';
 
     // Use full refname to distinguish local from remote branches
     const fullRefname = fields[4]?.trim() ?? '';
@@ -121,7 +124,7 @@ export function parseBranches(raw: string): BranchInfo[] {
     // Strip heads/ prefix added by git when tag and branch names collide
     const name = !isRemote && rawName.startsWith('heads/') ? rawName.substring(6) : rawName;
 
-    return { name, current, remote, upstream, ahead, behind, hash };
+    return { name, current, remote, upstream, upstreamGone, ahead, behind, hash };
   }).filter(b => b.name.length > 0);
 }
 

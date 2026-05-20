@@ -156,6 +156,14 @@ describe('Toolbar — branch badges', () => {
     expect(container.querySelector('.unpublished-icon')).not.toBeNull();
   });
 
+  it('renders the unpublished icon when the upstream is gone (remote branch deleted)', () => {
+    branchStore.branches = [
+      { name: 'feat', current: true, ahead: 0, behind: 0, hash: 'h', upstream: 'origin/feat', upstreamGone: true },
+    ];
+    const { container } = render(Toolbar);
+    expect(container.querySelector('.unpublished-icon')).not.toBeNull();
+  });
+
   it('shows detached label when current "branch" is detached HEAD', () => {
     branchStore.branches = [
       { name: '(HEAD detached at abc)', current: true, ahead: 0, behind: 0, hash: 'h' },

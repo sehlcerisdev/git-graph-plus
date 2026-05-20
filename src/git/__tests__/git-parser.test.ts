@@ -142,6 +142,24 @@ describe('parseBranches', () => {
     expect(result[0].ahead).toBe(0);
     expect(result[0].behind).toBe(0);
   });
+
+  it('flags upstreamGone when the tracked remote branch was deleted', () => {
+    // git keeps the upstream config after the remote branch is deleted and
+    // reports the track field as "gone".
+    const raw = '*feature\x00abc1234\x00origin/feature\x00gone\x00refs/heads/feature';
+    const result = parseBranches(raw);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].upstream).toBe('origin/feature');
+    expect(result[0].upstreamGone).toBe(true);
+  });
+
+  it('does not flag upstreamGone for a normally tracked branch', () => {
+    const raw = '*main\x00abc1234\x00origin/main\x00ahead 1\x00refs/heads/main';
+    const result = parseBranches(raw);
+
+    expect(result[0].upstreamGone).toBeFalsy();
+  });
 });
 
 describe('parseTags', () => {

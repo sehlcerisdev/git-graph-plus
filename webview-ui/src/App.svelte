@@ -680,7 +680,7 @@
 {/if}
 
 {#if modalStore.push.show}
-  {@const hasUpstream = !!branchStore.currentBranch?.upstream}
+  {@const hasUpstream = !!branchStore.currentBranch?.upstream && !branchStore.currentBranch?.upstreamGone}
   {@const pushBranchName = branchStore.currentBranch?.name ?? 'branch'}
   <PushModal
     branchName={pushBranchName}

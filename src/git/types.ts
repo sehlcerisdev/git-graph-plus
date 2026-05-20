@@ -72,6 +72,9 @@ export interface BranchInfo {
   current: boolean;
   remote?: string;
   upstream?: string;
+  /** True when the branch still has upstream config but the tracked remote
+   *  branch no longer exists (git reports the track field as "gone"). */
+  upstreamGone?: boolean;
   ahead: number;
   behind: number;
   hash: string;

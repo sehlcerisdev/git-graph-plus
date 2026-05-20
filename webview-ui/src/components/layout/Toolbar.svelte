@@ -80,7 +80,9 @@
     return () => window.removeEventListener('message', handler);
   });
 
-  const hasUpstream = $derived(!!branchStore.currentBranch?.upstream);
+  // A "gone" upstream (remote branch deleted) is treated as no upstream so the
+  // push button shows the unpublished state and offers to re-create it.
+  const hasUpstream = $derived(!!branchStore.currentBranch?.upstream && !branchStore.currentBranch?.upstreamGone);
   let ahead = $derived(branchStore.currentBranch?.ahead ?? 0);
   let behind = $derived(branchStore.currentBranch?.behind ?? 0);
   let activeRepoInfo = $derived(uiStore.repos.find(r => r.path === uiStore.activeRepo) ?? uiStore.repos[0]);
