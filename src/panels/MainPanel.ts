@@ -538,6 +538,10 @@ export class MainPanel {
           await vscode.window.showTextDocument(fileUri, { preview: false });
           break;
         }
+        case 'openScmView': {
+          await vscode.commands.executeCommand('workbench.view.scm');
+          break;
+        }
         case 'fetch': {
           await this.gitService.fetch(message.payload.remote, { prune: message.payload.prune });
           this.post({

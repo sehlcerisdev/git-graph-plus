@@ -878,6 +878,14 @@
                 compareBase = null;
                 return;
               }
+              // The uncommitted-changes row opens VS Code's Source Control view
+              // (where the user stages/commits) instead of the in-graph detail panel.
+              if (commit.hash === 'UNCOMMITTED') {
+                if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+                uiStore.selectedCommitHash = null;
+                vscode.postMessage({ type: 'openScmView' });
+                return;
+              }
               if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
               clickTimer = setTimeout(() => { clickTimer = null; selectCommit(commit.hash); }, 200);
             }}
@@ -901,7 +909,15 @@
             oncontextmenu={(e) => { if (commit.hash !== 'UNCOMMITTED') onCommitContextMenu(e, commit); }}
             role="row"
             tabindex={0}
-            onkeydown={(e) => { if (e.key === 'Enter') selectCommit(commit.hash); }}
+            onkeydown={(e) => {
+              if (e.key !== 'Enter') return;
+              if (commit.hash === 'UNCOMMITTED') {
+                uiStore.selectedCommitHash = null;
+                vscode.postMessage({ type: 'openScmView' });
+              } else {
+                selectCommit(commit.hash);
+              }
+            }}
           >
             <div class="col-message" style="padding-left: {(displayLeftMargin[index] ?? graphWidth) * X_SCALE + 4}px;">
               {#if currentBranchLocalOnly.has(commit.hash)}

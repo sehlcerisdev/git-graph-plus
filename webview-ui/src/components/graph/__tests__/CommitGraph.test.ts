@@ -89,6 +89,21 @@ describe('CommitGraph smoke', () => {
     expect(rows[0]).toBeTruthy();
   });
 
+  it('clicking the UNCOMMITTED row opens the SCM view instead of selecting it', async () => {
+    commitStore.setData(makeGraphData([
+      makeCommit('UNCOMMITTED', 'Uncommitted changes'),
+      makeCommit('h1', 'first'),
+    ]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+    const rows = container.querySelectorAll<HTMLElement>('.commit-row');
+    await fireEvent.click(rows[0]);
+    await tick();
+    expect(globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'openScmView')).toBe(true);
+    expect(uiStore.selectedCommitHash).toBeNull();
+  });
+
   it('does not crash on a branch-set fingerprint cache hit (same commits, same branch)', async () => {
     // First mount populates the cache.
     commitStore.setData(makeGraphData([
