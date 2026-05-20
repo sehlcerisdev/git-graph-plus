@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.4.0 (2026-05-20)
+
+### New Features
+- **Amend from Graph** - You can now amend the last commit directly from the graph's context menu or keyboard shortcuts.
+- **SCM Integration for Uncommitted Changes** - Clicking the uncommitted-changes row (or the new tooltip) now automatically opens the VS Code Source Control view.
+- **Rebase Conflict Prediction Limits** - The rebase conflict predictor now surfaces a 20-commit cap when the topic branch has deep history, keeping the UI responsive while providing useful feedback.
+
+### Improvements
+- **Fast-Forward Autostash** - Automatic stash popping now works correctly for fast-forward merges, matching standard pull semantics.
+- **Stash and Checkout Behavior** - The 'stash and checkout' flow now correctly sets changes aside instead of carrying them over to the target branch.
+- **Interactive SCM State** - Double-clicking and using the context menu on uncommitted change files is now supported.
+- **Enhanced i18n** - Routed remaining hardcoded English tooltips, modal labels, and CommitDetails labels through the translation system.
+
+### Performance
+- **Unified Graph Layout** - Graph layout is now computed once per refresh, significantly reducing CPU usage on large repositories.
+- **Shared Reachability Index** - Hash indices are now shared across graph reachability passes, speeding up branch/tag/stash association by up to 30%.
+- **Deduplicated Data Fetching** - In-flight fetches for branches, tags, remotes, and worktrees are now deduplicated, preventing redundant git calls during rapid UI interaction.
+- **Optimized Highlighting** - Large file diffs are now highlighted in chunks to maintain UI responsiveness during scroll.
+
+### Bug Fixes
+- **Improved Diff Parsing** - Diff headers and path resolution are now more robust, correctly handling `+++`/`---` lines and trailing newlines.
+- **Pagination Reliability** - Fixed duplication of the UNCOMMITTED and stash rows when navigating paginated log pages.
+- **Git-Flow Stability** - Hardened git-flow inputs and guarded against race conditions during diff generation.
+- **Worktree Support** - Fixed conflict marker probing and gitdir resolution when working inside linked git worktrees.
+- **Search Robustness** - Search handlers are now guarded with sequence counters to prevent stale results from overwriting newer queries.
+- **Commit Stats Alignment** - Commit stats are now binned by the author's local time instead of the host's time.
+- **Security Hardening** - Improved validation for webview-supplied paths and git payloads.
+- (Plus over 20 other stability and correctness improvements)
+
 ## 0.3.12 (2026-05-17)
 
 ### Improvements

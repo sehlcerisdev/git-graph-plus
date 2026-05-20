@@ -42,7 +42,7 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 | **Commit Comparison**   | Select a base commit, then click another to compare - or compare any commit to your working tree                      |
 | **Search**              | Find commits by message, author, date range, hash, or changed file - with result highlighting and keyboard navigation |
 | **Branch Filter**       | Filter the commit graph to show only commits reachable from a selected branch                                         |
-| **Uncommitted Changes** | Shows pending uncommitted changes as a virtual node at the top of the graph, with full diff in the commit details panel |
+| **Uncommitted Changes** | Shows pending uncommitted changes as a virtual node. Clicking it opens the VS Code SCM view for staging/committing. |
 | **Push Status**         | Blue dot for local-only commits (not pushed), gray dot for remote-only commits (remote ahead)                         |
 | **Avatars**             | Gravatar avatars displayed next to author names                                                                       |
 | **Themes**              | Full support for light, dark, and high-contrast VS Code themes                                                        |
@@ -57,6 +57,7 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 | Feature                  | Description                                                                                           |
 | ------------------------ | ----------------------------------------------------------------------------------------------------- |
 | **Branch Operations**    | Create, rename, delete, and checkout branches                                                         |
+| **Amend**                | Amend the last commit directly from the graph with a single click                                    |
 | **Merge**                | Default, `--no-ff`, `--ff-only`, and squash merge strategies                                          |
 | **Rebase**               | Standard rebase and interactive rebase with drag-to-reorder UI                                        |
 | **Interactive Rebase**   | Visual UI with action dropdown (pick, reword, edit, squash, fixup, drop) and drop warnings            |
