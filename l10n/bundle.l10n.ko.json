@@ -67,7 +67,6 @@
   "pruneWorktreesFailed": "Worktree 정리 실패: {0}",
   "noChangesToStash": "Stash할 변경 사항이 없습니다",
   "stashPopAfterPullFailed": "Pull은 성공했지만 stash 복원에 실패했습니다. 'git stash pop'을 직접 실행해주세요.",
-  "stashPopAfterCheckoutFailed": "Checkout은 성공했지만 stash 복원에 실패했습니다. 'git stash pop'을 직접 실행해주세요.",
   "branchCreated": "브랜치 '{0}'이(가) 생성되었습니다",
   "branchCreatedAndCheckedOut": "새 브랜치 '{0}'으(로) 전환되었습니다",
   "branchDeleted": "브랜치 '{0}'이(가) 삭제되었습니다",

@@ -366,25 +366,18 @@ export class MainPanel {
           break;
         }
         case 'checkout': {
+          // "Stash and checkout" sets the local changes aside and leaves them
+          // in the stash — it must not pop them back, which would carry them
+          // onto the target branch (identical to "keep changes and checkout").
           if (message.payload.stash) {
             await this.gitService.stashSave('Auto-stash before checkout', message.payload.stashUntracked);
           }
           if (message.payload.clean) {
             await this.gitService.clean();
           }
-          try {
-            await this.gitService.checkout(message.payload.ref, { force: message.payload.force, merge: message.payload.merge });
-            if (message.payload.pullAfter) {
-              await this.gitService.pull();
-            }
-          } finally {
-            if (message.payload.stash) {
-              try {
-                await this.gitService.stashPop(0);
-              } catch {
-                this.post({ type: 'error', payload: { message: vscode.l10n.t('stashPopAfterCheckoutFailed') } });
-              }
-            }
+          await this.gitService.checkout(message.payload.ref, { force: message.payload.force, merge: message.payload.merge });
+          if (message.payload.pullAfter) {
+            await this.gitService.pull();
           }
           this.post({
             type: 'operationComplete',
@@ -392,28 +385,22 @@ export class MainPanel {
           });
           const checkedOutRef = /^[0-9a-f]{40}$/i.test(message.payload.ref) ? message.payload.ref.substring(0, 7) : message.payload.ref;
           vscode.window.showInformationMessage(vscode.l10n.t('checkedOut', checkedOutRef));
+          if (message.payload.stash) {
+            vscode.window.showInformationMessage(vscode.l10n.t('changesStashed'));
+          }
           await this.refreshAll();
           break;
         }
         case 'createBranch': {
           if (message.payload.checkout) {
+            // Same as checkout: stashing sets changes aside; do not pop them back.
             if (message.payload.stash) {
               await this.gitService.stashSave('Auto-stash before checkout', message.payload.stashUntracked);
             }
             if (message.payload.clean) {
               await this.gitService.clean();
             }
-            try {
-              await this.gitService.createAndCheckoutBranch(message.payload.name, message.payload.startPoint, { merge: message.payload.merge });
-            } finally {
-              if (message.payload.stash) {
-                try {
-                  await this.gitService.stashPop(0);
-                } catch {
-                  this.post({ type: 'error', payload: { message: vscode.l10n.t('stashPopAfterCheckoutFailed') } });
-                }
-              }
-            }
+            await this.gitService.createAndCheckoutBranch(message.payload.name, message.payload.startPoint, { merge: message.payload.merge });
           } else {
             await this.gitService.createBranch(message.payload.name, message.payload.startPoint);
           }
@@ -426,6 +413,9 @@ export class MainPanel {
               ? vscode.l10n.t('branchCreatedAndCheckedOut', message.payload.name)
               : vscode.l10n.t('branchCreated', message.payload.name)
           );
+          if (message.payload.checkout && message.payload.stash) {
+            vscode.window.showInformationMessage(vscode.l10n.t('changesStashed'));
+          }
           await this.refreshAll();
           break;
         }
@@ -482,29 +472,23 @@ export class MainPanel {
           break;
         }
         case 'fastForward': {
+          // Same as checkout: stashing sets changes aside; do not pop them back.
           if (message.payload.stash) {
             await this.gitService.stashSave('Auto-stash before checkout', message.payload.stashUntracked);
           }
           if (message.payload.clean) {
             await this.gitService.clean();
           }
-          try {
-            await this.gitService.checkout(message.payload.local, {});
-            await this.gitService.merge(message.payload.remote, { ffOnly: true });
-          } finally {
-            if (message.payload.stash) {
-              try {
-                await this.gitService.stashPop(0);
-              } catch {
-                this.post({ type: 'error', payload: { message: vscode.l10n.t('stashPopAfterCheckoutFailed') } });
-              }
-            }
-          }
+          await this.gitService.checkout(message.payload.local, {});
+          await this.gitService.merge(message.payload.remote, { ffOnly: true });
           this.post({
             type: 'operationComplete',
             payload: { operation: 'checkout', success: true },
           });
           vscode.window.showInformationMessage(vscode.l10n.t('fastForwarded', message.payload.local, message.payload.remote));
+          if (message.payload.stash) {
+            vscode.window.showInformationMessage(vscode.l10n.t('changesStashed'));
+          }
           await this.refreshAll();
           break;
         }

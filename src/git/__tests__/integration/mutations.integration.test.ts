@@ -114,6 +114,24 @@ describe('GitService integration — state mutations', () => {
       expect(currentBranch(repo.path)).toBe('HEAD'); // detached
       expect(head(repo.path)).toBe(c1);
     });
+
+    it('"stash and checkout" sets changes aside instead of carrying them over', async () => {
+      // The stash-and-checkout option must leave the working tree clean on the
+      // target branch and keep the local changes in the stash for later — it
+      // must NOT immediately pop them back (which would make it identical to
+      // "keep changes and checkout").
+      commit(repo.path, 'init', { 'a.txt': 'base\n' });
+      runGit(repo.path, ['branch', 'other']);
+      writeFileSync(join(repo.path, 'a.txt'), 'local edit\n');
+      expect(await svc.isDirty()).toBe(true);
+
+      await svc.stashSave('Auto-stash before checkout', true);
+      await svc.checkout('other');
+
+      expect(currentBranch(repo.path)).toBe('other');
+      expect(await svc.isDirty()).toBe(false);              // tree clean, changes set aside
+      expect((await svc.stashList()).length).toBe(1);       // changes preserved in the stash
+    });
   });
 
   describe('tag CRUD', () => {
