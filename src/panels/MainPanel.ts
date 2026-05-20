@@ -526,7 +526,7 @@ export class MainPanel {
           } else {
             await this.openDiffInEditor(
               message.payload.file,
-              false,
+              message.payload.staged ?? false,
               message.payload.commitHash,
             );
           }

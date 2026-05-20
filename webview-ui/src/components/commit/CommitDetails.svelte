@@ -627,6 +627,28 @@
                         vscode.postMessage({ type: 'getUncommittedFileDiff', payload: { file: node.path, staged } });
                       }
                     }}
+                    ondblclick={() => {
+                      // Open the change in the editor: staged → HEAD↔index, unstaged → index↔working.
+                      if (node.status !== 'N') {
+                        vscode.postMessage({ type: 'openDiff', payload: { file: node.path, staged } });
+                      }
+                    }}
+                    oncontextmenu={(e) => {
+                      e.preventDefault();
+                      const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [
+                        {
+                          label: t('file.open'),
+                          action: () => { vscode.postMessage({ type: 'openFile', payload: { file: node.path } }); fileContextMenu = null; },
+                        },
+                      ];
+                      if (node.status !== 'N') {
+                        items.push({
+                          label: t('file.openChanges'),
+                          action: () => { vscode.postMessage({ type: 'openDiff', payload: { file: node.path, staged } }); fileContextMenu = null; },
+                        });
+                      }
+                      fileContextMenu = { x: e.clientX, y: e.clientY, items };
+                    }}
                   >
                     <i class="codicon codicon-file"></i>
                     <span class="file-name truncate">{node.name}</span>

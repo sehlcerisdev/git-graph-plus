@@ -465,6 +465,42 @@ describe('CommitDetails — uncommitted (staged/unstaged)', () => {
       (m) => (m.data as { type?: string }).type === 'getUncommittedFileDiff'
     )).toBe(false);
   });
+
+  it('double-clicking an unstaged file opens its working-tree diff', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'UNCOMMITTED' }) });
+    deliverUncommitted([], [{ path: 'a.ts', status: 'M' }]);
+    const unstagedTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
+      .find(t => /unstaged/i.test(t.textContent ?? ''))!;
+    await fireEvent.click(unstagedTab);
+    await waitFor(() => container.querySelector('.file-item'));
+    globalThis.__postedMessages = [];
+    await fireEvent.dblClick(container.querySelector<HTMLButtonElement>('.file-item')!);
+    const msg = globalThis.__postedMessages.find((m) => (m.data as { type?: string }).type === 'openDiff');
+    expect(msg).toBeDefined();
+    expect((msg!.data as { payload: unknown }).payload).toMatchObject({ file: 'a.ts', staged: false });
+  });
+
+  it('double-clicking a staged file opens its staged diff', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'UNCOMMITTED' }) });
+    deliverUncommitted([{ path: 'a.ts', status: 'M' }], []);
+    await waitFor(() => container.querySelector('.file-item'));
+    globalThis.__postedMessages = [];
+    await fireEvent.dblClick(container.querySelector<HTMLButtonElement>('.file-item')!);
+    const msg = globalThis.__postedMessages.find((m) => (m.data as { type?: string }).type === 'openDiff');
+    expect(msg).toBeDefined();
+    expect((msg!.data as { payload: unknown }).payload).toMatchObject({ file: 'a.ts', staged: true });
+  });
+
+  it('right-clicking an uncommitted file opens a context menu with Open changes', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'UNCOMMITTED' }) });
+    deliverUncommitted([{ path: 'a.ts', status: 'M' }], []);
+    await waitFor(() => container.querySelector('.file-item'));
+    await fireEvent.contextMenu(container.querySelector<HTMLButtonElement>('.file-item')!, { clientX: 10, clientY: 10 });
+    await waitFor(() => {
+      const text = Array.from(container.querySelectorAll('*')).map(el => el.textContent ?? '').join(' ');
+      expect(text.toLowerCase()).toContain('open changes');
+    });
+  });
 });
 
 describe('CommitDetails — LFS badges', () => {
