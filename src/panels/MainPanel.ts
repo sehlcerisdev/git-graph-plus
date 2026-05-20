@@ -472,23 +472,32 @@ export class MainPanel {
           break;
         }
         case 'fastForward': {
-          // Same as checkout: stashing sets changes aside; do not pop them back.
+          // Fast-forward is a sync (like pull, and git's `merge --autostash`):
+          // stash so the working tree is clean for the ff-merge, then pop to
+          // restore the changes — unlike a plain checkout, which sets them aside.
           if (message.payload.stash) {
-            await this.gitService.stashSave('Auto-stash before checkout', message.payload.stashUntracked);
+            await this.gitService.stashSave('Auto-stash before fast-forward', message.payload.stashUntracked);
           }
           if (message.payload.clean) {
             await this.gitService.clean();
           }
-          await this.gitService.checkout(message.payload.local, {});
-          await this.gitService.merge(message.payload.remote, { ffOnly: true });
+          try {
+            await this.gitService.checkout(message.payload.local, {});
+            await this.gitService.merge(message.payload.remote, { ffOnly: true });
+          } finally {
+            if (message.payload.stash) {
+              try {
+                await this.gitService.stashPop(0);
+              } catch {
+                this.post({ type: 'error', payload: { message: vscode.l10n.t('stashPopAfterFastForwardFailed') } });
+              }
+            }
+          }
           this.post({
             type: 'operationComplete',
             payload: { operation: 'checkout', success: true },
           });
           vscode.window.showInformationMessage(vscode.l10n.t('fastForwarded', message.payload.local, message.payload.remote));
-          if (message.payload.stash) {
-            vscode.window.showInformationMessage(vscode.l10n.t('changesStashed'));
-          }
           await this.refreshAll();
           break;
         }

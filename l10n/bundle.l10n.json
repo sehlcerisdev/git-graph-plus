@@ -67,6 +67,7 @@
   "pruneWorktreesFailed": "Prune worktrees failed: {0}",
   "noChangesToStash": "No local changes to stash",
   "stashPopAfterPullFailed": "Pull succeeded, but failed to restore stashed changes. Use 'git stash pop' manually.",
+  "stashPopAfterFastForwardFailed": "Fast-forward succeeded, but failed to restore stashed changes. Use 'git stash pop' manually.",
   "branchCreated": "Branch '{0}' created",
   "branchCreatedAndCheckedOut": "Switched to new branch '{0}'",
   "branchDeleted": "Branch '{0}' deleted",
