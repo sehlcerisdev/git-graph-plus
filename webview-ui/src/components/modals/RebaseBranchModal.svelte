@@ -60,7 +60,7 @@
         <span>{@html t('rebase.conflictWarning', { count: String(conflictPrediction.files.length) })}</span>
         {#if conflictPrediction.truncated}<span class="conflict-truncated">({t('rebase.predictionTruncated')})</span>{/if}
       {:else}
-        <i class="codicon codicon-check"></i>
+        <i class="codicon codicon-check modal-status-check"></i>
         <span>{t('rebase.noConflict')}</span>
         {#if conflictPrediction.truncated}<span class="conflict-truncated">({t('rebase.predictionTruncated')})</span>{/if}
       {/if}

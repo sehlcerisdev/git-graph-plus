@@ -315,13 +315,15 @@
   :global(.modal-checkbox input[type="checkbox"]:checked::after) {
     content: '';
     position: absolute;
-    left: 4px;
-    top: 0;
+    left: 50%;
+    top: 50%;
     width: 4px;
     height: 8px;
     border: solid #fff;
     border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
+    /* Center the rotated checkmark in the box; the extra -10% on Y compensates
+       for the tick's optical centre sitting below its geometric centre. */
+    transform: translate(-50%, -60%) rotate(45deg);
   }
 
   :global(.modal-checkbox--danger input[type="checkbox"]:checked) {
@@ -389,6 +391,12 @@
   :global(.modal-hash) {
     font-family: monospace;
     color: var(--text-secondary);
+  }
+
+  /* Slightly bolder success checkmark for status rows (no-conflict prediction,
+     amend staged-included). */
+  :global(.modal-status-check) {
+    -webkit-text-stroke: 0.5px currentColor;
   }
 
   :global(.modal-form-group) {

@@ -65,7 +65,7 @@
         <i class="codicon codicon-warning"></i>
         <span>{@html t('merge.conflictWarning', { count: String(conflictPrediction.files.length) })}</span>
       {:else}
-        <i class="codicon codicon-check"></i>
+        <i class="codicon codicon-check modal-status-check"></i>
         <span>{t('merge.noConflict')}</span>
       {/if}
     </div>

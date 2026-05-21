@@ -14,18 +14,19 @@ const base = {
 };
 
 describe('AmendModal', () => {
-  it('keeps the message by default and disables the textarea', () => {
+  it('keeps the message by default and makes the textarea readonly', () => {
     const { container } = render(AmendModal, { ...base, onClose: () => {}, onAmend: () => {} });
     const textarea = container.querySelector<HTMLTextAreaElement>('#amend-message')!;
-    expect(textarea.disabled).toBe(true);
+    // readonly (not disabled) so a long kept message stays scrollable/readable.
+    expect(textarea.readOnly).toBe(true);
   });
 
-  it('enables the textarea when "keep message" is unchecked', async () => {
+  it('makes the textarea editable when "keep message" is unchecked', async () => {
     const { container } = render(AmendModal, { ...base, onClose: () => {}, onAmend: () => {} });
     const keep = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
     await fireEvent.click(keep); // uncheck keepMessage
     const textarea = container.querySelector<HTMLTextAreaElement>('#amend-message')!;
-    expect(textarea.disabled).toBe(false);
+    expect(textarea.readOnly).toBe(false);
   });
 
   it('amends keeping the message (no message in payload)', async () => {

@@ -75,11 +75,11 @@
       class="modal-input amend-textarea"
       rows="8"
       bind:value={editedMessage}
-      disabled={keepMessage}
+      readonly={keepMessage}
     ></textarea>
   </div>
 
-  <div class="modal-form-group">
+  <div class="modal-form-group amend-options">
     <label class="modal-checkbox">
       <input type="checkbox" bind:checked={keepMessage} />
       <span>{t('amend.keepMessage')}</span>
@@ -125,7 +125,7 @@
         <i class="codicon codicon-warning"></i>
         <span>{t('amend.stagedNone')}</span>
       {:else}
-        <i class="codicon codicon-check"></i>
+        <i class="codicon codicon-check modal-status-check"></i>
         <span>{t('amend.stagedIncluded', { count: String(stagedCount) })}</span>
       {/if}
     </div>
@@ -140,6 +140,23 @@
     min-height: 9em;
     resize: vertical;
     font-family: var(--vscode-editor-font-family, monospace);
+    /* Keep the message scrollable so a long kept message can be read; a
+       disabled textarea would block wheel/scrollbar interaction. */
+    overflow-y: auto;
+  }
+
+  /* "Keep message" mode: not editable, but still readable and scrollable. */
+  .amend-textarea:read-only {
+    cursor: default;
+    opacity: 0.85;
+  }
+
+  /* Space the stacked option checkboxes; they share one form group, so add the
+     gap here instead of wrapping each in its own (as the other modals do). */
+  .amend-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .staged-status {
