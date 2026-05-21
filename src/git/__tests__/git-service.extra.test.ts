@@ -141,6 +141,14 @@ describe('GitService — LFS', () => {
     expect(await service.lfsLocks()).toEqual([]);
   });
 
+  it('lfsLocks stays silent when git-lfs is not a git command (exit 1)', async () => {
+    const warn = vi.fn();
+    service.setWarningHandler(warn);
+    mockExec(service, async (args) => { throw new GitError("git: 'lfs' is not a git command. See 'git --help'.", 1, args); });
+    expect(await service.lfsLocks()).toEqual([]);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('lfsLocks swallows known expected errors and surfaces unexpected ones', async () => {
     const warn = vi.fn();
     service.setWarningHandler(warn);
@@ -161,6 +169,7 @@ describe('GitService — LFS', () => {
       'no such remote',
       "'origin' does not appear to be a git repository",
       'this operation requires existing locks',
+      "git: 'lfs' is not a git command. See 'git --help'.",
       'not a git repository',
     ];
     for (const msg of expected) {
