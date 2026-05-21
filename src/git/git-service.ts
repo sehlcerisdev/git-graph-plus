@@ -4,6 +4,7 @@ import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { bufferStream, BufferOverflowError } from '../utils/buffer-stream';
+import { getGitBinaryPath } from './git-binary';
 
 /** Default max bytes per stdout/stderr stream for a single git invocation.
  *  Picked to comfortably hold large log/diff output (e.g. `git log --all`
@@ -244,7 +245,7 @@ export class GitService {
     const maxBytes = options?.maxBufferBytes ?? DEFAULT_MAX_BUFFER_BYTES;
 
     return new Promise((resolve, reject) => {
-      const proc = spawn('git', args, {
+      const proc = spawn(getGitBinaryPath(), args, {
         cwd: this.repoPath,
         env: { ...process.env, ...this.extraEnv, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C', GIT_MERGE_AUTOEDIT: 'no', GIT_EDITOR: 'true', EDITOR: 'true' },
       });
@@ -694,7 +695,7 @@ export class GitService {
       ? ['merge-tree', '--write-tree', `--merge-base=${mergeBase}`, ours, theirs]
       : ['merge-tree', '--write-tree', ours, theirs];
     return new Promise((resolve) => {
-      const proc = spawn('git', args, {
+      const proc = spawn(getGitBinaryPath(), args, {
         cwd: this.repoPath,
         env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
       });
@@ -1176,7 +1177,7 @@ export class GitService {
       // that cmd.exe / sh expansion handles repo paths containing &, |, (, ),
       // ^, etc. safely without manual escaping.
       await new Promise<void>((resolve, reject) => {
-        const proc = spawn('git', ['rebase', '-i', base], {
+        const proc = spawn(getGitBinaryPath(), ['rebase', '-i', base], {
           cwd: this.repoPath,
           env: {
             ...process.env,
@@ -1854,7 +1855,7 @@ export class GitService {
     }
     const MAX_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB limit
     return new Promise((resolve, reject) => {
-      const proc = spawn('git', ['show', `${ref}:${filePath}`], {
+      const proc = spawn(getGitBinaryPath(), ['show', `${ref}:${filePath}`], {
         cwd: this.repoPath,
         env: { ...process.env, ...this.extraEnv, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C', GIT_MERGE_AUTOEDIT: 'no', GIT_EDITOR: 'true', EDITOR: 'true' },
       });

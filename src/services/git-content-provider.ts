@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { spawn } from 'child_process';
+import { getGitBinaryPath } from '../git/git-binary';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {
   private onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
@@ -21,7 +22,7 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
     }
 
     return new Promise((resolve) => {
-      const proc = spawn('git', ['show', `${ref}:${filePath}`], {
+      const proc = spawn(getGitBinaryPath(), ['show', `${ref}:${filePath}`], {
         cwd: repoPath,
         env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
       });

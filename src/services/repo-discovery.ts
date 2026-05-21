@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getGitBinaryPath } from '../git/git-binary';
 
 export type RepoType = 'root' | 'submodule' | 'nested';
 
@@ -214,7 +215,7 @@ export class RepoDiscoveryService {
 
   private static execGit(args: string[], cwd: string, timeoutMs = 15000): Promise<string> {
     return new Promise((resolve, reject) => {
-      const proc = spawn('git', args, {
+      const proc = spawn(getGitBinaryPath(), args, {
         cwd,
         env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
       });

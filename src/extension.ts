@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { existsSync } from 'fs';
+import { setGitBinaryPath } from './git/git-binary';
 import { MainPanel } from './panels/MainPanel';
 import { GitContentProvider } from './services/git-content-provider';
 import { GitService } from './git/git-service';
@@ -11,6 +13,20 @@ import { StashesViewProvider } from './views/stashes-view';
 import { WorktreesViewProvider } from './views/worktrees-view';
 import { StatusBarManager } from './views/status-bar';
 import { RepoDiscoveryService } from './services/repo-discovery';
+
+/**
+ * Resolve the `git.path` setting to an existing executable. The setting may be
+ * a single path or an array of candidates (VS Code uses the first that exists).
+ * Returns undefined when nothing is configured or none of the candidates exist.
+ */
+function resolveConfiguredGitPath(): string | undefined {
+  const cfg = vscode.workspace.getConfiguration('git').get<string | string[] | null>('path');
+  const candidates = Array.isArray(cfg) ? cfg : cfg ? [cfg] : [];
+  for (const c of candidates) {
+    if (c && existsSync(c)) return c;
+  }
+  return undefined;
+}
 
 export function activate(context: vscode.ExtensionContext) {
   // Status bar is always visible regardless of workspace state
@@ -48,22 +64,44 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   let activeRepoPath = workspaceFolder.uri.fsPath;
+
+  // Resolve the git executable so the extension works when git is not on PATH
+  // (e.g. portable/MSYS2 installs configured via `git.path`). The configured
+  // path takes precedence; otherwise we fall back to the path the built-in git
+  // extension resolved (set below once its API is available), then to PATH. #18
+  let apiGitPath: string | undefined;
+  const applyGitPath = () => setGitBinaryPath(resolveConfiguredGitPath() ?? apiGitPath);
+  applyGitPath();
+
   let activeGitService = new GitService(activeRepoPath);
 
   // Inject VS Code's built-in git extension askpass env so authentication prompts work
   const builtinGit = vscode.extensions.getExtension('vscode.git');
   if (builtinGit) {
     const waitForGit = builtinGit.isActive ? Promise.resolve(builtinGit.exports) : Promise.resolve(builtinGit.activate());
-    waitForGit.then((ext: { getAPI(version: number): { git: { env?: Record<string, string> } } }) => {
+    waitForGit.then((ext: { getAPI(version: number): { git: { env?: Record<string, string>; path?: string } } }) => {
       try {
-        const env = ext.getAPI(1)?.git?.env;
-        if (env) {
-          activeGitService.setExtraEnv(env);
-          MainPanel.setExtraEnv(env);
+        const git = ext.getAPI(1)?.git;
+        if (git?.env) {
+          activeGitService.setExtraEnv(git.env);
+          MainPanel.setExtraEnv(git.env);
+        }
+        // The built-in extension's resolved path already honors `git.path`; adopt
+        // it as the fallback for when the user hasn't set a valid `git.path`.
+        if (typeof git?.path === 'string' && git.path) {
+          apiGitPath = git.path;
+          applyGitPath();
         }
       } catch { /* built-in git extension API unavailable */ }
     }).catch(() => {});
   }
+
+  // Re-resolve when the user changes `git.path` at runtime.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('git.path')) applyGitPath();
+    }),
+  );
 
   // --- Content Provider for diff URIs ---
   const contentProvider = new GitContentProvider();
