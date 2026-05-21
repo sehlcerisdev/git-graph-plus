@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1 (2026-05-21)
+
+### Improvements
+- **Modal Polish** - Spaced out the amend modal's option checkboxes, kept the message field scrollable when keeping a long message, centered the checkbox tick, and made the "no conflict" / "staged" status checkmarks a touch bolder.
+
+### Bug Fixes
+- **Large Repository Rendering** - The commit graph no longer pushes commit messages off screen or overlaps the SHA and date columns in repositories with many concurrent branches.
+- **Custom Git Path** - The extension now honors the VS Code `git.path` setting, so it works when Git is not on the system `PATH` (e.g. portable or MSYS2 installs).
+- **Compare View Diffs** - Clicking a file while comparing two commits (or comparing to the working tree) now shows its diff again.
+- **Git LFS Warning** - Stopped showing a spurious warning when Git LFS is not installed.
+
 ## 0.4.0 (2026-05-20)
 
 ### New Features

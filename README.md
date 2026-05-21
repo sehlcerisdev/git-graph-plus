@@ -178,7 +178,7 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 ## Requirements
 
 - VS Code 1.85.0 or later
-- Git installed and available in PATH
+- Git installed and available in PATH (or configured via the `git.path` setting)
 
 ## Acknowledgements
 
