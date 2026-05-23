@@ -6,7 +6,7 @@ import { formatGitError } from '../git/git-error-formatter';
 import { buildFullGraph } from '../git/git-graph-builder';
 import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
 import { FileWatcher } from '../services/file-watcher';
-import { resolveGitDirs } from '../services/file-watcher-helpers';
+import { resolveGitDirs, shouldRefreshGraph } from '../services/file-watcher-helpers';
 import { RepoDiscoveryService, RepoInfo } from '../services/repo-discovery';
 import type { WebviewMessage } from '../utils/message-bus';
 import {
@@ -35,7 +35,14 @@ export class MainPanel {
   private isFirstGetLog = true;
   private logSequence = 0;
   private searchSequence = 0;
-  private diffSequence = new SequenceGuard();
+  // Two independent guards: selecting a commit (loads its file list) and
+  // selecting a file (loads that file's diff) are different axes, so a file
+  // request must not invalidate a pending commit-files request and vice versa.
+  // getFileDiff and getUncommittedFileDiff share `fileDiffSequence` because
+  // both deliver `fileDiffData` to the same panel — a newer file selection
+  // should supersede an older one regardless of committed/uncommitted source.
+  private commitFilesSequence = new SequenceGuard();
+  private fileDiffSequence = new SequenceGuard();
   private cachedRepos: RepoInfo[] = [];
   private disposed = false;
   public static onSidebarRefresh: (() => void) | null = null;
@@ -208,7 +215,8 @@ export class MainPanel {
     this.currentBranchFilter = undefined;
     this.logSequence = 0;
     this.searchSequence = 0;
-    this.diffSequence.reset();
+    this.commitFilesSequence.reset();
+    this.fileDiffSequence.reset();
 
     const oldWatcher = this.fileWatcher;
     oldWatcher.dispose();
@@ -320,10 +328,10 @@ export class MainPanel {
         }
         case 'getCommitDiff': {
           // Guard against rapid clicks on different commits: only the most
-          // recently requested diff is delivered to the webview.
-          const ticket = this.diffSequence.issue();
+          // recently requested file list is delivered to the webview.
+          const ticket = this.commitFilesSequence.issue();
           const commitFiles = await this.gitService.showCommitFiles(message.payload.hash);
-          if (!this.diffSequence.isCurrent(ticket)) break;
+          if (!this.commitFilesSequence.isCurrent(ticket)) break;
           this.post({
             type: 'commitDiffData',
             payload: { hash: message.payload.hash, files: commitFiles },
@@ -331,9 +339,9 @@ export class MainPanel {
           break;
         }
         case 'getFileDiff': {
-          const ticket = this.diffSequence.issue();
+          const ticket = this.fileDiffSequence.issue();
           const diffs = await this.gitService.showCommitDiff(message.payload.hash, message.payload.file);
-          if (!this.diffSequence.isCurrent(ticket)) break;
+          if (!this.fileDiffSequence.isCurrent(ticket)) break;
           this.post({
             type: 'fileDiffData',
             payload: { hash: message.payload.hash, file: message.payload.file, diff: diffs[0] || null },
@@ -351,7 +359,11 @@ export class MainPanel {
           break;
         }
         case 'getUncommittedFileDiff': {
+          // Same guard as getFileDiff: rapid switching between uncommitted files
+          // must not let a slow earlier diff overwrite the current selection.
+          const ticket = this.fileDiffSequence.issue();
           const diff = await this.gitService.getUncommittedFileDiff(message.payload.file, message.payload.staged);
+          if (!this.fileDiffSequence.isCurrent(ticket)) break;
           const key = (message.payload.staged ? 'staged' : 'unstaged') + ':' + message.payload.file;
           this.post({ type: 'fileDiffData', payload: { hash: 'UNCOMMITTED', file: message.payload.file, key, diff } });
           break;
@@ -1087,7 +1099,8 @@ export class MainPanel {
           this.currentBranchFilter = undefined;
           this.logSequence = 0;
           this.searchSequence = 0;
-          this.diffSequence.reset();
+          this.commitFilesSequence.reset();
+          this.fileDiffSequence.reset();
 
           const oldWatcher = this.fileWatcher;
           oldWatcher.dispose();
@@ -1435,7 +1448,7 @@ export class MainPanel {
       payload: { what },
     });
 
-    if (what === 'refs' || what === 'unknown') {
+    if (shouldRefreshGraph(what)) {
       await this.refreshAll();
     }
 

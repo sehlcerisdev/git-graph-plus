@@ -76,3 +76,19 @@ export function classifyPath(
   }
   return 'unknown';
 }
+
+/**
+ * Whether a classified change type warrants a full graph/UI refresh.
+ *
+ * 'refs'    — HEAD / branches / tags moved → graph changed.
+ * 'status'  — index or working-tree edit → the "Uncommitted changes" summary
+ *             row and staged/unstaged counts must be re-rendered. Without this
+ *             the top-of-graph summary goes stale until the next refs change.
+ * 'unknown' — anything we couldn't classify; refresh to stay safe.
+ *
+ * 'operation' (MERGE_HEAD / REBASE_HEAD appearing) is intentionally excluded:
+ * it does not move HEAD and is handled separately by the conflict-state probe.
+ */
+export function shouldRefreshGraph(what: string): boolean {
+  return what === 'refs' || what === 'status' || what === 'unknown';
+}

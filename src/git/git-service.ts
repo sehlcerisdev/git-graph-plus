@@ -401,7 +401,10 @@ export class GitService {
             sc.refs = [{ type: 'stash' as const, name: `stash@{${stash?.index ?? i}}` }];
             // Use stash message as subject
             if (stash?.message) sc.subject = stash.message;
-            // Insert after the parent commit; skip if parent is outside the filtered scope
+            // Insert the stash row directly above its base commit (the array is
+            // newest-first, so splicing at the parent's index places the stash
+            // just before — i.e. visually on top of — the commit it was created
+            // from). Skip if the base is outside the filtered scope.
             const parentIdx = commitHashIndex.get(sc.parents[0]);
             if (parentIdx !== undefined) {
               insertions.push({ idx: parentIdx, commit: sc });

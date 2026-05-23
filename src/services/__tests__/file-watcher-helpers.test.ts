@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { resolveGitDirs, classifyPath } from '../file-watcher-helpers';
+import { resolveGitDirs, classifyPath, shouldRefreshGraph } from '../file-watcher-helpers';
 
 describe('resolveGitDirs', () => {
   let root: string;
@@ -113,5 +113,25 @@ describe('classifyPath', () => {
     expect(classifyPath('/main/.git/worktrees/feat/index', wtGit, main)).toBe('status');
     expect(classifyPath('/main/.git/refs/heads/main', wtGit, main)).toBe('refs');
     expect(classifyPath('/main/.git/config', wtGit, main)).toBe('refs');
+  });
+});
+
+describe('shouldRefreshGraph', () => {
+  it('refreshes on refs changes (HEAD / branches / tags moved)', () => {
+    expect(shouldRefreshGraph('refs')).toBe(true);
+  });
+
+  it('refreshes on status changes so the uncommitted summary stays current', () => {
+    // Regression guard: index / working-tree edits used to be ignored, leaving
+    // the "Uncommitted changes (N)" row stale until the next refs change.
+    expect(shouldRefreshGraph('status')).toBe(true);
+  });
+
+  it('refreshes on unknown changes to stay safe', () => {
+    expect(shouldRefreshGraph('unknown')).toBe(true);
+  });
+
+  it('does NOT refresh on operation changes (handled by the conflict probe)', () => {
+    expect(shouldRefreshGraph('operation')).toBe(false);
   });
 });
