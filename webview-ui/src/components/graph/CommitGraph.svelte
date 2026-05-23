@@ -404,10 +404,20 @@
     return bounds;
   });
 
-  let visiblePaths = $derived(displayPaths.filter((_, i) => {
-    const b = pathBounds[i];
-    return b.maxY >= startIndex && b.minY <= endIndex;
-  }));
+  // Path geometry never changes, only which paths are on screen does. Precompute the
+  // SVG "d" string once per path (on data change) so scrolling never rebuilds them.
+  let pathDs = $derived(displayPaths.map(p => buildPathD(p.points)));
+
+  let visiblePaths = $derived.by(() => {
+    const out: Array<{ color: number; d: string }> = [];
+    for (let i = 0; i < displayPaths.length; i++) {
+      const b = pathBounds[i];
+      if (b.maxY >= startIndex && b.minY <= endIndex) {
+        out.push({ color: displayPaths[i].color, d: pathDs[i] });
+      }
+    }
+    return out;
+  });
   let visibleLinks = $derived(displayLinks.filter(link => {
     const sy = link.start.y, ey = link.end.y;
     const minY = sy < ey ? sy : ey;
@@ -972,10 +982,9 @@
         <!-- Paths: continuous branch lines -->
         {#each visiblePaths as path}
           {@const pathColor = COLOR_PALETTE[path.color % COLOR_PALETTE.length]}
-          {@const pathD = buildPathD(path.points)}
-          {#if pathD}
-            <path d={pathD} fill="none" stroke={pathColor} stroke-width="5" opacity="0.07" stroke-linecap="round" />
-            <path d={pathD} fill="none" stroke={pathColor} stroke-width="2" opacity="0.85" stroke-linecap="round" />
+          {#if path.d}
+            <path d={path.d} fill="none" stroke={pathColor} stroke-width="5" opacity="0.07" stroke-linecap="round" />
+            <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" opacity="0.85" stroke-linecap="round" />
           {/if}
         {/each}
 

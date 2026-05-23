@@ -1,4 +1,26 @@
+// Shared, lazily-bound global handlers so each tooltip instance doesn't add its own
+// window listeners (there can be hundreds of tooltips across the virtual-scrolled
+// graph, and they churn on every row create/destroy).
+const shownTips = new Set<() => void>();
+let globalsBound = false;
+
+function hideAll() {
+  // Copy first: hide() mutates the set.
+  for (const h of [...shownTips]) h();
+}
+
+function bindGlobals() {
+  if (globalsBound || typeof window === 'undefined') return;
+  globalsBound = true;
+  // Hide when the webview loses focus (Alt+Tab, clicking the VS Code sidebar, etc.)
+  window.addEventListener('blur', hideAll);
+  // Escape should always dismiss any visible tooltip, even when focus is trapped.
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideAll(); });
+}
+
 export function tooltip(node: HTMLElement, text: string | undefined) {
+  bindGlobals();
+
   let el: HTMLDivElement | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let mouseX = 0;
@@ -34,38 +56,38 @@ export function tooltip(node: HTMLElement, text: string | undefined) {
     hide();
     mouseX = e.clientX;
     mouseY = e.clientY;
+    // Track the mouse only while hovering (not for the lifetime of the node).
+    node.addEventListener('mousemove', onMouseMove);
     timer = setTimeout(() => {
       el = document.createElement('div');
       el.className = 'vsg-tooltip';
       el.textContent = text ?? null;
       document.body.appendChild(el);
+      shownTips.add(hide);
       position();
     }, 500);
   }
 
   function hide() {
     if (timer) { clearTimeout(timer); timer = null; }
+    node.removeEventListener('mousemove', onMouseMove);
     el?.remove();
     el = null;
+    shownTips.delete(hide);
   }
 
-  // Chromium/Electron does not fire mouseleave when disabled is set while hovering.
-  // MutationObserver catches the attribute change and hides the tooltip proactively.
-  const observer = new MutationObserver(() => {
-    if ((node as HTMLButtonElement).disabled) hide();
-  });
-  observer.observe(node, { attributes: true, attributeFilter: ['disabled'] });
-
-  // Hide when the webview loses focus (Alt+Tab, clicking VS Code sidebar, etc.)
-  window.addEventListener('blur', hide);
-
-  // Escape should always dismiss any visible tooltip, even when focus is
-  // trapped (e.g., inside a modal) and a blur event will not fire.
-  function onKeyDown(e: KeyboardEvent) { if (e.key === 'Escape') hide(); }
-  window.addEventListener('keydown', onKeyDown);
+  // Chromium/Electron does not fire mouseleave when `disabled` is set while hovering,
+  // so a disabled control could leave its tooltip stuck. Only elements that can be
+  // disabled need watching — skip the observer for the many plain span/div tooltips.
+  let observer: MutationObserver | null = null;
+  if (node instanceof HTMLButtonElement || node instanceof HTMLInputElement) {
+    observer = new MutationObserver(() => {
+      if ((node as HTMLButtonElement).disabled) hide();
+    });
+    observer.observe(node, { attributes: true, attributeFilter: ['disabled'] });
+  }
 
   node.addEventListener('mouseenter', show);
-  node.addEventListener('mousemove', onMouseMove);
   node.addEventListener('mouseleave', hide);
 
   return {
@@ -75,11 +97,8 @@ export function tooltip(node: HTMLElement, text: string | undefined) {
     },
     destroy() {
       hide();
-      observer.disconnect();
-      window.removeEventListener('blur', hide);
-      window.removeEventListener('keydown', onKeyDown);
+      observer?.disconnect();
       node.removeEventListener('mouseenter', show);
-      node.removeEventListener('mousemove', onMouseMove);
       node.removeEventListener('mouseleave', hide);
     }
   };

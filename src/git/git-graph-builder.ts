@@ -243,9 +243,16 @@ function buildPushedSet(commits: Commit[], hashIndex: Map<string, number>): Set<
 }
 
 function pickColor(unsolved: PathHelper[]): number {
-  const used = new Set(unsolved.map(p => p.path.color));
+  // Track used colors in a bitmask (palette is < 32 colors) instead of allocating an
+  // array + Set on every call. O(lanes), allocation-free. This runs once per new
+  // branch head and per merge parent, so it adds up on graphs with many lanes.
+  let mask = 0;
+  for (let j = 0; j < unsolved.length; j++) {
+    const c = unsolved[j].path.color;
+    if (c >= 0 && c < 32) mask |= 1 << c;
+  }
   for (let i = 0; i < COLOR_PALETTE.length; i++) {
-    if (!used.has(i)) return i;
+    if ((mask & (1 << i)) === 0) return i;
   }
   return 0;
 }

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { readFile, access } from 'fs/promises';
 import { GitService, GitError } from '../git/git-service';
 import { formatGitError } from '../git/git-error-formatter';
-import { buildGraph, buildFullGraph, buildGraphFromFullData } from '../git/git-graph-builder';
+import { buildFullGraph } from '../git/git-graph-builder';
 import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
 import { FileWatcher } from '../services/file-watcher';
 import { resolveGitDirs } from '../services/file-watcher-helpers';
@@ -280,14 +280,15 @@ export class MainPanel {
           const hasMore = allFetched.length > requestedLimit;
           const commits = hasMore ? allFetched.slice(0, requestedLimit) : allFetched;
           const fullGraph = commits.length > 0 ? buildFullGraph(commits, logBranches) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
-          const graph = commits.length > 0 ? buildGraphFromFullData(commits, fullGraph) : [];
           this.post({
             type: 'logData',
             payload: {
               commits,
               hasMore,
               currentLimit: requestedLimit,
-              graph,
+              // The webview renders from paths/links/dots; the legacy GraphNode[] is
+              // unused, so we skip building and sending it (saves CPU + IPC payload).
+              graph: [],
               paths: fullGraph.paths,
               links: fullGraph.links,
               dots: fullGraph.dots,
@@ -794,28 +795,21 @@ export class MainPanel {
             before: message.payload.before,
           });
           if (seq !== this.searchSequence) break;
-          const searchGraph = buildGraph(results);
-          this.post({ type: 'searchResults', payload: { commits: results, graph: searchGraph } });
+          this.post({ type: 'searchResults', payload: { commits: results, graph: [] } });
           break;
         }
         case 'searchByHash': {
           const seq = ++this.searchSequence;
           const found = await this.gitService.searchByHash(message.payload.hash);
           if (seq !== this.searchSequence) break;
-          if (found) {
-            const foundGraph = buildGraph([found]);
-            this.post({ type: 'searchResults', payload: { commits: [found], graph: foundGraph } });
-          } else {
-            this.post({ type: 'searchResults', payload: { commits: [], graph: [] } });
-          }
+          this.post({ type: 'searchResults', payload: { commits: found ? [found] : [], graph: [] } });
           break;
         }
         case 'searchByFile': {
           const seq = ++this.searchSequence;
           const results = await this.gitService.searchByFile(message.payload.file);
           if (seq !== this.searchSequence) break;
-          const searchGraph = buildGraph(results);
-          this.post({ type: 'searchResults', payload: { commits: results, graph: searchGraph } });
+          this.post({ type: 'searchResults', payload: { commits: results, graph: [] } });
           break;
         }
         case 'getActivityLog': {
@@ -1347,17 +1341,14 @@ export class MainPanel {
       ]);
       const hasMore = allFetched.length > refreshLimit;
       const allCommits = hasMore ? allFetched.slice(0, refreshLimit) : allFetched;
-      // Handle empty repository (0 commits) gracefully.
-      // Compute the layout once and derive the legacy GraphNode[] from it —
-      // calling buildGraph() *and* buildFullGraph() separately would run the
-      // (BFS-heavy) layout twice on every watcher-triggered refresh.
+      // Handle empty repository (0 commits) gracefully. The webview renders from
+      // paths/links/dots; the legacy GraphNode[] is unused so we don't build it.
       const fg = allCommits.length > 0 ? buildFullGraph(allCommits, branches) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
-      const graph = allCommits.length > 0 ? buildGraphFromFullData(allCommits, fg) : [];
       // Send as single combined message to ensure atomic update
       this.post({
         type: 'fullRefresh',
         payload: {
-          logData: { commits: allCommits, hasMore, currentLimit: this.currentLimit, graph, paths: fg.paths, links: fg.links, dots: fg.dots, commitLeftMargin: fg.commitLeftMargin, remoteFilter: this.currentRemoteFilter, branches: this.currentBranchFilter },
+          logData: { commits: allCommits, hasMore, currentLimit: this.currentLimit, graph: [], paths: fg.paths, links: fg.links, dots: fg.dots, commitLeftMargin: fg.commitLeftMargin, remoteFilter: this.currentRemoteFilter, branches: this.currentBranchFilter },
           branchData: { branches, tags, remotes, stashes, worktrees },
         },
       });
