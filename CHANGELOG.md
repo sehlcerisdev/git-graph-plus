@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.2 (2026-05-24)
+
+### New Features
+- **Fast-Forward Without Checkout** - You can now fast-forward a non-current branch up to its upstream without switching to it.
+- **Wide Graph Horizontal Scrolling** - Commit graphs with many concurrent branches now scroll horizontally, with the author, SHA, and date columns pinned to the right.
+- **Graph Auto-Pan** - As you scroll vertically, the graph pans horizontally to keep the start of the commit message in view.
+
+### Improvements
+- **Diff Syntax Highlighting** - Highlighting now follows your VS Code light/dark theme and covers many more languages (Svelte, Vue, Ruby, PHP, SCSS, Kotlin, Swift, C#, TOML, XML, and more) instead of falling back to plain text.
+- **Loading Feedback** - Changing filters, refreshing, and pressing Ctrl+R now show a loading state while the graph reloads.
+
+### Performance
+- **Faster Rebase Conflict Preview** - The rebase conflict predictor now probes commits in parallel, cutting preview latency on multi-commit branches.
+- **Large Diffs** - Very large diffs are now capped with an opt-in "show full diff" button so opening them no longer freezes the panel.
+- **Large Repositories** - Faster commit graph rendering and initial load.
+- **On-Demand Syntax Grammars** - Diff highlighting grammars load only when a file needs them, keeping the panel light.
+
+### Bug Fixes
+- **Load More Button** - Stays in view while the graph is scrolled horizontally.
+- **Auto-Refresh** - The graph now refreshes on working-tree changes, and rapid file selections no longer overwrite each other's diffs.
+
 ## 0.4.1 (2026-05-21)
 
 ### Improvements
