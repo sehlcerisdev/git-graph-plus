@@ -16,17 +16,56 @@ export function transportFromRemoteUrl(url: string): 'ssh' | 'https' | 'unknown'
   return 'unknown';
 }
 
-export function formatGitError(stderr: string): string {
-  const rawLines = stderr.trim().split('\n');
-  if (rawLines.length === 0) return stderr.trim();
+/** Join up to three message fragments, summarising any overflow. Mirrors the
+ *  file-list truncation so long server output can't flood the error toast. */
+function joinCapped(parts: string[]): string {
+  return parts.length <= 3
+    ? parts.join(' ')
+    : `${parts.slice(0, 3).join(' ')} (+${parts.length - 3} more)`;
+}
 
-  // Remote server errors are most specific (e.g. GitHub rule violations)
-  const remoteError = rawLines.find(l => /^remote:\s*(error|fatal):/i.test(l));
-  if (remoteError) {
-    return remoteError.replace(/^remote:\s*(error|fatal):\s*/i, '').trim();
+export function formatGitError(stderr: string): string {
+  // git pads `remote:` lines with trailing spaces; strip them so joined
+  // messages stay clean.
+  const rawLines = stderr.split('\n').map(l => l.replace(/\s+$/, ''));
+  if (rawLines.every(l => l.length === 0)) return stderr.trim();
+
+  // 1. Remote server error/fatal lines are most specific (e.g. GitHub rule
+  //    violations). There are often several — the actionable cause is
+  //    frequently on the *second* line — so surface them all, not just the first.
+  const remoteErrors = rawLines
+    .filter(l => /^remote:\s*(error|fatal):/i.test(l))
+    .map(l => l.replace(/^remote:\s*(error|fatal):\s*/i, '').trim())
+    .filter(l => l.length > 0);
+  if (remoteErrors.length > 0) {
+    return joinCapped(remoteErrors);
   }
 
-  // Find first error/fatal/warning line
+  // The parenthetical reason on a ref-update rejection is the most concise
+  // cause, e.g. `! [rejected] main -> main (fetch first)` or
+  // `! [remote rejected] main -> main (pre-receive hook declined)`.
+  const rejectionLine = rawLines.find(l => /^\s*!\s*\[(?:remote )?rejected\]/i.test(l));
+  const rejectionReason = rejectionLine?.match(/\(([^)]*)\)\s*$/)?.[1];
+
+  // 2. Plain `remote:` messages (no error/fatal keyword) carry the
+  //    human-readable reason for hook declines and push-protection blocks.
+  const remoteMsgs = rawLines
+    .filter(l => /^remote:/i.test(l))
+    .map(l => l.replace(/^remote:\s?/i, '').trim())
+    .filter(l => l.length > 0);
+  if (remoteMsgs.length > 0) {
+    const shown = joinCapped(remoteMsgs);
+    return rejectionReason ? `${shown} (${rejectionReason})` : shown;
+  }
+
+  // 3. No server message, but the push/fetch was rejected — the generic
+  //    "failed to push some refs" line says nothing about *why*, so surface the
+  //    rejection line itself (e.g. `[rejected] main -> main (fetch first)`).
+  if (rejectionLine) {
+    return rejectionLine.trim().replace(/^!\s*/, '').replace(/\]\s+/, '] ');
+  }
+
+  // 4. Find first error/fatal/warning line
   const firstErrorIdx = rawLines.findIndex(l => /^(error|fatal|warning):/i.test(l));
   if (firstErrorIdx === -1) {
     const fallback = rawLines.find(l => l.trim() && !/^hint:/i.test(l));

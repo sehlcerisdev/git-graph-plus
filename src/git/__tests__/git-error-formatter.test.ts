@@ -90,6 +90,62 @@ describe('formatGitError', () => {
       ].join('\n');
       expect(formatGitError(stderr)).toBe('pack exceeds maximum allowed size');
     });
+
+    it('joins multiple remote error lines so the actionable cause is not hidden', () => {
+      const stderr = [
+        'remote: error: GH006: Protected branch update failed for refs/heads/main.',
+        'remote: error: At least 1 approving review is required by reviewers with write access.',
+        'To github.com:o/r.git',
+        ' ! [remote rejected] main -> main (protected branch hook declined)',
+        "error: failed to push some refs to 'github.com:o/r.git'",
+      ].join('\n');
+      expect(formatGitError(stderr)).toBe(
+        'GH006: Protected branch update failed for refs/heads/main. At least 1 approving review is required by reviewers with write access.'
+      );
+    });
+  });
+
+  // Regression: the remote's stated cause used to be discarded, leaving only the
+  // generic "failed to push some refs" line (see real `git push` output).
+  describe('remote rejection cause', () => {
+    it('surfaces the rejection reason for a non-fast-forward push', () => {
+      const stderr = [
+        'To /srv/bare.git',
+        ' ! [rejected]        main -> main (fetch first)',
+        "error: failed to push some refs to '/srv/bare.git'",
+        'hint: Updates were rejected because the remote contains work that you do not',
+        'hint: have locally. Integrate the remote changes before pushing again.',
+      ].join('\n');
+      expect(formatGitError(stderr)).toBe('[rejected] main -> main (fetch first)');
+    });
+
+    it('surfaces plain remote: server messages from a pre-receive hook decline', () => {
+      const stderr = [
+        'remote: You are not allowed to push to the protected branch.        ',
+        'remote: Please open a pull request instead.        ',
+        'To /srv/bare.git',
+        ' ! [remote rejected] main -> main (pre-receive hook declined)',
+        "error: failed to push some refs to '/srv/bare.git'",
+      ].join('\n');
+      expect(formatGitError(stderr)).toBe(
+        'You are not allowed to push to the protected branch. Please open a pull request instead. (pre-receive hook declined)'
+      );
+    });
+
+    it('caps a chatty hook message at three lines', () => {
+      const stderr = [
+        'remote: line one',
+        'remote: line two',
+        'remote: line three',
+        'remote: line four',
+        'remote: line five',
+        ' ! [remote rejected] main -> main (pre-receive hook declined)',
+        "error: failed to push some refs to 'origin'",
+      ].join('\n');
+      expect(formatGitError(stderr)).toBe(
+        'line one line two line three (+2 more) (pre-receive hook declined)'
+      );
+    });
   });
 
   describe('no recognised prefix', () => {
