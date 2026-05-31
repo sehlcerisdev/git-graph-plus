@@ -8,7 +8,6 @@
   import { requestDirtyState } from '../../lib/utils/dirty-check';
   import ContextMenu from '../common/ContextMenu.svelte';
   import InteractiveRebase from '../rebase/InteractiveRebase.svelte';
-  import ColorSelect from '../common/ColorSelect.svelte';
   import PullAfterCheckoutModal from '../modals/PullAfterCheckoutModal.svelte';
   import FastForwardModal from '../modals/FastForwardModal.svelte';
   import WorktreeBlockedModal from '../modals/WorktreeBlockedModal.svelte';

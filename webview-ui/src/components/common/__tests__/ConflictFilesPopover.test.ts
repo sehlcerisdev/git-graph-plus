@@ -82,6 +82,23 @@ describe('ConflictFilesPopover', () => {
     }
   });
 
+  it('uses the shared tooltip action on file items instead of a native title', async () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderPopover({ files: ['src/very/long/path/to/a.ts'] });
+      await fireEvent.mouseEnter(container.querySelector('.conflict-files-trigger')!);
+      const item = container.querySelector('.conflict-files-popover__item')!;
+      // No native title attribute — the shared tooltip system handles it.
+      expect(item.getAttribute('title')).toBeNull();
+      await fireEvent.mouseEnter(item);
+      vi.advanceTimersByTime(500);
+      expect(document.body.querySelector('.vsg-tooltip')?.textContent).toBe('src/very/long/path/to/a.ts');
+    } finally {
+      vi.useRealTimers();
+      document.body.innerHTML = '';
+    }
+  });
+
   it('keeps the popover open while it is hovered', async () => {
     vi.useFakeTimers();
     try {

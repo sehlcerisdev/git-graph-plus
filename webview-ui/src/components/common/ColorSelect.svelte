@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { suppressTooltips } from '../../lib/actions/tooltip';
+
   interface Option {
     value: string;
     label: string;
@@ -59,7 +61,13 @@
   $effect(() => {
     if (open) {
       window.addEventListener('click', handleClickOutside, true);
-      return () => window.removeEventListener('click', handleClickOutside, true);
+      // The dropdown (z-index 2100) sits below hover tooltips (z-index 9999);
+      // suppress them while it's open so a stray hover can't cover it.
+      const releaseTooltips = suppressTooltips();
+      return () => {
+        window.removeEventListener('click', handleClickOutside, true);
+        releaseTooltips();
+      };
     }
   });
 </script>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, type Snippet } from 'svelte';
   import { t } from '../../lib/i18n/index.svelte';
+  import { tooltip } from '../../lib/actions/tooltip';
 
   interface Props {
     files: string[];
@@ -88,7 +89,7 @@
     </div>
     <ul class="conflict-files-popover__list">
       {#each files as file (file)}
-        <li class="conflict-files-popover__item" title={file}>{file}</li>
+        <li class="conflict-files-popover__item" use:tooltip={file}>{file}</li>
       {/each}
     </ul>
     {#if truncated}
