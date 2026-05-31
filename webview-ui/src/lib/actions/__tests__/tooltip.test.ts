@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { tooltip } from '../tooltip';
+import { tooltip, suppressTooltips } from '../tooltip';
 
 function makeNode(): HTMLButtonElement {
   const btn = document.createElement('button');
@@ -158,6 +158,64 @@ describe('tooltip action', () => {
     node.dispatchEvent(mouseEvent('mouseenter'));
     vi.advanceTimersByTime(500);
     expect(getTooltipEl()).toBeNull();
+  });
+
+  it('suppressTooltips hides an already-visible tooltip', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).not.toBeNull();
+    const release = suppressTooltips();
+    expect(getTooltipEl()).toBeNull();
+    release();
+  });
+
+  it('while suppressed a new hover does not create a tooltip', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    const release = suppressTooltips();
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).toBeNull();
+    release();
+  });
+
+  it('a tooltip whose timer was pending before suppression does not appear', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(200); // timer pending, not yet fired
+    const release = suppressTooltips();
+    vi.advanceTimersByTime(500); // timer fires while suppressed
+    expect(getTooltipEl()).toBeNull();
+    release();
+  });
+
+  it('releasing suppression allows tooltips again', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    const release = suppressTooltips();
+    release();
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).not.toBeNull();
+  });
+
+  it('suppression is ref-counted: all releases needed before tooltips resume', () => {
+    const node = makeNode();
+    tooltip(node, 'x');
+    const releaseA = suppressTooltips();
+    const releaseB = suppressTooltips();
+    releaseA();
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).toBeNull(); // still suppressed by B
+    node.dispatchEvent(mouseEvent('mouseleave'));
+    releaseB();
+    node.dispatchEvent(mouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()).not.toBeNull();
   });
 
   it('hovering near the viewport edge flips position to the other side', () => {

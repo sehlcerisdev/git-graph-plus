@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { suppressTooltips } from '../../lib/actions/tooltip';
 
   interface MenuItem {
     label: string;
@@ -25,6 +26,9 @@
   let submenuOffsetY = $state(0);
 
   onMount(() => {
+    // Hover tooltips out-rank the menu on z-index; keep them hidden while it's
+    // open so a stray mousemove can't pop one over the menu (issue #19).
+    const releaseTooltips = suppressTooltips();
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as Node;
       if (menuEl && !menuEl.contains(target)) {
@@ -37,6 +41,7 @@
     window.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('keydown', handleEscape);
     return () => {
+      releaseTooltips();
       window.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('keydown', handleEscape);
     };

@@ -4,9 +4,32 @@
 const shownTips = new Set<() => void>();
 let globalsBound = false;
 
+// Ref-counted suppression. While > 0, no tooltip may show — used by transient
+// foreground overlays (e.g. the right-click context menu) that out-rank the
+// tooltip's z-index and would otherwise be covered by a hover tooltip popping
+// up over them. See suppressTooltips().
+let suppressDepth = 0;
+
 function hideAll() {
   // Copy first: hide() mutates the set.
   for (const h of [...shownTips]) h();
+}
+
+/**
+ * Suppress all tooltips until the returned function is called. Hides anything
+ * currently visible and blocks new tooltips (including pending hover timers)
+ * for as long as the suppression is held. Ref-counted, so overlapping callers
+ * each get their own release and tooltips resume only once all have released.
+ */
+export function suppressTooltips(): () => void {
+  suppressDepth++;
+  hideAll();
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    suppressDepth = Math.max(0, suppressDepth - 1);
+  };
 }
 
 function bindGlobals() {
@@ -52,13 +75,15 @@ export function tooltip(node: HTMLElement, text: string | undefined) {
   }
 
   function show(e: MouseEvent) {
-    if (!text) return;
+    if (!text || suppressDepth > 0) return;
     hide();
     mouseX = e.clientX;
     mouseY = e.clientY;
     // Track the mouse only while hovering (not for the lifetime of the node).
     node.addEventListener('mousemove', onMouseMove);
     timer = setTimeout(() => {
+      // A suppression (e.g. context menu) may have opened while we waited.
+      if (suppressDepth > 0) return;
       el = document.createElement('div');
       el.className = 'vsg-tooltip';
       el.textContent = text ?? null;
