@@ -11,11 +11,11 @@ export type WebviewMessage =
   | { type: 'getCommitDiff'; payload: { hash: string } }
   | { type: 'getFileDiff'; payload: { hash: string; file: string } }
   | { type: 'getCommitData'; payload: { hash: string } }
-  | { type: 'createBranch'; payload: { name: string; startPoint?: string; checkout?: boolean; stash?: boolean; stashUntracked?: boolean; force?: boolean; clean?: boolean; merge?: boolean } }
+  | { type: 'createBranch'; payload: { name: string; startPoint?: string; checkout?: boolean; publish?: boolean; stash?: boolean; stashUntracked?: boolean; force?: boolean; clean?: boolean; merge?: boolean } }
   | { type: 'deleteBranch'; payload: { name: string; force?: boolean; worktreePath?: string; deleteRemote?: boolean } }
   | { type: 'deleteRemoteBranch'; payload: { remote: string; name: string } }
   | { type: 'renameBranch'; payload: { oldName: string; newName: string } }
-  | { type: 'merge'; payload: { branch: string; noFf?: boolean; ffOnly?: boolean; squash?: boolean } }
+  | { type: 'merge'; payload: { branch: string; noFf?: boolean; ffOnly?: boolean; squash?: boolean; pushAfter?: boolean; deleteSource?: boolean } }
   | { type: 'fastForward'; payload: { local: string; remote: string; stash?: boolean; stashUntracked?: boolean; clean?: boolean; noCheckout?: boolean } }
   | { type: 'abortMerge' }
   | { type: 'rebase'; payload: { onto: string; autostash?: boolean; pushAfter?: boolean } }
@@ -30,14 +30,14 @@ export type WebviewMessage =
   | { type: 'fetch'; payload: { remote?: string; prune?: boolean } }
   | { type: 'stashSave'; payload: { message?: string; includeUntracked?: boolean; keepIndex?: boolean } }
   | { type: 'stashApply'; payload: { index: number; drop?: boolean } }
-  | { type: 'cherryPick'; payload: { commit: string; noCommit?: boolean } }
-  | { type: 'revert'; payload: { commit: string; noCommit?: boolean } }
+  | { type: 'cherryPick'; payload: { commit: string; noCommit?: boolean; pushAfter?: boolean } }
+  | { type: 'revert'; payload: { commit: string; noCommit?: boolean; pushAfter?: boolean } }
   | { type: 'addRemote'; payload: { name: string; url: string } }
   | { type: 'removeRemote'; payload: { name: string } }
   | { type: 'openDiff'; payload: { file: string; commitHash?: string; ref1?: string; ref2?: string; staged?: boolean } }
   | { type: 'openFile'; payload: { file: string } }
   | { type: 'openScmView'; payload?: { returnFocus?: boolean } }
-  | { type: 'amendCommit'; payload: { message?: string; keepMessage?: boolean; resetDate?: boolean; resetAuthor?: boolean; only?: boolean } }
+  | { type: 'amendCommit'; payload: { message?: string; keepMessage?: boolean; resetDate?: boolean; resetAuthor?: boolean; only?: boolean; pushAfter?: boolean } }
   | { type: 'stashDrop'; payload: { index: number } }
   | { type: 'stashRename'; payload: { index: number; message: string } }
   | { type: 'worktreeAdd'; payload: { path: string; branch?: string; newBranch?: string } }

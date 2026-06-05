@@ -26,7 +26,7 @@ describe('MergeBranchModal', () => {
       props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
     });
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false });
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, pushAfter: false, deleteSource: false });
   });
 
   it('selecting no-ff via the ColorSelect dropdown sets noFf=true, squash=false', async () => {
@@ -41,7 +41,7 @@ describe('MergeBranchModal', () => {
     await fireEvent.click(noFfOption!);
     await tick();
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onMerge).toHaveBeenCalledWith({ noFf: true, ffOnly: false, squash: false });
+    expect(onMerge).toHaveBeenCalledWith({ noFf: true, ffOnly: false, squash: false, pushAfter: false, deleteSource: false });
   });
 
   it('selecting squash sets squash=true, noFf=false (mutually exclusive with no-ff)', async () => {
@@ -56,7 +56,37 @@ describe('MergeBranchModal', () => {
     await fireEvent.click(squashOption!);
     await tick();
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: true });
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: true, pushAfter: false, deleteSource: false });
+  });
+
+  it('forwards pushAfter flag to onMerge', async () => {
+    const onMerge = vi.fn();
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
+    });
+    await fireEvent.click(container.querySelector<HTMLInputElement>('input[type="checkbox"]')!);
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, pushAfter: true, deleteSource: false });
+  });
+
+  it('hides the delete-source checkbox unless canDeleteSource is true', () => {
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge: vi.fn() },
+    });
+    // Only the pushAfter checkbox is present by default.
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+  });
+
+  it('forwards deleteSource flag when canDeleteSource is true', async () => {
+    const onMerge = vi.fn();
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', canDeleteSource: true, onClose: vi.fn(), onMerge },
+    });
+    const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    expect(boxes).toHaveLength(2);
+    await fireEvent.click(boxes[1]!); // deleteSource is the second checkbox
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, pushAfter: false, deleteSource: true });
   });
 
   it('warning banner appears for conflict prediction with hasConflict=true', async () => {

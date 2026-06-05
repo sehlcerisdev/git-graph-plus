@@ -10,11 +10,12 @@
     commit: string;
     branch: string;
     onClose: () => void;
-    onRevert: (noCommit: boolean) => void;
+    onRevert: (options: { noCommit: boolean; pushAfter: boolean }) => void;
   }
 
   let { commit, branch, onClose, onRevert }: Props = $props();
   let noCommit = $state(false);
+  let pushAfter = $state(false);
   let revertBtn: HTMLButtonElement | undefined = $state();
   let conflictPrediction = $state<{ hasConflict: boolean; files: string[] } | null>(null);
 
@@ -47,6 +48,14 @@
       <span>{t('revert.noCommit')}</span>
     </label>
   </div>
+  {#if !noCommit}
+    <div class="modal-form-group">
+      <label class="modal-checkbox">
+        <input type="checkbox" bind:checked={pushAfter} />
+        <span>{t('revert.pushAfter')}</span>
+      </label>
+    </div>
+  {/if}
   <div class="form-actions">
     <div class="conflict-status" class:is-warning={conflictPrediction?.hasConflict} class:is-success={conflictPrediction !== null && !conflictPrediction?.hasConflict}>
       {#if conflictPrediction === null}
@@ -63,7 +72,7 @@
       {/if}
     </div>
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="primary" bind:this={revertBtn} onclick={() => onRevert(noCommit)}>{t('revert.revert')}</button>
+    <button class="primary" bind:this={revertBtn} onclick={() => onRevert({ noCommit, pushAfter: !noCommit && pushAfter })}>{t('revert.revert')}</button>
   </div>
 </Modal>
 

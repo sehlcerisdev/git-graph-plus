@@ -10,11 +10,12 @@
     commit: string;
     branch: string;
     onClose: () => void;
-    onCherryPick: (noCommit: boolean) => void;
+    onCherryPick: (options: { noCommit: boolean; pushAfter: boolean }) => void;
   }
 
   let { commit, branch, onClose, onCherryPick }: Props = $props();
   let noCommit = $state(false);
+  let pushAfter = $state(false);
   let cherryPickBtn: HTMLButtonElement | undefined = $state();
   let conflictPrediction = $state<{ hasConflict: boolean; files: string[] } | null>(null);
 
@@ -63,6 +64,14 @@
       <span>{t('cherryPick.noCommit')}</span>
     </label>
   </div>
+  {#if !noCommit}
+    <div class="modal-form-group">
+      <label class="modal-checkbox">
+        <input type="checkbox" bind:checked={pushAfter} />
+        <span>{t('cherryPick.pushAfter')}</span>
+      </label>
+    </div>
+  {/if}
   <div class="form-actions">
     <div class="conflict-status" class:is-warning={conflictPrediction?.hasConflict} class:is-success={conflictPrediction !== null && !conflictPrediction?.hasConflict}>
       {#if conflictPrediction === null}
@@ -79,7 +88,7 @@
       {/if}
     </div>
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="primary" bind:this={cherryPickBtn} onclick={() => onCherryPick(noCommit)}>{t('cherryPick.cherryPick')}</button>
+    <button class="primary" bind:this={cherryPickBtn} onclick={() => onCherryPick({ noCommit, pushAfter: !noCommit && pushAfter })}>{t('cherryPick.cherryPick')}</button>
   </div>
 </Modal>
 

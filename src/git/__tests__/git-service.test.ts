@@ -657,6 +657,39 @@ describe('GitService', () => {
     });
   });
 
+  describe('publishBranch', () => {
+    let calls: string[][];
+    beforeEach(() => {
+      calls = [];
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+    });
+
+    it('pushes the named branch with -u to the default remote', async () => {
+      (service as any).cachedRemoteNames = ['origin', 'upstream'];
+      (service as any).remoteNamesCacheTime = Date.now();
+      await service.publishBranch('feature/x');
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toContain('-u');
+      expect(calls[0]).toContain('origin');
+      expect(calls[0]).toContain('refs/heads/feature/x');
+    });
+
+    it('falls back to the first remote when origin is absent', async () => {
+      (service as any).cachedRemoteNames = ['upstream', 'fork'];
+      (service as any).remoteNamesCacheTime = Date.now();
+      await service.publishBranch('feature/x');
+      expect(calls[0]).toContain('upstream');
+    });
+
+    it('skips when there are no remotes', async () => {
+      (service as any).cachedRemoteNames = [];
+      (service as any).remoteNamesCacheTime = Date.now();
+      const result = await service.publishBranch('feature/x');
+      expect(calls).toHaveLength(0);
+      expect(result).toEqual({ pushed: false, reason: 'no-remote' });
+    });
+  });
+
   describe('getRemoteNames caching', () => {
     it('returns cached value within TTL window', async () => {
       let execCalls = 0;

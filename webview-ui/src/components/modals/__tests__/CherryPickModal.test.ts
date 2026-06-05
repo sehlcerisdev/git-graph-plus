@@ -80,15 +80,40 @@ describe('CherryPickModal', () => {
     }
   });
 
-  it('forwards the noCommit checkbox state to onCherryPick', async () => {
+  it('forwards the noCommit checkbox state to onCherryPick (hiding pushAfter)', async () => {
     const onCherryPick = vi.fn();
     const { container } = render(CherryPickModal, {
       commit: 'abc1234', branch: 'main',
       onClose: vi.fn(), onCherryPick,
     });
     const checkbox = container.querySelector<HTMLInputElement>('.modal-checkbox input[type="checkbox"]')!;
-    await fireEvent.click(checkbox);
+    await fireEvent.click(checkbox); // noCommit = true
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onCherryPick).toHaveBeenCalledWith(true);
+    expect(onCherryPick).toHaveBeenCalledWith({ noCommit: true, pushAfter: false });
+  });
+
+  it('forwards pushAfter when noCommit is unchecked', async () => {
+    const onCherryPick = vi.fn();
+    const { container } = render(CherryPickModal, {
+      commit: 'abc1234', branch: 'main',
+      onClose: vi.fn(), onCherryPick,
+    });
+    // noCommit is off by default, so the pushAfter checkbox is shown second.
+    const boxes = container.querySelectorAll<HTMLInputElement>('.modal-checkbox input[type="checkbox"]');
+    expect(boxes).toHaveLength(2);
+    await fireEvent.click(boxes[1]!); // pushAfter
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onCherryPick).toHaveBeenCalledWith({ noCommit: false, pushAfter: true });
+  });
+
+  it('hides the pushAfter checkbox when noCommit is checked', async () => {
+    const { container } = render(CherryPickModal, {
+      commit: 'abc1234', branch: 'main',
+      onClose: vi.fn(), onCherryPick: vi.fn(),
+    });
+    const noCommit = container.querySelector<HTMLInputElement>('.modal-checkbox input[type="checkbox"]')!;
+    await fireEvent.click(noCommit);
+    await tick();
+    expect(container.querySelectorAll('.modal-checkbox input[type="checkbox"]')).toHaveLength(1);
   });
 });

@@ -63,6 +63,7 @@ export const ko: Record<string, string> = {
   'createBranch.namePlaceholder': '브랜치 이름 입력',
   'createBranch.startPoint': '시작 지점 (선택 사항)',
   'createBranch.checkout': '생성 후 Checkout',
+  'createBranch.publish': '원격에 publish하고 upstream 설정',
   'createBranch.create': '생성',
   'createBranch.createAndCheckout': '생성 및 Checkout',
   'createBranch.branchExists': '\'{name}\' 이름의 브랜치가 이미 존재합니다.',
@@ -136,6 +137,8 @@ export const ko: Record<string, string> = {
   'amend.resetAuthor': "작성자를 '나'로 변경",
   'amend.only': '스테이징된 변경 포함 안 함 (메시지/메타데이터만)',
   'amend.onlyNote': '스테이징 변경 미포함',
+  'amend.pushAfter': 'Amend 후 브랜치 push',
+  'amend.pushAfterWarning': 'Amend는 commit을 재작성하므로 force push로 <span class="modal-emph modal-emph--danger">원격 브랜치를 덮어씁니다</span>. --force-with-lease라 fetch하지 않은 커밋이 원격에 있으면 중단됩니다.',
   'amend.amend': 'Amend',
   'graph.dblClickCheckout': '더블클릭으로 Checkout: {ref}',
 
@@ -350,6 +353,7 @@ export const ko: Record<string, string> = {
   'cherryPick.title': 'Commit Cherry-Pick',
   'cherryPick.desc': '선택한 commit을 현재 브랜치에 적용합니다.',
   'cherryPick.noCommit': 'Commit 없이 변경 사항만 적용',
+  'cherryPick.pushAfter': 'Cherry-pick 후 브랜치 push',
   'cherryPick.checkingConflicts': 'Cherry-Pick 충돌 확인 중',
   'cherryPick.conflictWarning': 'Cherry-Pick 시 충돌 발생({count}개)',
   'cherryPick.noConflict': 'Cherry-Pick 시 충돌 없음',
@@ -359,6 +363,7 @@ export const ko: Record<string, string> = {
   'revert.title': 'Commit Revert',
   'revert.desc': '선택한 commit의 변경 사항을 되돌리는 새 commit을 생성합니다.',
   'revert.noCommit': 'Commit 없이 변경 사항만 적용',
+  'revert.pushAfter': 'Revert 후 브랜치 push',
   'revert.checkingConflicts': 'Revert 충돌 확인 중',
   'revert.conflictWarning': 'Revert 시 충돌 발생({count}개)',
   'revert.noConflict': 'Revert 시 충돌 없음',
@@ -377,6 +382,8 @@ export const ko: Record<string, string> = {
   'merge.conflictWarning': 'Merge 시 충돌 발생({count}개)',
   'merge.noConflict': 'Merge 시 충돌 없음',
 
+  'merge.pushAfter': 'Merge 성공 후 현재 브랜치 push',
+  'merge.deleteSource': 'Merge 후 \'{branch}\' 삭제',
   'merge.merge': 'Merge',
 
   'rebase.checkingConflicts': 'Rebase 충돌 확인 중',
@@ -390,7 +397,7 @@ export const ko: Record<string, string> = {
   'rebaseBranch.rebase': 'Rebase',
   'rebase.autostash': '로컬 변경 사항 Stash 후 다시 적용 (tracked only)',
   'rebase.pushAfter': 'Rebase 성공 후 브랜치 push',
-  'rebase.pushAfterHint': 'Rebase는 히스토리를 재작성하므로 --force-with-lease 사용',
+  'rebase.pushAfterWarning': 'force push로 <span class="modal-emph modal-emph--danger">원격 브랜치를 덮어씁니다</span>. --force-with-lease라 fetch하지 않은 커밋이 원격에 있으면 중단되지만, 이 브랜치를 함께 쓰는 사람이 있다면 먼저 확인하세요.',
 
   // Reset modal
   'reset.modalTitle': '브랜치를 리비전으로 Reset',

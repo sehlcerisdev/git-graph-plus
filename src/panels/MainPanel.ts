@@ -418,6 +418,15 @@ export class MainPanel {
           } else {
             await this.gitService.createBranch(message.payload.name, message.payload.startPoint);
           }
+          // Optional follow-up: publish the new branch to the default remote
+          // with -u. Non-fatal — the branch already exists locally.
+          if (message.payload.publish) {
+            try {
+              await this.gitService.publishBranch(message.payload.name);
+            } catch (err) {
+              this.post({ type: 'error', payload: { message: vscode.l10n.t('publishBranchFailed', message.payload.name, err instanceof Error ? err.message : String(err)) } });
+            }
+          }
           this.post({
             type: 'operationComplete',
             payload: { operation: 'createBranch', success: true },
@@ -524,11 +533,34 @@ export class MainPanel {
         }
         case 'merge': {
           await this.gitService.merge(message.payload.branch, { noFf: message.payload.noFf, ffOnly: message.payload.ffOnly, squash: message.payload.squash });
+          // Optional follow-ups. A merge creates a new commit (no history
+          // rewrite) so the push needs no force. Both follow-ups are non-fatal:
+          // the merge already succeeded, so surface failures separately.
+          if (message.payload.deleteSource) {
+            try {
+              await this.gitService.deleteBranch(message.payload.branch);
+            } catch (err) {
+              this.post({ type: 'error', payload: { message: vscode.l10n.t('deleteSourceAfterMergeFailed', message.payload.branch, err instanceof Error ? err.message : String(err)) } });
+            }
+          }
+          let pushFailed = false;
+          if (message.payload.pushAfter) {
+            try {
+              await this.gitService.pushCurrentBranch();
+            } catch (err) {
+              pushFailed = true;
+              this.post({ type: 'error', payload: { message: vscode.l10n.t('pushAfterMergeFailed', err instanceof Error ? err.message : String(err)) } });
+            }
+          }
           this.post({
             type: 'operationComplete',
             payload: { operation: 'merge', success: true },
           });
-          vscode.window.showInformationMessage(vscode.l10n.t('merged', message.payload.branch));
+          if (message.payload.pushAfter && !pushFailed) {
+            vscode.window.showInformationMessage(vscode.l10n.t('mergedAndPushed', message.payload.branch));
+          } else {
+            vscode.window.showInformationMessage(vscode.l10n.t('merged', message.payload.branch));
+          }
           await this.refreshAll();
           break;
         }
@@ -571,11 +603,26 @@ export class MainPanel {
         }
         case 'amendCommit': {
           await this.gitService.amendCommit(message.payload);
+          // Optional follow-up: amend rewrites HEAD, so the push force-pushes
+          // with --force-with-lease. Non-fatal — the amend already succeeded.
+          let amendPushFailed = false;
+          if (message.payload.pushAfter) {
+            try {
+              await this.gitService.pushCurrentBranch({ force: 'with-lease' });
+            } catch (err) {
+              amendPushFailed = true;
+              this.post({ type: 'error', payload: { message: vscode.l10n.t('pushAfterAmendFailed', err instanceof Error ? err.message : String(err)) } });
+            }
+          }
           this.post({
             type: 'operationComplete',
             payload: { operation: 'amendCommit', success: true },
           });
-          vscode.window.showInformationMessage(vscode.l10n.t('commitAmended'));
+          if (message.payload.pushAfter && !amendPushFailed) {
+            vscode.window.showInformationMessage(vscode.l10n.t('commitAmendedAndPushed'));
+          } else {
+            vscode.window.showInformationMessage(vscode.l10n.t('commitAmended'));
+          }
           await this.refreshAll();
           break;
         }
@@ -784,15 +831,45 @@ export class MainPanel {
         }
         case 'cherryPick': {
           await this.gitService.cherryPick(message.payload.commit, { noCommit: message.payload.noCommit });
+          // Optional follow-up push (only meaningful when a commit was created).
+          // A cherry-pick adds a new commit, so the push needs no force.
+          let cherryPushFailed = false;
+          if (message.payload.pushAfter && !message.payload.noCommit) {
+            try {
+              await this.gitService.pushCurrentBranch();
+            } catch (err) {
+              cherryPushFailed = true;
+              this.post({ type: 'error', payload: { message: vscode.l10n.t('pushAfterCherryPickFailed', err instanceof Error ? err.message : String(err)) } });
+            }
+          }
           this.post({ type: 'operationComplete', payload: { operation: 'cherryPick', success: true } });
-          vscode.window.showInformationMessage(vscode.l10n.t('cherryPicked', message.payload.commit.substring(0, 7)));
+          if (message.payload.pushAfter && !message.payload.noCommit && !cherryPushFailed) {
+            vscode.window.showInformationMessage(vscode.l10n.t('cherryPickedAndPushed', message.payload.commit.substring(0, 7)));
+          } else {
+            vscode.window.showInformationMessage(vscode.l10n.t('cherryPicked', message.payload.commit.substring(0, 7)));
+          }
           await this.refreshAll();
           break;
         }
         case 'revert': {
           await this.gitService.revert(message.payload.commit, { noCommit: message.payload.noCommit });
+          // Optional follow-up push (only meaningful when a commit was created).
+          // A revert adds a new commit, so the push needs no force.
+          let revertPushFailed = false;
+          if (message.payload.pushAfter && !message.payload.noCommit) {
+            try {
+              await this.gitService.pushCurrentBranch();
+            } catch (err) {
+              revertPushFailed = true;
+              this.post({ type: 'error', payload: { message: vscode.l10n.t('pushAfterRevertFailed', err instanceof Error ? err.message : String(err)) } });
+            }
+          }
           this.post({ type: 'operationComplete', payload: { operation: 'revert', success: true } });
-          vscode.window.showInformationMessage(vscode.l10n.t('reverted', message.payload.commit.substring(0, 7)));
+          if (message.payload.pushAfter && !message.payload.noCommit && !revertPushFailed) {
+            vscode.window.showInformationMessage(vscode.l10n.t('revertedAndPushed', message.payload.commit.substring(0, 7)));
+          } else {
+            vscode.window.showInformationMessage(vscode.l10n.t('reverted', message.payload.commit.substring(0, 7)));
+          }
           await this.refreshAll();
           break;
         }

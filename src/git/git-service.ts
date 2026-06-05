@@ -1050,13 +1050,37 @@ export class GitService {
       await this.push(undefined, undefined, { force: options?.force });
       return { pushed: true };
     }
-    const remotes = await this.getRemoteNames();
-    if (remotes.length === 0) {
+    const remote = await this.defaultPushRemote();
+    if (!remote) {
       return { pushed: false, reason: 'no-remote' };
     }
-    const remote = remotes.includes('origin') ? 'origin' : remotes[0];
     await this.push(remote, current.name, { force: options?.force, setUpstream: true });
     return { pushed: true };
+  }
+
+  /**
+   * Publishes a specific branch to the default remote with -u, used by the
+   * "publish to remote" follow-up when creating a branch. Works whether or not
+   * the branch is currently checked out. Skipped when no remotes are configured.
+   */
+  async publishBranch(name: string): Promise<{ pushed: boolean; reason?: 'no-remote' }> {
+    this.assertSafeRef(name, 'push -u');
+    const remote = await this.defaultPushRemote();
+    if (!remote) {
+      return { pushed: false, reason: 'no-remote' };
+    }
+    await this.push(remote, name, { setUpstream: true });
+    return { pushed: true };
+  }
+
+  /** Resolves the default remote to push to: 'origin' when present, else the
+   *  first configured remote, or null when none are configured. */
+  private async defaultPushRemote(): Promise<string | null> {
+    const remotes = await this.getRemoteNames();
+    if (remotes.length === 0) {
+      return null;
+    }
+    return remotes.includes('origin') ? 'origin' : remotes[0];
   }
 
   async addRemote(name: string, url: string): Promise<void> {

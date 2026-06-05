@@ -15,20 +15,30 @@ beforeEach(() => {
 });
 
 describe('RevertModal — payload', () => {
-  it('default click sends noCommit=false', async () => {
+  it('default click sends noCommit=false, pushAfter=false', async () => {
     const onRevert = vi.fn();
     const { container } = render(RevertModal, { ...baseProps, onRevert });
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onRevert).toHaveBeenCalledWith(false);
+    expect(onRevert).toHaveBeenCalledWith({ noCommit: false, pushAfter: false });
   });
 
-  it('toggling --no-commit flips the payload to true', async () => {
+  it('toggling --no-commit flips noCommit and hides pushAfter', async () => {
     const onRevert = vi.fn();
     const { container } = render(RevertModal, { ...baseProps, onRevert });
     const box = container.querySelector<HTMLInputElement>('label.modal-checkbox input[type="checkbox"]')!;
     await fireEvent.click(box);
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onRevert).toHaveBeenCalledWith(true);
+    expect(onRevert).toHaveBeenCalledWith({ noCommit: true, pushAfter: false });
+  });
+
+  it('forwards pushAfter when noCommit is unchecked', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(RevertModal, { ...baseProps, onRevert });
+    const boxes = container.querySelectorAll<HTMLInputElement>('label.modal-checkbox input[type="checkbox"]');
+    expect(boxes).toHaveLength(2);
+    await fireEvent.click(boxes[1]!); // pushAfter
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onRevert).toHaveBeenCalledWith({ noCommit: false, pushAfter: true });
   });
 
   it('renders short commit hash and branch in the context card', () => {

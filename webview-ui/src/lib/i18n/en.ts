@@ -63,6 +63,7 @@ export const en: Record<string, string> = {
   'createBranch.namePlaceholder': 'Enter Branch Name',
   'createBranch.startPoint': 'Start point (optional)',
   'createBranch.checkout': 'Check out after create',
+  'createBranch.publish': 'Publish to remote and set upstream',
   'createBranch.create': 'Create',
   'createBranch.createAndCheckout': 'Create and Checkout',
   'createBranch.branchExists': 'A branch named \'{name}\' already exists.',
@@ -136,6 +137,8 @@ export const en: Record<string, string> = {
   'amend.resetAuthor': 'Reset author to me',
   'amend.only': 'Do not include staged changes (message/metadata only)',
   'amend.onlyNote': 'Staged changes excluded',
+  'amend.pushAfter': 'Push the branch after amending',
+  'amend.pushAfterWarning': 'Amending rewrites the commit, so this force-pushes and <span class="modal-emph modal-emph--danger">overwrites the remote branch</span>. --force-with-lease aborts if the remote has commits you haven\'t fetched.',
   'amend.amend': 'Amend',
   'graph.dblClickCheckout': 'Double-click to checkout: {ref}',
 
@@ -350,6 +353,7 @@ export const en: Record<string, string> = {
   'cherryPick.title': 'Cherry-Pick Commit',
   'cherryPick.desc': 'Apply the selected commit onto the current branch.',
   'cherryPick.noCommit': 'Apply changes without committing',
+  'cherryPick.pushAfter': 'Push the branch after cherry-picking',
   'cherryPick.checkingConflicts': 'Checking for cherry-pick conflicts',
   'cherryPick.conflictWarning': 'Cherry-Pick conflict in {count} file(s)',
   'cherryPick.noConflict': 'No cherry-pick conflicts',
@@ -359,6 +363,7 @@ export const en: Record<string, string> = {
   'revert.title': 'Revert Commit',
   'revert.desc': 'Create a new commit that undoes the changes of the selected commit.',
   'revert.noCommit': 'Apply changes without committing',
+  'revert.pushAfter': 'Push the branch after reverting',
   'revert.checkingConflicts': 'Checking for revert conflicts',
   'revert.conflictWarning': 'Revert conflict in {count} file(s)',
   'revert.noConflict': 'No revert conflicts',
@@ -377,6 +382,8 @@ export const en: Record<string, string> = {
   'merge.conflictWarning': 'Merge conflict in {count} file(s)',
   'merge.noConflict': 'No merge conflicts',
 
+  'merge.pushAfter': 'Push the current branch after a successful merge',
+  'merge.deleteSource': 'Delete \'{branch}\' after merging',
   'merge.merge': 'Merge',
 
   'rebase.checkingConflicts': 'Checking for rebase conflicts',
@@ -390,7 +397,7 @@ export const en: Record<string, string> = {
   'rebaseBranch.rebase': 'Rebase',
   'rebase.autostash': 'Stash and reapply local changes (tracked only)',
   'rebase.pushAfter': 'Push the branch after a successful rebase',
-  'rebase.pushAfterHint': 'Uses --force-with-lease since rebase rewrites history',
+  'rebase.pushAfterWarning': 'Force-pushes and <span class="modal-emph modal-emph--danger">overwrites the remote branch</span>. --force-with-lease aborts if the remote has commits you haven\'t fetched, but coordinate with anyone sharing this branch.',
 
   // Reset modal
   'reset.modalTitle': 'Reset Branch to Revision',

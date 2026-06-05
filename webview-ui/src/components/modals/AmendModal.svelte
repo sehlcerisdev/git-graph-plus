@@ -11,10 +11,11 @@
     message: string;
     isPushed: boolean;
     onClose: () => void;
-    onAmend: (opts: { message?: string; keepMessage: boolean; resetDate: boolean; resetAuthor: boolean; only: boolean }) => void;
+    onAmend: (opts: { message?: string; keepMessage: boolean; resetDate: boolean; resetAuthor: boolean; only: boolean; pushAfter: boolean }) => void;
   }
 
   let { hash, subject, message, isPushed, onClose, onAmend }: Props = $props();
+  let pushAfter = $state(false);
 
   // Independent options; "keep message" defaults on (message field read-only).
   let keepMessage = $state(true);
@@ -56,6 +57,7 @@
       resetDate,
       resetAuthor,
       only,
+      pushAfter,
     });
   }
 </script>
@@ -100,12 +102,22 @@
       <span>{t('amend.only')}</span>
       <span class="modal-flag-badge">--only</span>
     </label>
+    <label class="modal-checkbox">
+      <input type="checkbox" bind:checked={pushAfter} />
+      <span>{t('amend.pushAfter')}</span>
+      <span class="modal-flag-badge">--force-with-lease</span>
+    </label>
   </div>
 
   {#if isPushed}
     <p class="modal-warning" role="alert">
       <i class="codicon codicon-warning"></i>
       <span>{@html t('amend.pushedWarning')}</span>
+    </p>
+  {:else if pushAfter}
+    <p class="modal-warning" role="alert">
+      <i class="codicon codicon-warning"></i>
+      <span>{@html t('amend.pushAfterWarning')}</span>
     </p>
   {/if}
 

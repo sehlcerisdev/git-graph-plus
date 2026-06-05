@@ -33,7 +33,7 @@ describe('AmendModal', () => {
     const onAmend = vi.fn();
     const { getByText } = render(AmendModal, { ...base, onClose: () => {}, onAmend });
     await fireEvent.click(getByText('Amend'));
-    expect(onAmend).toHaveBeenCalledWith({ message: undefined, keepMessage: true, resetDate: false, resetAuthor: false, only: false });
+    expect(onAmend).toHaveBeenCalledWith({ message: undefined, keepMessage: true, resetDate: false, resetAuthor: false, only: false, pushAfter: false });
   });
 
   it('amends with the edited message when keep is unchecked', async () => {
@@ -44,7 +44,7 @@ describe('AmendModal', () => {
     const textarea = container.querySelector<HTMLTextAreaElement>('#amend-message')!;
     await fireEvent.input(textarea, { target: { value: 'new message' } });
     await fireEvent.click(getByText('Amend'));
-    expect(onAmend).toHaveBeenCalledWith({ message: 'new message', keepMessage: false, resetDate: false, resetAuthor: false, only: false });
+    expect(onAmend).toHaveBeenCalledWith({ message: 'new message', keepMessage: false, resetDate: false, resetAuthor: false, only: false, pushAfter: false });
   });
 
   it('disables Amend when editing with an empty message', async () => {
@@ -62,6 +62,16 @@ describe('AmendModal', () => {
     await fireEvent.click(checkboxes[3]); // --only
     await fireEvent.click(getByText('Amend'));
     expect(onAmend).toHaveBeenCalledWith(expect.objectContaining({ only: true, keepMessage: true }));
+  });
+
+  it('forwards pushAfter when the push-after checkbox is checked', async () => {
+    const onAmend = vi.fn();
+    const { container, getByText } = render(AmendModal, { ...base, onClose: () => {}, onAmend });
+    // Checkboxes order: keepMessage, resetDate, resetAuthor, only, pushAfter
+    const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    await fireEvent.click(checkboxes[4]); // pushAfter
+    await fireEvent.click(getByText('Amend'));
+    expect(onAmend).toHaveBeenCalledWith(expect.objectContaining({ pushAfter: true }));
   });
 
   it('shows the pushed warning only when isPushed', () => {

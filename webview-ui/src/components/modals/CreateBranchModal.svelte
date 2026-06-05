@@ -11,7 +11,7 @@
     subject?: string;
     editableStartPoint?: boolean;
     onClose: () => void;
-    onCreate: (name: string, startPoint: string, checkout: boolean) => void;
+    onCreate: (name: string, startPoint: string, checkout: boolean, publish: boolean) => void;
   }
 
   let { startPoint: initialStartPoint, subject, editableStartPoint = false, onClose, onCreate }: Props = $props();
@@ -19,6 +19,7 @@
   // svelte-ignore state_referenced_locally
   let startPoint = $state(initialStartPoint);
   let checkout = $state(true);
+  let publish = $state(false);
   let nameInput: HTMLInputElement | undefined = $state();
   const isStartPointHash = $derived(/^[0-9a-f]{7,40}$/i.test(startPoint));
   const branchExists = $derived(name.trim() !== '' && branchStore.localBranches.some(b => b.name === name.trim()));
@@ -30,7 +31,7 @@
   function handleSubmit() {
     const trimmed = name.trim();
     if (!trimmed || branchExists || tagConflict || refError) { return; }
-    onCreate(trimmed, startPoint.trim() || 'HEAD', checkout);
+    onCreate(trimmed, startPoint.trim() || 'HEAD', checkout, publish);
   }
 </script>
 
@@ -70,6 +71,13 @@
     <label class="modal-checkbox">
       <input type="checkbox" bind:checked={checkout} />
       <span>{t('createBranch.checkout')}</span>
+    </label>
+  </div>
+  <div class="modal-form-group">
+    <label class="modal-checkbox">
+      <input type="checkbox" bind:checked={publish} />
+      <span>{t('createBranch.publish')}</span>
+      <span class="modal-flag-badge">-u</span>
     </label>
   </div>
   {#if branchExists}

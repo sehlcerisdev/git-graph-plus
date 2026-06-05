@@ -101,7 +101,7 @@ describe('CreateBranchModal', () => {
     await fireEvent.click(submit!);
 
     expect(onCreate).toHaveBeenCalledTimes(1);
-    expect(onCreate).toHaveBeenCalledWith('feature/x', 'main', true);
+    expect(onCreate).toHaveBeenCalledWith('feature/x', 'main', true, false);
   });
 
   it('does NOT call onCreate when submit is attempted with empty name', async () => {
@@ -129,7 +129,7 @@ describe('CreateBranchModal', () => {
     await fireEvent.input(nameInput!, { target: { value: 'feature/x' } });
     await fireEvent.keyDown(nameInput!, { key: 'Enter' });
 
-    expect(onCreate).toHaveBeenCalledWith('feature/x', 'main', true);
+    expect(onCreate).toHaveBeenCalledWith('feature/x', 'main', true, false);
   });
 
   it('shows the start-point input only when editableStartPoint=true', async () => {
@@ -166,7 +166,7 @@ describe('CreateBranchModal', () => {
     const submit = container.querySelector<HTMLButtonElement>('button.primary');
     await fireEvent.click(submit!);
 
-    expect(onCreate).toHaveBeenCalledWith('feature/x', 'origin/develop', true);
+    expect(onCreate).toHaveBeenCalledWith('feature/x', 'origin/develop', true, false);
   });
 
   it('falls back to HEAD when start point is blanked out', async () => {
@@ -183,7 +183,7 @@ describe('CreateBranchModal', () => {
     const submit = container.querySelector<HTMLButtonElement>('button.primary');
     await fireEvent.click(submit!);
 
-    expect(onCreate).toHaveBeenCalledWith('wip', 'HEAD', true);
+    expect(onCreate).toHaveBeenCalledWith('wip', 'HEAD', true, false);
   });
 
   it('reflects the checkout toggle in the onCreate call', async () => {
@@ -202,6 +202,25 @@ describe('CreateBranchModal', () => {
     const submit = container.querySelector<HTMLButtonElement>('button.primary');
     await fireEvent.click(submit!);
 
-    expect(onCreate).toHaveBeenCalledWith('feature/x', 'main', false);
+    expect(onCreate).toHaveBeenCalledWith('feature/x', 'main', false, false);
+  });
+
+  it('reflects the publish toggle in the onCreate call', async () => {
+    const onCreate = vi.fn();
+    const { container } = render(CreateBranchModal, {
+      startPoint: 'main',
+      onClose: vi.fn(),
+      onCreate,
+    });
+    const nameInput = container.querySelector<HTMLInputElement>('#create-branch-name');
+    await fireEvent.input(nameInput!, { target: { value: 'feature/x' } });
+
+    // Checkboxes order: checkout, publish
+    const checkboxes = container.querySelectorAll<HTMLInputElement>('.modal-checkbox input[type="checkbox"]');
+    expect(checkboxes).toHaveLength(2);
+    await fireEvent.click(checkboxes[1]!); // publish
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onCreate).toHaveBeenCalledWith('feature/x', 'main', true, true);
   });
 });

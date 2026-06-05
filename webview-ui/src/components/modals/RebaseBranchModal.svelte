@@ -60,7 +60,7 @@
     </label>
   </div>
   {#if pushAfter}
-    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{t('rebase.pushAfterHint')}</span></p>
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{@html t('rebase.pushAfterWarning')}</span></p>
   {/if}
   <div class="form-actions">
     <div class="conflict-status" class:is-warning={conflictPrediction?.hasConflict} class:is-success={conflictPrediction !== null && !conflictPrediction?.hasConflict}>

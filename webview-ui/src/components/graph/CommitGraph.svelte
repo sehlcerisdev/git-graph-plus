@@ -1332,7 +1332,7 @@
     commit={cherryPickTarget}
     branch={branchStore.currentBranch?.name ?? 'current branch'}
     onClose={() => { showCherryPickModal = false; contextMenuHash = null; }}
-    onCherryPick={(noCommit) => { showCherryPickModal = false; contextMenuHash = null; vscode.postMessage({ type: 'cherryPick', payload: { commit: cherryPickTarget, noCommit } }); }}
+    onCherryPick={({ noCommit, pushAfter }) => { showCherryPickModal = false; contextMenuHash = null; vscode.postMessage({ type: 'cherryPick', payload: { commit: cherryPickTarget, noCommit, pushAfter } }); }}
   />
 {/if}
 
@@ -1341,7 +1341,7 @@
     commit={revertTarget}
     branch={branchStore.currentBranch?.name ?? 'current branch'}
     onClose={() => { showRevertModal = false; contextMenuHash = null; }}
-    onRevert={(noCommit) => { showRevertModal = false; contextMenuHash = null; vscode.postMessage({ type: 'revert', payload: { commit: revertTarget, noCommit } }); }}
+    onRevert={({ noCommit, pushAfter }) => { showRevertModal = false; contextMenuHash = null; vscode.postMessage({ type: 'revert', payload: { commit: revertTarget, noCommit, pushAfter } }); }}
   />
 {/if}
 

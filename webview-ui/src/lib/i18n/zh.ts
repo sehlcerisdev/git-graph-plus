@@ -63,6 +63,7 @@ export const zh: Record<string, string> = {
   'createBranch.namePlaceholder': '输入分支名',
   'createBranch.startPoint': '起点（可选）',
   'createBranch.checkout': '创建后检出',
+  'createBranch.publish': '发布到远程并设置 upstream',
   'createBranch.create': '创建',
   'createBranch.createAndCheckout': '创建并检出',
   'createBranch.branchExists': '名为“{name}”的分支已存在。',
@@ -136,6 +137,8 @@ export const zh: Record<string, string> = {
   'amend.resetAuthor': '将作者重设为我',
   'amend.only': '不包含已暂存的更改（仅信息/元数据）',
   'amend.onlyNote': '不包含已暂存更改',
+  'amend.pushAfter': 'Amend 后 push 分支',
+  'amend.pushAfterWarning': 'Amend 会重写提交，因此将以 force push <span class="modal-emph modal-emph--danger">覆盖远程分支</span>。使用 --force-with-lease，若远程有你尚未拉取的提交则会中止。',
   'amend.amend': 'Amend',
   'graph.dblClickCheckout': '双击 Checkout：{ref}',
 
@@ -350,6 +353,7 @@ export const zh: Record<string, string> = {
   'cherryPick.title': '遴选提交',
   'cherryPick.desc': '将选定的提交应用到当前分支。',
   'cherryPick.noCommit': '应用更改但不提交',
+  'cherryPick.pushAfter': 'Cherry-pick 后 push 分支',
   'cherryPick.checkingConflicts': '正在检查 Cherry-Pick 冲突',
   'cherryPick.conflictWarning': 'Cherry-Pick 冲突 {count} 个文件',
   'cherryPick.noConflict': '无 Cherry-Pick 冲突',
@@ -359,6 +363,7 @@ export const zh: Record<string, string> = {
   'revert.title': '还原提交',
   'revert.desc': '创建一个新提交，用于撤销选定提交的更改。',
   'revert.noCommit': '应用更改但不提交',
+  'revert.pushAfter': 'Revert 后 push 分支',
   'revert.checkingConflicts': '正在检查 Revert 冲突',
   'revert.conflictWarning': 'Revert 冲突 {count} 个文件',
   'revert.noConflict': '无 Revert 冲突',
@@ -377,6 +382,8 @@ export const zh: Record<string, string> = {
   'merge.conflictWarning': 'Merge 冲突 {count} 个文件',
   'merge.noConflict': '无 Merge 冲突',
 
+  'merge.pushAfter': '合并成功后 push 当前分支',
+  'merge.deleteSource': '合并后删除 \'{branch}\'',
   'merge.merge': '合并',
 
   'rebase.checkingConflicts': '正在检查 Rebase 冲突',
@@ -390,7 +397,7 @@ export const zh: Record<string, string> = {
   'rebaseBranch.rebase': '变基',
   'rebase.autostash': '储藏并重新应用本地更改（仅跟踪文件）',
   'rebase.pushAfter': 'Rebase 成功后 push 分支',
-  'rebase.pushAfterHint': '由于 rebase 会重写历史，将使用 --force-with-lease',
+  'rebase.pushAfterWarning': '将以 force push <span class="modal-emph modal-emph--danger">覆盖远程分支</span>。使用 --force-with-lease，若远程有你尚未拉取的提交则会中止，但若有人共用此分支，请先与其协调。',
 
   // Reset modal
   'reset.modalTitle': '将分支重置到修订版本',

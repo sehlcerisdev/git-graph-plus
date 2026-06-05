@@ -10,12 +10,15 @@
   interface Props {
     source: string;
     target: string;
+    canDeleteSource?: boolean;
     onClose: () => void;
-    onMerge: (options: { noFf: boolean; ffOnly: boolean; squash: boolean }) => void;
+    onMerge: (options: { noFf: boolean; ffOnly: boolean; squash: boolean; pushAfter: boolean; deleteSource: boolean }) => void;
   }
 
-  let { source, target, onClose, onMerge }: Props = $props();
+  let { source, target, canDeleteSource = false, onClose, onMerge }: Props = $props();
   let mergeMode = $state<'default' | 'no-ff' | 'squash'>('default');
+  let pushAfter = $state(false);
+  let deleteSource = $state(false);
   const isHash = (ref: string) => /^[0-9a-f]{7,40}$/i.test(ref);
   const shortRef = (ref: string) => /^[0-9a-f]{40}$/i.test(ref) ? ref.substring(0, 7) : ref;
   let mergeBtn: HTMLButtonElement | undefined = $state();
@@ -57,6 +60,21 @@
       onChange={(v) => { mergeMode = v as typeof mergeMode; }}
     />
   </div>
+  <div class="modal-form-group">
+    <label class="modal-checkbox">
+      <input type="checkbox" bind:checked={pushAfter} />
+      <span>{t('merge.pushAfter')}</span>
+    </label>
+  </div>
+  {#if canDeleteSource}
+    <div class="modal-form-group">
+      <label class="modal-checkbox">
+        <input type="checkbox" bind:checked={deleteSource} />
+        <span>{t('merge.deleteSource', { branch: source })}</span>
+        <span class="modal-flag-badge">--delete</span>
+      </label>
+    </div>
+  {/if}
   <div class="form-actions">
     <div class="conflict-status" class:is-warning={conflictPrediction?.hasConflict} class:is-success={conflictPrediction !== null && !conflictPrediction?.hasConflict}>
       {#if conflictPrediction === null}
@@ -73,7 +91,7 @@
       {/if}
     </div>
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="primary" bind:this={mergeBtn} onclick={() => onMerge({ noFf: mergeMode === 'no-ff', ffOnly: false, squash: mergeMode === 'squash' })}>{t('merge.merge')}</button>
+    <button class="primary" bind:this={mergeBtn} onclick={() => onMerge({ noFf: mergeMode === 'no-ff', ffOnly: false, squash: mergeMode === 'squash', pushAfter, deleteSource: canDeleteSource && deleteSource })}>{t('merge.merge')}</button>
   </div>
 </Modal>
 

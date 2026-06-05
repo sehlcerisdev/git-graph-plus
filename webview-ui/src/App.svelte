@@ -518,6 +518,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
   <MergeBranchModal
     source={modalStore.merge.source}
     target={modalStore.merge.target}
+    canDeleteSource={branchStore.localBranches.some(b => b.name === modalStore.merge.source) && modalStore.merge.source !== branchStore.currentBranch?.name}
     onClose={() => { modalStore.closeMerge(); }}
     onMerge={(options) => { const branch = modalStore.merge.source; modalStore.closeMerge(); vscode.postMessage({ type: 'merge', payload: { branch, ...options } }); }}
   />
@@ -528,7 +529,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
     startPoint={modalStore.createBranch.startPoint}
     subject={modalStore.createBranch.subject}
     onClose={() => { modalStore.closeCreateBranch(); }}
-    onCreate={(name, startPoint, checkout) => { modalStore.closeCreateBranch(); vscode.postMessage({ type: 'createBranch', payload: { name, startPoint, checkout } }); }}
+    onCreate={(name, startPoint, checkout, publish) => { modalStore.closeCreateBranch(); vscode.postMessage({ type: 'createBranch', payload: { name, startPoint, checkout, publish } }); }}
   />
 {/if}
 
