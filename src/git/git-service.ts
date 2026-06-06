@@ -1277,9 +1277,7 @@ export class GitService {
             GIT_EDITOR: 'true',
             EDITOR: 'true',
             GHG_TODO_FILE: todoFile,
-            GIT_SEQUENCE_EDITOR: process.platform === 'win32'
-              ? `copy /Y "%GHG_TODO_FILE%"`
-              : `cp -- "$GHG_TODO_FILE"`,
+            GIT_SEQUENCE_EDITOR: `cp -- "$GHG_TODO_FILE"`,
           },
         });
 
