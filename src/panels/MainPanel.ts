@@ -9,7 +9,7 @@ import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
 import { FileWatcher } from '../services/file-watcher';
 import { resolveGitDirs, shouldRefreshGraph } from '../services/file-watcher-helpers';
 import { RepoDiscoveryService, RepoInfo } from '../services/repo-discovery';
-import type { WebviewMessage } from '../utils/message-bus';
+import type { WebviewMessage, ModalDefaults } from '../utils/message-bus';
 import {
   resolveRepoRelativePath as resolveRepoRelativePathUtil,
   assertSafeArgPath as assertSafeArgPathUtil,
@@ -93,6 +93,30 @@ export class MainPanel {
     return svc;
   }
 
+  private readModalDefaults(): ModalDefaults {
+    const cfg = vscode.workspace.getConfiguration('gitGraphPlus');
+    const g = <T>(key: string, fallback: T): T => cfg.get<T>(`defaults.${key}`, fallback);
+    return {
+      push: { force: g('push.force', 'none'), setUpstream: g('push.setUpstream', true), allTags: g('push.allTags', false) },
+      pull: { rebase: g('pull.rebase', true), stash: g('pull.stash', false) },
+      fetch: { allRemotes: g('fetch.allRemotes', false) },
+      merge: { mode: g('merge.mode', 'default'), pushAfter: g('merge.pushAfter', false), deleteSource: g('merge.deleteSource', false) },
+      rebase: { autostash: g('rebase.autostash', false), pushAfter: g('rebase.pushAfter', false) },
+      amend: { keepMessage: g('amend.keepMessage', true), resetDate: g('amend.resetDate', false), resetAuthor: g('amend.resetAuthor', false), only: g('amend.only', false), pushAfter: g('amend.pushAfter', false) },
+      checkout: { dirty: g('checkout.dirty', 'keep') },
+      checkoutRemote: { dirty: g('checkoutRemote.dirty', 'keep') },
+      createBranch: { checkout: g('createBranch.checkout', true), publish: g('createBranch.publish', false) },
+      createTag: { push: g('createTag.push', true) },
+      cherryPick: { noCommit: g('cherryPick.noCommit', false), pushAfter: g('cherryPick.pushAfter', false) },
+      revert: { noCommit: g('revert.noCommit', false), pushAfter: g('revert.pushAfter', false) },
+      reset: { mode: g('reset.mode', 'mixed') },
+      stashSave: { includeUntracked: g('stashSave.includeUntracked', true), keepIndex: g('stashSave.keepIndex', false) },
+      deleteBranch: { force: g('deleteBranch.force', false), deleteRemote: g('deleteBranch.deleteRemote', false) },
+      deleteTag: { deleteRemote: g('deleteTag.deleteRemote', false) },
+      removeWorktree: { deleteBranch: g('removeWorktree.deleteBranch', false) },
+    } as ModalDefaults;
+  }
+
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
@@ -122,6 +146,9 @@ export class MainPanel {
           const locale = localeSetting === 'auto' ? (vscode.env.language || 'en') : localeSetting;
           this.post({ type: 'setLocale', payload: { locale } });
         }
+        if (e.affectsConfiguration('gitGraphPlus.defaults')) {
+          this.post({ type: 'setDefaults', payload: this.readModalDefaults() });
+        }
       })
     );
 
@@ -132,6 +159,7 @@ export class MainPanel {
     const locale = localeSetting === 'auto' ? (vscode.env.language || 'en') : localeSetting;
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     this.post({ type: 'setLocale', payload: { locale, homeDir } });
+    this.post({ type: 'setDefaults', payload: this.readModalDefaults() });
 
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewMessage) => this.handleMessage(message),

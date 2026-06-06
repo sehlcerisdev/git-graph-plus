@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import CherryPickModal from '../CherryPickModal.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 
 beforeEach(() => { i18n.setLocale('en'); });
+afterEach(() => { defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS); });
 
 describe('CherryPickModal', () => {
   it('on mount, posts predictConflicts with mergeBase = commit^', () => {
@@ -115,5 +118,15 @@ describe('CherryPickModal', () => {
     await fireEvent.click(noCommit);
     await tick();
     expect(container.querySelectorAll('.modal-checkbox input[type="checkbox"]')).toHaveLength(1);
+  });
+
+  it('initializes pushAfter checkbox from defaultsStore', () => {
+    defaultsStore.current.cherryPick = { noCommit: false, pushAfter: true };
+    const { container } = render(CherryPickModal, {
+      commit: 'abc1234', branch: 'main',
+      onClose: vi.fn(), onCherryPick: vi.fn(),
+    });
+    const boxes = container.querySelectorAll<HTMLInputElement>('.modal-checkbox input[type="checkbox"]');
+    expect(boxes[1]!.checked).toBe(true);
   });
 });

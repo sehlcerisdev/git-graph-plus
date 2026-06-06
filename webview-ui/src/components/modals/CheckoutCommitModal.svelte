@@ -5,6 +5,7 @@
   import { requestDirtyState } from '../../lib/utils/dirty-check';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   type DirtyPayload = { merge?: boolean; stash?: boolean; stashUntracked?: boolean; force?: boolean; clean?: boolean };
 
@@ -23,7 +24,7 @@
   let selectedBranch = $state(selectableBranches[0] ?? '');
 
   let dirty = $state(false);
-  let dirtyOption = $state<'keep' | 'stash' | 'discard'>('keep');
+  let dirtyOption = $state<'keep' | 'stash' | 'discard'>(defaultsStore.current.checkout.dirty);
 
   onMount(() => {
     let cancelled = false;

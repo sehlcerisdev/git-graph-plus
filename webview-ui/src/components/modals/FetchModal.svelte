@@ -3,6 +3,7 @@
   import Modal from '../common/Modal.svelte';
   import ColorSelect from '../common/ColorSelect.svelte';
   import { t } from '../../lib/i18n/index.svelte';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     remotes: Array<{ name: string }>;
@@ -13,7 +14,7 @@
 
   let { remotes, initialRemote, onClose, onFetch }: Props = $props();
   let selectedRemote = $state(untrack(() => initialRemote));
-  let allRemotes = $state(false);
+  let allRemotes = $state(defaultsStore.current.fetch.allRemotes);
 
   function submit() {
     onFetch(allRemotes ? undefined : selectedRemote);

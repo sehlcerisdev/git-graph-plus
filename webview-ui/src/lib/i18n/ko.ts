@@ -384,6 +384,7 @@ export const ko: Record<string, string> = {
 
   'merge.pushAfter': 'Merge 성공 후 현재 브랜치 push',
   'merge.deleteSource': 'Merge 후 \'{branch}\' 삭제',
+  'merge.deleteSourceWarning': 'Merge 후 <span class="modal-emph modal-emph--danger">로컬</span> 브랜치가 삭제됩니다. 리모트는 영향받지 않습니다.',
   'merge.merge': 'Merge',
 
   'rebase.checkingConflicts': 'Rebase 충돌 확인 중',
@@ -490,6 +491,12 @@ export const ko: Record<string, string> = {
   'rebase.pause.message': 'Rebase 일시 정지 - 변경 사항을 적용하고 계속하세요',
   'rebase.pause.continue': '계속',
   'rebase.pause.abort': '중단',
+
+  // Defaults
+  'deleteBranch.forceWarning': '병합되지 않은 커밋이 있어도 <span class="modal-emph modal-emph--danger">강제로 삭제</span>합니다.',
+  'deleteBranch.deleteRemoteWarning': '리모트에서도 브랜치가 삭제됩니다. <span class="modal-emph modal-emph--danger">되돌릴 수 없습니다</span>.',
+  'deleteTag.deleteRemoteWarning': '리모트에서도 태그가 삭제됩니다. <span class="modal-emph modal-emph--danger">되돌릴 수 없습니다</span>.',
+  'removeWorktree.deleteBranchWarning': '워크트리의 브랜치도 <span class="modal-emph modal-emph--danger">함께 삭제</span>됩니다.',
 
   // Common
   'common.cancel': '취소',

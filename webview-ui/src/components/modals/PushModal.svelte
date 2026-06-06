@@ -4,6 +4,7 @@
   import ColorSelect from '../common/ColorSelect.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   type ForceMode = 'none' | 'with-lease' | 'force';
 
@@ -19,9 +20,9 @@
 
   let { branchName, hasUpstream, upstream, remotes, initialRemote, onClose, onPush }: Props = $props();
   let selectedRemote = $state(untrack(() => initialRemote));
-  let forceMode = $state<ForceMode>('none');
-  let setUpstream = $state(true);
-  let allTags = $state(false);
+  let forceMode = $state<ForceMode>(defaultsStore.current.push.force);
+  let setUpstream = $state(defaultsStore.current.push.setUpstream);
+  let allTags = $state(defaultsStore.current.push.allTags);
 
   const pushTarget = $derived(hasUpstream ? upstream : `${selectedRemote}/${branchName}`);
 </script>

@@ -5,6 +5,7 @@
   import { tooltip } from '../../lib/actions/tooltip';
   import { branchStore } from '../../lib/stores/branches.svelte';
   import { validateGitRefName } from '../../lib/utils/git-ref';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     startPoint: string;
@@ -18,8 +19,8 @@
   let name = $state('');
   // svelte-ignore state_referenced_locally
   let startPoint = $state(initialStartPoint);
-  let checkout = $state(true);
-  let publish = $state(false);
+  let checkout = $state(defaultsStore.current.createBranch.checkout);
+  let publish = $state(defaultsStore.current.createBranch.publish);
   let nameInput: HTMLInputElement | undefined = $state();
   const isStartPointHash = $derived(/^[0-9a-f]{7,40}$/i.test(startPoint));
   const branchExists = $derived(name.trim() !== '' && branchStore.localBranches.some(b => b.name === name.trim()));

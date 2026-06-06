@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import MergeBranchModal from '../MergeBranchModal.svelte';
-import { i18n } from '../../../lib/i18n/index.svelte';
+import { i18n, t } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 
 beforeEach(() => { i18n.setLocale('en'); });
+afterEach(() => { defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS); });
 
 describe('MergeBranchModal', () => {
   it('on mount, posts predictConflicts with ours=target, theirs=source', () => {
@@ -89,6 +92,19 @@ describe('MergeBranchModal', () => {
     expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, pushAfter: false, deleteSource: true });
   });
 
+  it('shows a deletion warning only when deleteSource is checked', async () => {
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', canDeleteSource: true, onClose: vi.fn(), onMerge: vi.fn() },
+    });
+    const warnText = t('merge.deleteSourceWarning').replace(/<[^>]*>/g, '');
+    const hasWarn = () => Array.from(container.querySelectorAll('[role="alert"]')).some(el => el.textContent?.includes(warnText));
+    expect(hasWarn()).toBe(false);
+    const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    await fireEvent.click(boxes[1]!); // deleteSource
+    await tick();
+    expect(hasWarn()).toBe(true);
+  });
+
   it('warning banner appears for conflict prediction with hasConflict=true', async () => {
     const { container } = render(MergeBranchModal, {
       props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge: vi.fn() },
@@ -104,6 +120,15 @@ describe('MergeBranchModal', () => {
 
     expect(container.querySelector('.conflict-status.is-warning')).not.toBeNull();
     expect(container.querySelector('.spinner')).toBeNull();
+  });
+
+  it('initializes pushAfter checkbox from defaultsStore', async () => {
+    defaultsStore.current.merge = { mode: 'no-ff', pushAfter: true, deleteSource: false };
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge: vi.fn() },
+    });
+    const pushAfterCheckbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(pushAfterCheckbox.checked).toBe(true);
   });
 
   it('hovering the conflict warning lists the predicted conflict files', async () => {

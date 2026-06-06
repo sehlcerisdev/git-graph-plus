@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import RevertModal from '../RevertModal.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 
 const baseProps = {
   commit: 'abcdef1234567890',
@@ -13,6 +15,7 @@ const baseProps = {
 beforeEach(() => {
   i18n.setLocale('en');
 });
+afterEach(() => { defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS); });
 
 describe('RevertModal — payload', () => {
   it('default click sends noCommit=false, pushAfter=false', async () => {
@@ -108,5 +111,14 @@ describe('RevertModal — conflict prediction', () => {
     }));
     // Still spinning
     expect(container.querySelector('.spinner')).not.toBeNull();
+  });
+});
+
+describe('RevertModal — defaults store', () => {
+  it('initializes pushAfter checkbox from defaultsStore', () => {
+    defaultsStore.current.revert = { noCommit: false, pushAfter: true };
+    const { container } = render(RevertModal, baseProps);
+    const boxes = container.querySelectorAll<HTMLInputElement>('label.modal-checkbox input[type="checkbox"]');
+    expect(boxes[1]!.checked).toBe(true);
   });
 });

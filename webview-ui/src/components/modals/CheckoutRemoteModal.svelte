@@ -3,6 +3,7 @@
   import Modal from '../common/Modal.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     remoteName: string;
@@ -15,14 +16,14 @@
   let { remoteName, defaultLocalName, dirty, onClose, onCheckout }: Props = $props();
   // svelte-ignore state_referenced_locally
   let localName = $state(defaultLocalName);
-  let dirtyOption = $state<'keep' | 'stash' | 'discard'>('keep');
+  let dirtyOption = $state<'keep' | 'stash' | 'discard'>(defaultsStore.current.checkoutRemote.dirty);
   let nameInput: HTMLInputElement | undefined = $state();
 
   onMount(() => { nameInput?.focus(); });
 
   function handleSubmit() {
     if (localName.trim()) {
-      onCheckout(localName.trim(), dirtyOption);
+      onCheckout(localName.trim(), dirty ? dirtyOption : 'keep');
     }
   }
 </script>

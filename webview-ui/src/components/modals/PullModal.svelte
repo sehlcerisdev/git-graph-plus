@@ -2,6 +2,7 @@
   import Modal from '../common/Modal.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     upstream: string;
@@ -11,8 +12,8 @@
   }
 
   let { upstream, currentBranch, onClose, onPull }: Props = $props();
-  let rebase = $state(true);
-  let stash = $state(false);
+  let rebase = $state(defaultsStore.current.pull.rebase);
+  let stash = $state(defaultsStore.current.pull.stash);
 </script>
 
 <Modal title={t('pull.title')} {onClose}>

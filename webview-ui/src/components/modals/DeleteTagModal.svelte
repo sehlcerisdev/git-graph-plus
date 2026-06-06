@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Modal from '../common/Modal.svelte';
   import { t } from '../../lib/i18n/index.svelte';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     tagName: string;
@@ -11,7 +12,7 @@
   }
 
   let { tagName, hasRemote = false, onClose, onDelete }: Props = $props();
-  let deleteRemote = $state(false);
+  let deleteRemote = $state(defaultsStore.current.deleteTag.deleteRemote);
   let deleteBtn: HTMLButtonElement | undefined = $state();
 
   onMount(() => { deleteBtn?.focus(); });
@@ -27,8 +28,11 @@
       </label>
     </div>
   {/if}
+  {#if hasRemote && deleteRemote}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{@html t('deleteTag.deleteRemoteWarning')}</span></p>
+  {/if}
   <div class="form-actions">
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="danger-btn" bind:this={deleteBtn} onclick={() => onDelete(deleteRemote)}>{t('sidebar.delete')}</button>
+    <button class="danger-btn" bind:this={deleteBtn} onclick={() => onDelete(hasRemote && deleteRemote)}>{t('sidebar.delete')}</button>
   </div>
 </Modal>

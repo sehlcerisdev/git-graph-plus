@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from '../common/Modal.svelte';
   import { t } from '../../lib/i18n/index.svelte';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     path: string;
@@ -10,7 +11,7 @@
   }
 
   let { path, branch, onClose, onRemove }: Props = $props();
-  let deleteBranch = $state(false);
+  let deleteBranch = $state(defaultsStore.current.removeWorktree.deleteBranch);
 </script>
 
 <Modal title={t('worktree.removeTitle')} {onClose}>
@@ -23,8 +24,11 @@
       </label>
     </div>
   {/if}
+  {#if branch && deleteBranch}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{@html t('removeWorktree.deleteBranchWarning')}</span></p>
+  {/if}
   <div class="form-actions">
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="danger-btn" onclick={() => onRemove(deleteBranch)}>{t('sidebar.delete')}</button>
+    <button class="danger-btn" onclick={() => onRemove(!!branch && deleteBranch)}>{t('sidebar.delete')}</button>
   </div>
 </Modal>

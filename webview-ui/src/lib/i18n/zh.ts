@@ -384,6 +384,7 @@ export const zh: Record<string, string> = {
 
   'merge.pushAfter': '合并成功后 push 当前分支',
   'merge.deleteSource': '合并后删除 \'{branch}\'',
+  'merge.deleteSourceWarning': '合并后将删除<span class="modal-emph modal-emph--danger">本地</span>分支。远程不受影响。',
   'merge.merge': '合并',
 
   'rebase.checkingConflicts': '正在检查 Rebase 冲突',
@@ -490,6 +491,12 @@ export const zh: Record<string, string> = {
   'rebase.pause.message': 'Rebase 已暂停 - 请进行更改，然后继续',
   'rebase.pause.continue': '继续',
   'rebase.pause.abort': '中止',
+
+  // Defaults
+  'deleteBranch.forceWarning': '即使存在<span class="modal-emph modal-emph--danger">未合并的提交</span>也会强制删除分支。',
+  'deleteBranch.deleteRemoteWarning': '将同时从远程删除该分支。此操作<span class="modal-emph modal-emph--danger">无法撤销</span>。',
+  'deleteTag.deleteRemoteWarning': '将同时从远程删除该标签。此操作<span class="modal-emph modal-emph--danger">无法撤销</span>。',
+  'removeWorktree.deleteBranchWarning': '工作树的分支也将<span class="modal-emph modal-emph--danger">一并删除</span>。',
 
   // Common
   'common.cancel': '取消',

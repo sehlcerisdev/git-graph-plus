@@ -1,5 +1,25 @@
 import type { CommitGraphData, BranchData, DiffData, Commit, WorktreeInfo } from '../git/types';
 
+export interface ModalDefaults {
+  push: { force: 'none' | 'with-lease' | 'force'; setUpstream: boolean; allTags: boolean };
+  pull: { rebase: boolean; stash: boolean };
+  fetch: { allRemotes: boolean };
+  merge: { mode: 'default' | 'no-ff' | 'squash'; pushAfter: boolean; deleteSource: boolean };
+  rebase: { autostash: boolean; pushAfter: boolean };
+  amend: { keepMessage: boolean; resetDate: boolean; resetAuthor: boolean; only: boolean; pushAfter: boolean };
+  checkout: { dirty: 'keep' | 'stash' | 'discard' };
+  checkoutRemote: { dirty: 'keep' | 'stash' | 'discard' };
+  createBranch: { checkout: boolean; publish: boolean };
+  createTag: { push: boolean };
+  cherryPick: { noCommit: boolean; pushAfter: boolean };
+  revert: { noCommit: boolean; pushAfter: boolean };
+  reset: { mode: 'soft' | 'mixed' | 'hard' };
+  stashSave: { includeUntracked: boolean; keepIndex: boolean };
+  deleteBranch: { force: boolean; deleteRemote: boolean };
+  deleteTag: { deleteRemote: boolean };
+  removeWorktree: { deleteBranch: boolean };
+}
+
 // Messages from Webview → Extension
 export type WebviewMessage =
   | { type: 'getLog'; payload: { branch?: string; branches?: string[]; limit?: number; skip?: number; remoteFilter?: string[] } }
@@ -113,6 +133,7 @@ export type ExtensionMessage =
   | { type: 'lfsData'; payload: { files: Array<{ oid: string; path: string }>; locks: Array<{ path: string; owner: string; id: string }> } }
   | { type: 'tagDetailsData'; payload: { name: string; hash: string; message?: string; isAnnotated: boolean } }
   | { type: 'setLocale'; payload: { locale: string; homeDir?: string } }
+  | { type: 'setDefaults'; payload: ModalDefaults }
   | { type: 'repoList'; payload: { repos: Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>; active: string } }
   | { type: 'worktreeData'; payload: WorktreeInfo[] }
   | { type: 'uncommittedDiffData'; payload: { staged: Array<{ path: string; status: string }>; unstaged: Array<{ path: string; status: string }> } }

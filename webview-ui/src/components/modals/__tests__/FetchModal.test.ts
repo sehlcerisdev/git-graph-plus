@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import FetchModal from '../FetchModal.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 
 const baseProps = {
   remotes: [{ name: 'origin' }, { name: 'upstream' }],
@@ -12,6 +14,19 @@ const baseProps = {
 
 beforeEach(() => {
   i18n.setLocale('en');
+});
+
+describe('FetchModal — initializes from defaultsStore', () => {
+  afterEach(() => {
+    defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS);
+  });
+
+  it('all-remotes checkbox is checked when store sets allRemotes=true', () => {
+    defaultsStore.current.fetch = { allRemotes: true };
+    const { container } = render(FetchModal, { ...baseProps });
+    const box = container.querySelector<HTMLInputElement>('label.modal-checkbox input[type="checkbox"]')!;
+    expect(box.checked).toBe(true);
+  });
 });
 
 describe('FetchModal — payload', () => {

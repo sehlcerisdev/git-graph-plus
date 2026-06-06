@@ -3,6 +3,7 @@
   import Modal from '../common/Modal.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { branchStore } from '../../lib/stores/branches.svelte';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     branchName: string;
@@ -11,8 +12,8 @@
   }
 
   let { branchName, onClose, onDelete }: Props = $props();
-  let force = $state(false);
-  let deleteRemote = $state(false);
+  let force = $state(defaultsStore.current.deleteBranch.force);
+  let deleteRemote = $state(defaultsStore.current.deleteBranch.deleteRemote);
   let deleteBtn: HTMLButtonElement | undefined = $state();
 
   const linkedWorktree = $derived(branchStore.worktrees.find(w => !w.isMain && w.branch === branchName));
@@ -46,6 +47,12 @@
       </label>
     {/if}
   </div>
+  {#if force}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{@html t('deleteBranch.forceWarning')}</span></p>
+  {/if}
+  {#if hasRemote && deleteRemote}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{@html t('deleteBranch.deleteRemoteWarning')}</span></p>
+  {/if}
   {#if linkedWorktree}
     <div class="modal-warning">
       <i class="codicon codicon-warning"></i>
@@ -54,7 +61,7 @@
   {/if}
   <div class="form-actions">
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="danger-btn" bind:this={deleteBtn} onclick={() => onDelete(force, linkedWorktree?.path, deleteRemote)}>{t('sidebar.delete')}</button>
+    <button class="danger-btn" bind:this={deleteBtn} onclick={() => onDelete(force, linkedWorktree?.path, hasRemote && deleteRemote)}>{t('sidebar.delete')}</button>
   </div>
 </Modal>
 

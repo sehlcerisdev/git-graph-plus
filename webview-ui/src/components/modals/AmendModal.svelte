@@ -4,6 +4,7 @@
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
   import { getVsCodeApi } from '../../lib/vscode-api';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     hash: string;
@@ -15,14 +16,14 @@
   }
 
   let { hash, subject, message, isPushed, onClose, onAmend }: Props = $props();
-  let pushAfter = $state(false);
+  let pushAfter = $state(defaultsStore.current.amend.pushAfter);
 
   // Independent options; "keep message" defaults on (message field read-only).
-  let keepMessage = $state(true);
-  let resetDate = $state(false);
-  let resetAuthor = $state(false);
+  let keepMessage = $state(defaultsStore.current.amend.keepMessage);
+  let resetDate = $state(defaultsStore.current.amend.resetDate);
+  let resetAuthor = $state(defaultsStore.current.amend.resetAuthor);
   // --only: amend message/metadata without folding the staged changes in.
-  let only = $state(false);
+  let only = $state(defaultsStore.current.amend.only);
   // Prefill with the HEAD message; the modal remounts per open so capturing the
   // initial prop value is intentional (untrack documents that to svelte-check).
   let editedMessage = $state(untrack(() => message));

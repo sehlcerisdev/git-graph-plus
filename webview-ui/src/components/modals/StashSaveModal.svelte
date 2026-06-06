@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from '../common/Modal.svelte';
   import { t } from '../../lib/i18n/index.svelte';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     onClose: () => void;
@@ -9,8 +10,8 @@
 
   let { onClose, onSave }: Props = $props();
   let message = $state('');
-  let includeUntracked = $state(true);
-  let keepIndex = $state(false);
+  let includeUntracked = $state(defaultsStore.current.stashSave.includeUntracked);
+  let keepIndex = $state(defaultsStore.current.stashSave.keepIndex);
 
   function submit() {
     onSave(message, includeUntracked, keepIndex);

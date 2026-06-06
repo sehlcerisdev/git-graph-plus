@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import PullModal from '../PullModal.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 
 const baseProps = {
   upstream: 'origin/main',
@@ -57,6 +59,21 @@ describe('PullModal — payload composition', () => {
     await fireEvent.click(buttons[buttons.length - 2]);
     expect(onClose).toHaveBeenCalled();
     expect(onPull).not.toHaveBeenCalled();
+  });
+});
+
+describe('PullModal — initializes from defaultsStore', () => {
+  afterEach(() => {
+    defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS);
+  });
+
+  it('rebase checkbox is unchecked and stash checkbox is checked when store sets rebase=false, stash=true', () => {
+    defaultsStore.current.pull = { rebase: false, stash: true };
+    const { container } = render(PullModal, { ...baseProps });
+    const rebaseBox = findFlagBox(container, '--rebase');
+    const stashBox = findFlagBox(container, '--autostash');
+    expect(rebaseBox.checked).toBe(false);
+    expect(stashBox.checked).toBe(true);
   });
 });
 

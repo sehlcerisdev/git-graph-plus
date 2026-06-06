@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import CreateTagModal from '../CreateTagModal.svelte';
 import { branchStore } from '../../../lib/stores/branches.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 import type { TagInfo } from '../../../lib/types';
 
 function setTags(tags: TagInfo[] = []) {
@@ -12,6 +14,20 @@ function setTags(tags: TagInfo[] = []) {
 beforeEach(() => {
   i18n.setLocale('en');
   setTags();
+});
+afterEach(() => { defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS); });
+
+describe('CreateTagModal — defaults store', () => {
+  it('initializes push from defaultsStore.current.createTag.push', () => {
+    defaultsStore.current.createTag = { push: false };
+    const { container } = render(CreateTagModal, {
+      startPoint: 'main',
+      onClose: vi.fn(),
+      onCreate: vi.fn(),
+    });
+    const pushCheckbox = container.querySelector<HTMLInputElement>('.modal-checkbox input[type="checkbox"]')!;
+    expect(pushCheckbox.checked).toBe(false);
+  });
 });
 
 describe('CreateTagModal', () => {

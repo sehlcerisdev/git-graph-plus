@@ -5,6 +5,7 @@
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
   import { getVsCodeApi } from '../../lib/vscode-api';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     commit: string;
@@ -14,8 +15,8 @@
   }
 
   let { commit, branch, onClose, onRevert }: Props = $props();
-  let noCommit = $state(false);
-  let pushAfter = $state(false);
+  let noCommit = $state(defaultsStore.current.revert.noCommit);
+  let pushAfter = $state(defaultsStore.current.revert.pushAfter);
   let revertBtn: HTMLButtonElement | undefined = $state();
   let conflictPrediction = $state<{ hasConflict: boolean; files: string[] } | null>(null);
 

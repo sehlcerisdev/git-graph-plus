@@ -6,6 +6,7 @@
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
   import { getVsCodeApi } from '../../lib/vscode-api';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     source: string;
@@ -16,9 +17,9 @@
   }
 
   let { source, target, canDeleteSource = false, onClose, onMerge }: Props = $props();
-  let mergeMode = $state<'default' | 'no-ff' | 'squash'>('default');
-  let pushAfter = $state(false);
-  let deleteSource = $state(false);
+  let mergeMode = $state<'default' | 'no-ff' | 'squash'>(defaultsStore.current.merge.mode);
+  let pushAfter = $state(defaultsStore.current.merge.pushAfter);
+  let deleteSource = $state(defaultsStore.current.merge.deleteSource);
   const isHash = (ref: string) => /^[0-9a-f]{7,40}$/i.test(ref);
   const shortRef = (ref: string) => /^[0-9a-f]{40}$/i.test(ref) ? ref.substring(0, 7) : ref;
   let mergeBtn: HTMLButtonElement | undefined = $state();
@@ -74,6 +75,9 @@
         <span class="modal-flag-badge">--delete</span>
       </label>
     </div>
+  {/if}
+  {#if canDeleteSource && deleteSource}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{@html t('merge.deleteSourceWarning')}</span></p>
   {/if}
   <div class="form-actions">
     <div class="conflict-status" class:is-warning={conflictPrediction?.hasConflict} class:is-success={conflictPrediction !== null && !conflictPrediction?.hasConflict}>

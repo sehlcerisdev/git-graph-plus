@@ -35,6 +35,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
   import PullModal from './components/modals/PullModal.svelte';
   import PushModal from './components/modals/PushModal.svelte';
   import { modalStore } from './lib/stores/modals.svelte';
+  import { defaultsStore } from './lib/stores/defaults.svelte';
   import SetUpstreamModal from './components/modals/SetUpstreamModal.svelte';
   import FlowInitModal from './components/modals/FlowInitModal.svelte';
   import FlowStartModal from './components/modals/FlowStartModal.svelte';
@@ -89,6 +90,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'setLocale':
           i18n.setLocale(msg.payload.locale);
           if (msg.payload.homeDir) uiStore.homeDir = msg.payload.homeDir;
+          break;
+        case 'setDefaults':
+          defaultsStore.set(msg.payload);
           break;
         case 'repoList':
           uiStore.repos = msg.payload.repos;

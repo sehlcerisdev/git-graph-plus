@@ -384,6 +384,7 @@ export const en: Record<string, string> = {
 
   'merge.pushAfter': 'Push the current branch after a successful merge',
   'merge.deleteSource': 'Delete \'{branch}\' after merging',
+  'merge.deleteSourceWarning': 'The <span class="modal-emph modal-emph--danger">local</span> branch will be deleted after merging. The remote is not affected.',
   'merge.merge': 'Merge',
 
   'rebase.checkingConflicts': 'Checking for rebase conflicts',
@@ -490,6 +491,12 @@ export const en: Record<string, string> = {
   'rebase.pause.message': 'Rebase paused - make your changes, then continue',
   'rebase.pause.continue': 'Continue',
   'rebase.pause.abort': 'Abort',
+
+  // Defaults
+  'deleteBranch.forceWarning': 'Force delete discards the branch even if it has <span class="modal-emph modal-emph--danger">unmerged commits</span>.',
+  'deleteBranch.deleteRemoteWarning': 'The branch will also be deleted from the remote. This <span class="modal-emph modal-emph--danger">cannot be undone</span>.',
+  'deleteTag.deleteRemoteWarning': 'The tag will also be deleted from the remote. This <span class="modal-emph modal-emph--danger">cannot be undone</span>.',
+  'removeWorktree.deleteBranchWarning': 'The worktree\'s branch will also be <span class="modal-emph modal-emph--danger">deleted</span>.',
 
   // Common
   'common.cancel': 'Cancel',

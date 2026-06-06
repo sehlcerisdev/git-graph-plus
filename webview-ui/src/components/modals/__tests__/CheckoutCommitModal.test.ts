@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import CheckoutCommitModal from '../CheckoutCommitModal.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 
 beforeEach(() => { i18n.setLocale('en'); });
+afterEach(() => { defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS); });
 
 // Helper: respond to the dirty-state request the modal fires on mount. The
 // modal awaits this before rendering the dirty-handling radio group, so most
@@ -82,6 +85,20 @@ describe('CheckoutCommitModal — target selection', () => {
     expect(container.querySelector('.modal-warning')).not.toBeNull();
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
     expect(onCheckout).toHaveBeenCalledWith('abc1234', {});
+  });
+});
+
+describe('CheckoutCommitModal — defaults store', () => {
+  it('initializes dirtyOption from defaultsStore.current.checkout.dirty', async () => {
+    defaultsStore.current.checkout = { dirty: 'stash' };
+    const { container } = render(CheckoutCommitModal, {
+      hash: 'abc1234', linkedBranches: ['feature/x'], currentBranch: 'main',
+      onCheckout: vi.fn(), onClose: vi.fn(),
+    });
+    respondToDirtyCheck(true);
+    await tick();
+    const stashRadio = container.querySelector<HTMLInputElement>('input[type="radio"][value="stash"]')!;
+    expect(stashRadio.checked).toBe(true);
   });
 });
 

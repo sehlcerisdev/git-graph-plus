@@ -5,6 +5,7 @@
   import { tooltip } from '../../lib/actions/tooltip';
   import { branchStore } from '../../lib/stores/branches.svelte';
   import { validateGitRefName } from '../../lib/utils/git-ref';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     startPoint: string;
@@ -19,7 +20,7 @@
   let message = $state('');
   // svelte-ignore state_referenced_locally
   let startPoint = $state(initialStartPoint);
-  let push = $state(true);
+  let push = $state(defaultsStore.current.createTag.push);
   let nameInput: HTMLInputElement | undefined = $state();
   const isStartPointHash = $derived(/^[0-9a-f]{7,40}$/i.test(startPoint));
   const tagExists = $derived(name.trim() !== '' && branchStore.tags.some(tag => tag.name === name.trim()));

@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import CreateBranchModal from '../CreateBranchModal.svelte';
 import { branchStore } from '../../../lib/stores/branches.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 import type { BranchData, BranchInfo, TagInfo } from '../../../lib/types';
 
 function setBranches(branches: BranchInfo[] = [], tags: TagInfo[] = []) {
@@ -17,6 +19,21 @@ function makeBranch(name: string): BranchInfo {
 beforeEach(() => {
   i18n.setLocale('en');
   setBranches();
+});
+afterEach(() => { defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS); });
+
+describe('CreateBranchModal — defaults store', () => {
+  it('initializes checkout and publish from defaultsStore.current.createBranch', async () => {
+    defaultsStore.current.createBranch = { checkout: false, publish: true };
+    const { container } = render(CreateBranchModal, {
+      startPoint: 'main',
+      onClose: vi.fn(),
+      onCreate: vi.fn(),
+    });
+    const checkboxes = container.querySelectorAll<HTMLInputElement>('.modal-checkbox input[type="checkbox"]');
+    expect(checkboxes[0]!.checked).toBe(false);  // checkout
+    expect(checkboxes[1]!.checked).toBe(true);   // publish
+  });
 });
 
 describe('CreateBranchModal', () => {

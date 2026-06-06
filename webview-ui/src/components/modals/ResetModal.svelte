@@ -3,6 +3,7 @@
   import ColorSelect from '../common/ColorSelect.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
+  import { defaultsStore } from '../../lib/stores/defaults.svelte';
 
   interface Props {
     hash: string;
@@ -12,9 +13,12 @@
     onClose: () => void;
   }
 
-  let { hash, branchName, defaultMode = 'mixed', onConfirm, onClose }: Props = $props();
+  let { hash, branchName, defaultMode = defaultsStore.current.reset.mode, onConfirm, onClose }: Props = $props();
 
-  let resetMode = $state<'soft' | 'mixed' | 'hard'>('mixed');
+  // Initial value from the resolved default; the $effect below keeps it in sync
+  // if the defaultMode prop changes.
+  // svelte-ignore state_referenced_locally
+  let resetMode = $state<'soft' | 'mixed' | 'hard'>(defaultMode);
 
   $effect(() => {
     resetMode = defaultMode;

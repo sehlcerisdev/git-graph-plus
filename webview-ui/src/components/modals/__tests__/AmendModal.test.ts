@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/svelte';
 import AmendModal from '../AmendModal.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 
 beforeEach(() => i18n.setLocale('en'));
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS); });
 
 const base = {
   hash: 'abcdef1234567890',
@@ -72,6 +74,17 @@ describe('AmendModal', () => {
     await fireEvent.click(checkboxes[4]); // pushAfter
     await fireEvent.click(getByText('Amend'));
     expect(onAmend).toHaveBeenCalledWith(expect.objectContaining({ pushAfter: true }));
+  });
+
+  it('initializes options from defaultsStore', async () => {
+    defaultsStore.current.amend = { keepMessage: false, resetDate: true, resetAuthor: false, only: false, pushAfter: true };
+    const { container } = render(AmendModal, { ...base, onClose: () => {}, onAmend: () => {} });
+    const textarea = container.querySelector<HTMLTextAreaElement>('#amend-message')!;
+    // keepMessage: false → textarea should be editable (not readonly)
+    expect(textarea.readOnly).toBe(false);
+    // pushAfter: true → 5th checkbox (index 4) should be checked
+    const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    expect(checkboxes[4]!.checked).toBe(true);
   });
 
   it('shows the pushed warning only when isPushed', () => {

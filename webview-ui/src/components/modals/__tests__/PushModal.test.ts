@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import PushModal from '../PushModal.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
+import { defaultsStore } from '../../../lib/stores/defaults.svelte';
+import { DEFAULT_MODAL_DEFAULTS } from '../../../lib/defaults-shape';
 
 const baseProps = {
   branchName: 'main',
@@ -104,6 +106,27 @@ describe('PushModal — force mode XOR', () => {
     const forceWarning = container.querySelector('.modal-warning')?.textContent ?? '';
     expect(forceWarning.length).toBeGreaterThan(0);
     expect(forceWarning).not.toBe(leaseWarning);
+  });
+});
+
+describe('PushModal — initializes from defaultsStore', () => {
+  afterEach(() => {
+    defaultsStore.current = structuredClone(DEFAULT_MODAL_DEFAULTS);
+  });
+
+  it('force-with-lease checkbox is checked when store sets force=with-lease', () => {
+    defaultsStore.current.push = { force: 'with-lease', setUpstream: true, allTags: false };
+    const { container } = render(PushModal, { ...baseProps });
+    const labels = container.querySelectorAll('label.modal-checkbox');
+    let withLeaseBox: HTMLInputElement | null = null;
+    for (const lbl of labels) {
+      if (lbl.querySelector('.modal-flag-badge')?.textContent === '--force-with-lease') {
+        withLeaseBox = lbl.querySelector<HTMLInputElement>('input[type="checkbox"]');
+        break;
+      }
+    }
+    expect(withLeaseBox).not.toBeNull();
+    expect(withLeaseBox!.checked).toBe(true);
   });
 });
 
