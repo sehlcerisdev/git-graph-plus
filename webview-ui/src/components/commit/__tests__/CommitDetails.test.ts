@@ -187,6 +187,25 @@ describe('CommitDetails — empty / compare', () => {
     const { container } = render(CommitDetails);
     expect(container.querySelector('.commit-details')).not.toBeNull();
   });
+
+  it('clears the previous comparison files when the compare target changes', async () => {
+    uiStore.comparing = true;
+    uiStore.compareRef1 = 'aaaa';
+    uiStore.compareRef2 = 'bbbb';
+    const { queryByText, findByText } = render(CommitDetails); // compare mode: no commit prop
+    // First comparison data arrives
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'commitDiffData',
+      payload: { hash: '', files: [{ path: 'old.txt', status: 'M' }], diffs: [] },
+    }}));
+    expect(await findByText('old.txt')).toBeTruthy();
+    // User switches compare target → refs change → files must clear immediately
+    uiStore.compareRef1 = 'cccc';
+    uiStore.compareRef2 = 'dddd';
+    await waitFor(() => {
+      expect(queryByText('old.txt')).toBeNull();
+    });
+  });
 });
 
 describe('CommitDetails — SHA copy buttons', () => {
@@ -630,6 +649,31 @@ describe('CommitDetails — hover preview cache & navigate', () => {
     await fireEvent.mouseLeave(container.querySelector('.commit-hover-card')!);
     await waitFor(() => {
       expect(container.querySelector('.commit-hover-card')).toBeNull();
+    });
+  });
+});
+
+describe('CommitDetails — multi-commit sections (3+ mode)', () => {
+  it('renders per-commit sections for a file in 3+ multi-select mode', async () => {
+    uiStore.comparing = true;
+    uiStore.selectedCommitHashes = ['c3', 'c2', 'c1'];
+    const { findByText, getByText } = render(CommitDetails);
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'multiCommitSectionsData',
+      payload: {
+        files: [{ path: 'a.txt', status: 'M' }],
+        sections: [
+          { file: 'a.txt', commit: 'c3aaaaaaaa', diff: { file: 'a.txt', hunks: [], isBinary: false, isImage: false } },
+          { file: 'a.txt', commit: 'c1bbbbbbbb', diff: { file: 'a.txt', hunks: [], isBinary: false, isImage: false } },
+        ],
+      },
+    }}));
+    const fileEl = await findByText('a.txt');
+    await fireEvent.click(fileEl.closest('button')!);
+    // two section headers with short hashes
+    await waitFor(() => {
+      expect(getByText(/c3aaaaa/)).toBeTruthy();
+      expect(getByText(/c1bbbbb/)).toBeTruthy();
     });
   });
 });

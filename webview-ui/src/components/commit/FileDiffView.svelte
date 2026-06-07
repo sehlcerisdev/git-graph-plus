@@ -1,0 +1,487 @@
+<script lang="ts">
+  import type { DiffData } from '../../lib/types';
+  import { onMount } from 'svelte';
+  import { t } from '../../lib/i18n/index.svelte';
+  import { detectLanguage, highlightLineSync, getHighlighter, ensureLanguage, activeShikiTheme, escapeHtml } from '../../lib/utils/highlighter';
+  import ImageDiff from '../common/ImageDiff.svelte';
+
+  interface Props {
+    diff: DiffData;
+    commitHash?: string;
+    stacked?: boolean;
+    // Optional commit label shown in the toolbar (used by stacked per-commit sections).
+    heading?: string;
+  }
+
+  let { diff, commitHash, stacked = false, heading }: Props = $props();
+
+  function getFileName(path: string): string {
+    return path.split('/').pop() ?? path;
+  }
+
+  // Syntax highlighting
+  let highlightedLines = $state<Map<string, string>>(new Map());
+  let sbsLeftEl = $state<HTMLElement | undefined>();
+  let sbsRightEl = $state<HTMLElement | undefined>();
+  let isSyncing = false;
+
+  function handleSbsScroll(e: Event) {
+    if (isSyncing) return;
+    const target = e.target as HTMLElement;
+    const other = target === sbsLeftEl ? sbsRightEl : sbsLeftEl;
+    if (other) {
+      isSyncing = true;
+      other.scrollTop = target.scrollTop;
+      other.scrollLeft = target.scrollLeft;
+      requestAnimationFrame(() => { isSyncing = false; });
+    }
+  }
+
+  // Cap how many diff lines we render to the DOM at once. A very large diff
+  // (lockfiles, generated files, mass deletions) would otherwise create tens of
+  // thousands of nodes on open and freeze the panel. Past the cap we render the
+  // first N lines and offer a "show full diff" button — same opt-in philosophy
+  // as MAX_HIGHLIGHT_LINES. Side-by-side roughly doubles the node count, so the
+  // cap is deliberately below the highlight cap.
+  const MAX_RENDER_LINES = 3000;
+  let showFullDiff = $state(false);
+
+  // Reset the toggle whenever the diff prop changes, so opening a new large
+  // diff starts collapsed even if the previous one was expanded.
+  $effect(() => {
+    diff;
+    showFullDiff = false;
+  });
+
+  let diffMode = $state<'inline' | 'side-by-side'>('inline');
+
+  let totalDiffLines = $derived(
+    diff && !diff.isBinary
+      ? diff.hunks.reduce((s, h) => s + h.lines.length, 0)
+      : 0
+  );
+  let diffTruncated = $derived(!showFullDiff && totalDiffLines > MAX_RENDER_LINES);
+
+  // Hunks actually handed to the template. When truncated, include whole hunks
+  // until the line budget runs out, slicing the final partial hunk. The sliced
+  // hunk keeps its original `oldStart` and the first-N line indices, so the
+  // highlight-cache keys (`${oldStart}-${lineIndex}`) still line up.
+  let renderHunks = $derived.by(() => {
+    if (!diff || diff.isBinary) return [];
+    if (!diffTruncated) return diff.hunks;
+    const out: typeof diff.hunks = [];
+    let budget = MAX_RENDER_LINES;
+    for (const hunk of diff.hunks) {
+      if (budget <= 0) break;
+      if (hunk.lines.length <= budget) {
+        out.push(hunk);
+        budget -= hunk.lines.length;
+      } else {
+        out.push({ ...hunk, lines: hunk.lines.slice(0, budget) });
+        budget = 0;
+      }
+    }
+    return out;
+  });
+
+  const MAX_HIGHLIGHT_LINES = 5000;
+
+  // Tracks the VS Code color theme so highlighting re-runs (with the matching
+  // light/dark token colours) when the user switches themes mid-session.
+  let shikiTheme = $state<'dark-plus' | 'light-plus'>(activeShikiTheme());
+  onMount(() => {
+    const observer = new MutationObserver(() => { shikiTheme = activeShikiTheme(); });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  });
+
+  $effect(() => {
+    if (!diff || diff.isBinary) return;
+    const lang = detectLanguage(diff.file);
+    if (!lang) {
+      highlightedLines = new Map();
+      return;
+    }
+    const totalLines = diff.hunks.reduce((s, h) => s + h.lines.length, 0);
+    if (totalLines > MAX_HIGHLIGHT_LINES) {
+      highlightedLines = new Map();
+      return;
+    }
+    const target = diff;
+    const theme = shikiTheme; // capture so a theme switch invalidates the pass
+    // Yield to the event loop between chunks so a multi-thousand-line diff
+    // doesn't freeze the panel. Each batch processes CHUNK_SIZE lines then
+    // hands control back via a microtask.
+    const CHUNK_SIZE = 250;
+    let cancelled = false;
+    getHighlighter()
+      .then(async h => {
+        if (cancelled || diff !== target) return;
+        // Grammars load on demand; bail out to plain escaping if this language
+        // has no Shiki grammar (highlightLineSync would fall back anyway, but
+        // skipping the loop avoids a pointless full pass over the diff).
+        const ready = await ensureLanguage(h, lang);
+        if (cancelled || diff !== target) return;
+        if (!ready) { highlightedLines = new Map(); return; }
+        const newMap = new Map<string, string>();
+        const flat: Array<{ key: string; content: string }> = [];
+        for (const hunk of target.hunks) {
+          for (let i = 0; i < hunk.lines.length; i++) {
+            flat.push({ key: `${hunk.oldStart}-${i}`, content: hunk.lines[i].content });
+          }
+        }
+        for (let i = 0; i < flat.length; i += CHUNK_SIZE) {
+          if (cancelled || diff !== target) return;
+          const end = Math.min(i + CHUNK_SIZE, flat.length);
+          for (let j = i; j < end; j++) {
+            newMap.set(flat[j].key, highlightLineSync(h, flat[j].content, lang, theme));
+          }
+          // Defer to next microtask so user interaction (scroll, switch file)
+          // can interrupt mid-highlight without paying for the whole pass.
+          if (end < flat.length) {
+            await new Promise<void>(resolve => queueMicrotask(resolve));
+          }
+        }
+        if (cancelled || diff !== target) return;
+        highlightedLines = newMap;
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  });
+
+  function getHighlighted(hunkStart: number, lineIdx: number, content: string): string {
+    const key = `${hunkStart}-${lineIdx}`;
+    return highlightedLines.get(key) ?? escapeHtml(content);
+  }
+</script>
+
+<div class="diff-wrapper" class:stacked>
+  <div class="diff-toolbar">
+    {#if heading}<div class="diff-commit-label" title={heading}>{heading}</div>{/if}
+    <div class="diff-toolbar-row">
+      <span class="diff-file-name" title={diff.file}>
+        {#if diff.file.includes('/')}
+          <span class="diff-dir">{diff.file.substring(0, diff.file.lastIndexOf('/') + 1)}</span>
+        {/if}
+        <span class="diff-base">{getFileName(diff.file)}</span>
+      </span>
+      <div class="diff-mode-toggle">
+        <button
+          class:active={diffMode === 'inline'}
+          onclick={() => { diffMode = 'inline'; }}
+        >{t('details.inline')}</button>
+        <button
+          class:active={diffMode === 'side-by-side'}
+          onclick={() => { diffMode = 'side-by-side'; }}
+        >{t('details.sideBySide')}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="diff-panel">
+    {#if diffTruncated}
+      <div class="diff-truncated-banner">
+        <span>{t('details.diffTruncated', { shown: MAX_RENDER_LINES, total: totalDiffLines })}</span>
+        <button onclick={() => { showFullDiff = true; }}>{t('details.showFullDiff')}</button>
+      </div>
+    {/if}
+    {#if diff.isBinary && diff.isImage}
+      <ImageDiff file={diff.file} staged={false} commitHash={commitHash ?? ''} />
+    {:else if diff.isBinary}
+      <div class="diff-empty">{t('details.binaryFile')}</div>
+    {:else if diffMode === 'inline'}
+      <div class="diff-content">
+        {#each renderHunks as hunk, hunkIdx}
+          {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
+          {#each hunk.lines as line, lineIndex}
+            <div class="diff-line diff-{line.type}">
+              <span class="line-num old">{line.oldLineNumber ?? ''}</span>
+              <span class="line-num new">{line.newLineNumber ?? ''}</span>
+              <span class="line-prefix">{line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}</span>
+              <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+            </div>
+          {/each}
+        {/each}
+      </div>
+    {:else}
+      <div class="diff-sbs">
+        <div class="sbs-pane sbs-left" bind:this={sbsLeftEl} onscroll={handleSbsScroll}>
+          <div class="sbs-inner">
+            {#each renderHunks as hunk, hunkIdx}
+              {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
+              {#each hunk.lines as line, lineIndex}
+                {#if line.type === 'context' || line.type === 'delete'}
+                  <div class="diff-line diff-{line.type}">
+                    <span class="line-num">{line.oldLineNumber ?? ''}</span>
+                    <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+                  </div>
+                {:else}
+                  <div class="diff-line diff-empty-line">
+                    <span class="line-num"></span>
+                    <span class="line-content"></span>
+                  </div>
+                {/if}
+              {/each}
+            {/each}
+          </div>
+        </div>
+        <div class="sbs-pane sbs-right" bind:this={sbsRightEl} onscroll={handleSbsScroll}>
+          <div class="sbs-inner">
+            {#each renderHunks as hunk, hunkIdx}
+              {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
+              {#each hunk.lines as line, lineIndex}
+                {#if line.type === 'context' || line.type === 'add'}
+                  <div class="diff-line diff-{line.type}">
+                    <span class="line-num">{line.newLineNumber ?? ''}</span>
+                    <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+                  </div>
+                {:else}
+                  <div class="diff-line diff-empty-line">
+                    <span class="line-num"></span>
+                    <span class="line-content"></span>
+                  </div>
+                {/if}
+              {/each}
+            {/each}
+          </div>
+        </div>
+      </div>
+    {/if}
+  </div>
+</div>
+
+<style>
+  /* ── Diff panel ── */
+  .diff-wrapper {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: var(--vscode-editor-font-size, 12px);
+  }
+
+  .diff-panel {
+    flex: 1;
+    overflow: auto;
+  }
+
+  .diff-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    z-index: 5;
+  }
+
+  .diff-toolbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .diff-file-name {
+    font-size: var(--vscode-font-size, 13px);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+  }
+
+  .diff-dir {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.55;
+    font-weight: normal;
+  }
+
+  .diff-base {
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+
+  .diff-mode-toggle {
+    display: flex;
+    gap: 2px;
+    background: rgba(128, 128, 128, 0.15);
+    border-radius: 3px;
+    padding: 1px;
+  }
+
+  .diff-mode-toggle button {
+    padding: 2px 8px;
+    font-size: 0.75em;
+    border-radius: 2px;
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .diff-mode-toggle button.active {
+    background: var(--button-bg);
+    color: var(--button-fg);
+  }
+
+  .diff-content {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 100%;
+    width: max-content;
+  }
+
+  .hunk-separator {
+    height: 0;
+    border-top: 1px dashed var(--border-color);
+    margin: 6px 0;
+    opacity: 0.6;
+    width: 100%;
+  }
+
+  .diff-line {
+    display: flex;
+    min-height: 20px;
+    line-height: 20px;
+  }
+
+  .diff-add { background: var(--vscode-diffEditor-insertedLineBackground, rgba(72, 191, 145, 0.15)); }
+  .diff-delete { background: var(--vscode-diffEditor-removedLineBackground, rgba(255, 0, 0, 0.15)); }
+  .diff-empty-line { background: rgba(128, 128, 128, 0.05); }
+
+  .line-num {
+    width: 45px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-right: 8px;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    font-size: 0.9em;
+    user-select: none;
+  }
+
+  .line-prefix {
+    width: 14px;
+    flex-shrink: 0;
+    text-align: center;
+    user-select: none;
+  }
+
+  .diff-add .line-prefix { color: #4caf50; }
+  .diff-delete .line-prefix { color: #f44336; }
+
+  :global(body.vscode-light) .diff-add .line-prefix { color: #2e7d32; }
+  :global(body.vscode-light) .diff-delete .line-prefix { color: #b71c1c; }
+
+  .line-content {
+    white-space: pre;
+    padding-left: 4px;
+    padding-right: 24px;
+  }
+
+  .diff-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+  }
+
+  .diff-truncated-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.08));
+    border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.2));
+  }
+
+  .diff-truncated-banner button {
+    flex-shrink: 0;
+    padding: 2px 10px;
+    cursor: pointer;
+    color: var(--vscode-button-foreground, #fff);
+    background: var(--vscode-button-background, #0e639c);
+    border: none;
+    border-radius: 2px;
+    font-size: 12px;
+  }
+
+  .diff-truncated-banner button:hover {
+    background: var(--vscode-button-hoverBackground, #1177bb);
+  }
+
+  /* Side-by-side */
+  .diff-sbs {
+    display: flex;
+    height: 100%;
+    width: 100%;
+  }
+
+  .sbs-pane {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    background: var(--bg-primary);
+  }
+
+  .sbs-inner {
+    display: flex;
+    flex-direction: column;
+    min-width: 100%;
+    width: max-content;
+    min-height: 100%;
+  }
+
+  .sbs-left {
+    border-right: 1px solid var(--border-color);
+  }
+
+  .sbs-pane .diff-line {
+    width: 100%;
+  }
+
+  /* ── Stacked mode (multiple FileDiffViews in a scrolling column) ── */
+  /* The outer .sections-pane owns the scroll; each FileDiffView must grow to  */
+  /* its full content height rather than filling/clipping inside a flex child. */
+  .diff-wrapper.stacked {
+    flex: none;
+    overflow: visible;
+  }
+
+  .diff-wrapper.stacked .diff-panel {
+    overflow: visible;
+    max-height: none;
+  }
+
+  /* In SBS mode, .diff-sbs uses height:100% which resolves to 0 when the     */
+  /* parent has no fixed height. Switch to auto so both panes size to content. */
+  .diff-wrapper.stacked .diff-sbs {
+    height: auto;
+  }
+
+  /* The toolbar (commit label + file name) sticks to the top while scrolling  */
+  /* through this section's diff. Constrained to the section's own wrapper, so */
+  /* the next section's toolbar takes over instead of piling up at the top.    */
+  .diff-wrapper.stacked .diff-toolbar {
+    position: sticky;
+    top: 0;
+  }
+
+  .diff-commit-label {
+    font-family: var(--vscode-editor-font-family, monospace);
+    color: var(--text-secondary);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>

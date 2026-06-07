@@ -106,7 +106,8 @@ export type WebviewMessage =
   | { type: 'showNotification'; payload: { message: string } }
   | { type: 'showTagDetails'; payload: { name: string } }
   | { type: 'getUncommittedDiff' }
-  | { type: 'getUncommittedFileDiff'; payload: { file: string; staged: boolean } };
+  | { type: 'getUncommittedFileDiff'; payload: { file: string; staged: boolean } }
+  | { type: 'getMultiCommitSections'; payload: { hashes: string[] } };
 
 // Messages from Extension → Webview
 export type ExtensionMessage =
@@ -137,6 +138,7 @@ export type ExtensionMessage =
   | { type: 'repoList'; payload: { repos: Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>; active: string } }
   | { type: 'worktreeData'; payload: WorktreeInfo[] }
   | { type: 'uncommittedDiffData'; payload: { staged: Array<{ path: string; status: string }>; unstaged: Array<{ path: string; status: string }> } }
+  | { type: 'multiCommitSectionsData'; payload: { files: Array<{ path: string; status: string }>; sections: Array<{ file: string; commit: string; diff: DiffData }> } }
   | { type: 'imageData'; payload: { ref: string; path: string; base64: string; mimeType: string } }
   | { type: 'conflictData'; payload: { operation: string; files: Array<{ path: string; resolved: boolean }> } }
   | { type: 'flowStatus'; payload: { installed: boolean; initialized: boolean; config: { productionBranch: string; developBranch: string; featurePrefix: string; releasePrefix: string; hotfixPrefix: string; versionTagPrefix: string } | null } }

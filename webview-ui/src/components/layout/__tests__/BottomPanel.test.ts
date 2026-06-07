@@ -23,7 +23,9 @@ function commit(over: Partial<Commit> = {}): Commit {
 beforeEach(() => {
   i18n.setLocale('en');
   uiStore.selectedCommitHash = null;
+  uiStore.selectedCommitHashes = [];
   uiStore.comparing = false;
+  uiStore.multiSelectArmed = false;
   commitStore.commits = [];
 });
 
@@ -40,9 +42,19 @@ describe('BottomPanel', () => {
     expect(container.querySelector('.empty')).toBeNull();
   });
 
-  it('renders CommitDetails (in compare mode) when comparing is true', () => {
+  it('renders the compare view (CommitDetails) when comparing is active', () => {
+    uiStore.selectedCommitHash = null;
     uiStore.comparing = true;
     const { container } = render(BottomPanel);
-    expect(container.querySelector('.empty')).toBeNull();
+    expect(container.querySelector('.commit-details')).toBeTruthy();
+  });
+
+  it('prompts to select more when armed with fewer than 2 commits', () => {
+    uiStore.selectedCommitHash = null;
+    uiStore.comparing = false;
+    uiStore.multiSelectArmed = true;
+    uiStore.selectedCommitHashes = ['a'];
+    const { container } = render(BottomPanel);
+    expect(container.querySelector('.empty')?.textContent).toMatch(/select more/i);
   });
 });

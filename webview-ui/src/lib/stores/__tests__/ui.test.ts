@@ -10,6 +10,9 @@ beforeEach(() => {
   uiStore.showBottomPanel = false;
   uiStore.errorMessage = null;
   uiStore.viewMode = 'graph';
+  uiStore.selectedCommitHashes = [];
+  uiStore.anchorHash = null;
+  uiStore.multiSelectArmed = false;
 });
 
 describe('uiStore.selectCommit', () => {
@@ -48,6 +51,62 @@ describe('uiStore.setViewMode', () => {
   it('switches to stats view', () => {
     uiStore.setViewMode('stats');
     expect(uiStore.viewMode).toBe('stats');
+  });
+});
+
+describe('uiStore multi-select mode', () => {
+  const order = ['c4', 'c3', 'c2', 'c1']; // newest → oldest
+
+  it('enterMultiSelect arms the mode with one commit and no single-detail hash', () => {
+    uiStore.enterMultiSelect('c3');
+    expect(uiStore.multiSelectArmed).toBe(true);
+    expect(uiStore.selectedCommitHashes).toEqual(['c3']);
+    expect(uiStore.anchorHash).toBe('c3');
+    expect(uiStore.selectedCommitHash).toBeNull();
+  });
+
+  it('toggleHash keeps selectedCommitHash null even at length 1 (armed mode)', () => {
+    uiStore.enterMultiSelect('c3');
+    uiStore.toggleHash('c3'); // remove → length 0
+    expect(uiStore.selectedCommitHash).toBeNull();
+    uiStore.toggleHash('c2'); // add → length 1
+    expect(uiStore.selectedCommitHashes).toEqual(['c2']);
+    expect(uiStore.selectedCommitHash).toBeNull();
+  });
+
+  it('selectRange builds an inclusive range and never sets single hash', () => {
+    uiStore.enterMultiSelect('c4');
+    uiStore.selectRange('c2', order);
+    expect(uiStore.selectedCommitHashes).toEqual(['c4', 'c3', 'c2']);
+    expect(uiStore.selectedCommitHash).toBeNull();
+  });
+
+  it('exitMultiSelect clears the mode and selection', () => {
+    uiStore.enterMultiSelect('c4');
+    uiStore.selectRange('c2', order);
+    uiStore.exitMultiSelect();
+    expect(uiStore.multiSelectArmed).toBe(false);
+    expect(uiStore.selectedCommitHashes).toEqual([]);
+    expect(uiStore.anchorHash).toBeNull();
+    expect(uiStore.comparing).toBe(false);
+  });
+
+  it('selectCommit (plain) disarms the mode', () => {
+    uiStore.enterMultiSelect('c4');
+    uiStore.selectCommit('c2');
+    expect(uiStore.multiSelectArmed).toBe(false);
+    expect(uiStore.selectedCommitHash).toBe('c2');
+    expect(uiStore.selectedCommitHashes).toEqual(['c2']);
+  });
+
+  it('selectRange stays armed when anchor was cleared', () => {
+    const order = ['c4', 'c3', 'c2', 'c1'];
+    uiStore.enterMultiSelect('c4');
+    uiStore.toggleHash('c4');           // removes the only commit → anchor null, still armed
+    uiStore.selectRange('c2', order);   // null-anchor fallback
+    expect(uiStore.multiSelectArmed).toBe(true);   // must NOT disarm
+    expect(uiStore.selectedCommitHashes).toEqual(['c2']);
+    expect(uiStore.anchorHash).toBe('c2');
   });
 });
 

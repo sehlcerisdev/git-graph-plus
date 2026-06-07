@@ -383,6 +383,30 @@ describe('GitService', () => {
     });
   });
 
+  describe('showCommitFiles merge-commit union', () => {
+    it('unions files across parents, keeping the highest-priority status', async () => {
+      const svc = new GitService('/tmp/test-repo');
+      mockExec(svc, async (args: string[]) => {
+        // commitParents: git log -1 --format=%P <hash>
+        if (args[0] === 'log' && args.includes('--format=%P')) return 'parentA parentB\n';
+        // showCommitFiles merge branch: git diff --name-status <parent>..<hash>
+        if (args[0] === 'diff' && args.includes('--name-status')) {
+          const range = args[args.length - 1];
+          if (range === 'parentA..merge') return 'M\tshared.txt\n';
+          if (range === 'parentB..merge') return 'D\tshared.txt\nA\tonly-b.txt\n';
+          return '';
+        }
+        return '';
+      });
+      const files = await svc.showCommitFiles('merge');
+      const byPath = Object.fromEntries(files.map(f => [f.path, f.status]));
+      // priority R:5 C:4 A:3 D:2 M:1 → D(2) beats M(1)
+      expect(byPath['shared.txt']).toBe('D');
+      expect(byPath['only-b.txt']).toBe('A');
+      expect(files).toHaveLength(2);
+    });
+  });
+
   describe('log() uncommitted node injection', () => {
     const logLine = '\x01\x02\x03abc123\x00abc\x00Author\x00a@a.com\x002024-01-01T00:00:00Z\x00Author\x00a@a.com\x002024-01-01T00:00:00Z\x00feat: initial\x00\x00\x00\n';
 
@@ -1140,6 +1164,84 @@ describe('GitService', () => {
       mockExec(service, async (args) => { calls.push(args); return ''; });
       await service.worktreeAdd('/tmp/wt', 'main');
       expect(calls[0]).toEqual(['worktree', 'add', '/tmp/wt', 'main']);
+    });
+  });
+
+  describe('multiCommitSections', () => {
+    it('returns union files and per-commit diff sections for each file', async () => {
+      const svc = new GitService('/tmp/test-repo');
+      mockExec(svc, async (args: string[]) => {
+        if (args.includes('--format=%P')) return 'p\n';                 // single parent
+        const range = args[args.length - 1];
+        if (args[0] === 'diff' && args.includes('--name-status')) {     // showCommitFiles
+          if (range === 'c2^..c2') return 'M\ta.txt\n';
+          if (range === 'c1^..c1') return 'M\ta.txt\nA\tb.txt\n';
+          return '';
+        }
+        if (args[0] === 'diff' && args.includes('--no-color')) {        // showCommitDiff(commit)
+          if (range === 'c2^..c2') return `diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-x\n+c2\n`;
+          if (range === 'c1^..c1') return `diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-x\n+c1\n`
+            + `diff --git a/b.txt b/b.txt\n--- /dev/null\n+++ b/b.txt\n@@ -0,0 +1 @@\n+new\n`;
+          return '';
+        }
+        return '';
+      });
+      const res = await svc.multiCommitSections(['c2', 'c1']); // newest first
+      expect(res.files.map(f => f.path).sort()).toEqual(['a.txt', 'b.txt']);
+      const aSecs = res.sections.filter(s => s.file === 'a.txt');
+      const bSecs = res.sections.filter(s => s.file === 'b.txt');
+      expect(aSecs.map(s => s.commit)).toEqual(['c2', 'c1']); // newest-first
+      expect(bSecs.map(s => s.commit)).toEqual(['c1']);
+      expect(aSecs[0].diff.file).toBe('a.txt');
+    });
+
+    it('falls back to per-file diff for a merge commit file missing from the first-parent whole-commit diff', async () => {
+      // Scenario: 'merge' has two parents (p1, p2). m.txt was only changed vs p2
+      // (not p1), so the whole-commit first-parent diff (merge^..merge) omits it.
+      // showCommitFiles unions both parents and includes m.txt via p2, so it
+      // appears in the union files. The fix must fall back to showCommitDiff(merge, 'm.txt')
+      // which uses the per-parent merge-aware loop and finds the diff via p2.
+      const svc = new GitService('/tmp/test-repo');
+      const mTxtDiff = `diff --git a/m.txt b/m.txt\n--- a/m.txt\n+++ b/m.txt\n@@ -1 +1 @@\n-old\n+merged\n`;
+      mockExec(svc, async (args: string[]) => {
+        // commitParents('merge'): git log -1 --format=%P merge
+        if (args[0] === 'log' && args.includes('--format=%P') && args.includes('merge')) {
+          return 'p1 p2\n';
+        }
+        // showCommitFiles('merge') merge branch — git diff --name-status <parent>..<hash>
+        if (args[0] === 'diff' && args.includes('--name-status')) {
+          if (args.includes('p1..merge')) return '';          // m.txt absent vs p1
+          if (args.includes('p2..merge')) return 'M\tm.txt\n'; // m.txt changed vs p2
+          return '';
+        }
+        if (args[0] === 'diff' && args.includes('--no-color')) {
+          // showCommitDiff('merge') no file → git diff --no-color merge^..merge (first parent only)
+          if (args.includes('merge^..merge') && !args.includes('--')) {
+            return ''; // m.txt absent from first-parent diff → byFile miss
+          }
+          // showCommitDiff('merge', 'm.txt') per-parent loop:
+          // git diff --no-color p1..merge -- m.txt  → empty (changed only vs p2)
+          if (args.includes('p1..merge') && args.includes('--') && args.includes('m.txt')) {
+            return '';
+          }
+          // git diff --no-color p2..merge -- m.txt  → non-empty diff
+          if (args.includes('p2..merge') && args.includes('--') && args.includes('m.txt')) {
+            return mTxtDiff;
+          }
+          return '';
+        }
+        return '';
+      });
+
+      const res = await svc.multiCommitSections(['merge']);
+      // m.txt must appear in the union file list (contributed via p2)
+      expect(res.files.map(f => f.path)).toContain('m.txt');
+      // There must be exactly one section for m.txt, from the 'merge' commit,
+      // with the diff sourced from the per-file fallback (p2 parent).
+      const mSecs = res.sections.filter(s => s.file === 'm.txt');
+      expect(mSecs).toHaveLength(1);
+      expect(mSecs[0].commit).toBe('merge');
+      expect(mSecs[0].diff.file).toBe('m.txt');
     });
   });
 

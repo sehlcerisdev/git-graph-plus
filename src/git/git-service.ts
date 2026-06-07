@@ -913,6 +913,22 @@ export class GitService {
     }
   }
 
+  private mergeNameStatus(
+    lists: Array<Array<{ path: string; status: string; oldPath?: string }>>,
+  ): Array<{ path: string; status: string; oldPath?: string }> {
+    const priority: Record<string, number> = { R: 5, C: 4, A: 3, D: 2, M: 1 };
+    const merged = new Map<string, { path: string; status: string; oldPath?: string }>();
+    for (const entries of lists) {
+      for (const e of entries) {
+        const existing = merged.get(e.path);
+        if (!existing || (priority[e.status] ?? 0) > (priority[existing.status] ?? 0)) {
+          merged.set(e.path, e);
+        }
+      }
+    }
+    return Array.from(merged.values());
+  }
+
   async showCommitFiles(hash: string): Promise<Array<{ path: string; status: string; oldPath?: string }>> {
     this.assertSafeRef(hash, 'show');
     const parents = await this.commitParents(hash);
@@ -931,22 +947,12 @@ export class GitService {
     // Merge commit: union of files changed vs each parent. Using `hash^..hash`
     // would only show changes vs the first parent, hiding everything that
     // came in from parent 2..N (silent data loss for every octopus merge).
-    const priority: Record<string, number> = { R: 5, C: 4, A: 3, D: 2, M: 1 };
-    const merged = new Map<string, { path: string; status: string; oldPath?: string }>();
     const perParent = await Promise.all(parents.map(async parent => {
       this.assertSafeRef(parent, 'diff');
       const raw = await this.exec(['diff', '--name-status', `${parent}..${hash}`]);
       return this.parseNameStatus(raw);
     }));
-    for (const entries of perParent) {
-      for (const e of entries) {
-        const existing = merged.get(e.path);
-        if (!existing || (priority[e.status] ?? 0) > (priority[existing.status] ?? 0)) {
-          merged.set(e.path, e);
-        }
-      }
-    }
-    return Array.from(merged.values());
+    return this.mergeNameStatus(perParent);
   }
 
   async showCommitDiff(hash: string, file?: string): Promise<DiffData[]> {
@@ -982,6 +988,38 @@ export class GitService {
     if (file) args.push('--', file);
     const raw = await this.exec(args);
     return parseDiff(raw);
+  }
+
+  // 3+ multi-select: union file list + per-commit diff sections. Every union file
+  // has ≥1 section (it's in the union because some selected commit changed it),
+  // so no file is left without a diff. `hashes` is newest-first; sections preserve
+  // that order per file.
+  async multiCommitSections(hashes: string[]): Promise<{
+    files: Array<{ path: string; status: string; oldPath?: string }>;
+    sections: Array<{ file: string; commit: string; diff: DiffData }>;
+  }> {
+    if (hashes.length === 0) throw new GitError('multiCommitSections requires at least one commit', null, []);
+    for (const h of hashes) this.assertSafeRef(h, 'diff');
+    const perCommit = await Promise.all(
+      hashes.map(async commit => ({ commit, files: await this.showCommitFiles(commit) })),
+    );
+    const files = this.mergeNameStatus(perCommit.map(p => p.files));
+    const sections: Array<{ file: string; commit: string; diff: DiffData }> = [];
+    for (const { commit, files: cf } of perCommit) {
+      const allDiffs = await this.showCommitDiff(commit);          // whole-commit diff, 1 git call
+      const byFile = new Map(allDiffs.map(d => [d.file, d]));
+      for (const f of cf) {
+        let d = byFile.get(f.path);
+        if (!d) {
+          // Merge commits: the whole-commit (first-parent) diff omits files changed
+          // only vs a non-first parent. Fall back to the merge-aware per-file diff.
+          const perFile = await this.showCommitDiff(commit, f.path);
+          d = perFile[0];
+        }
+        if (d) sections.push({ file: f.path, commit, diff: d });
+      }
+    }
+    return { files, sections };
   }
 
   // --- Phase 4: Remote Management, Rebase ---

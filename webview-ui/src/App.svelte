@@ -237,8 +237,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
       if (uiStore.commitDetailFullscreen) {
         uiStore.commitDetailFullscreen = false;
       } else {
-        uiStore.selectedCommitHash = null;
-        uiStore.comparing = false;
+        // selectCommit(null) clears the whole selection (incl. selectedCommitHashes
+        // and compare state) so the row highlight is fully removed.
+        uiStore.selectCommit(null);
         uiStore.showBottomPanel = false;
       }
     }

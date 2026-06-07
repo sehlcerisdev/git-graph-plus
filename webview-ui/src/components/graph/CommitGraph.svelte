@@ -183,7 +183,6 @@
   const currentBranchLocalOnly = $derived(branchSets.currentBranchLocalOnly);
   const currentBranchRemoteAhead = $derived(branchSets.currentBranchRemoteAhead);
 
-  let compareBase = $state<string | null>(null);
   let bisectBadCommit = $state<string | null>(null);
   let bisectStartBad = $state<string | null>(null);
   let bisectStartGood = $state<string | null>(null);
@@ -480,23 +479,13 @@
 
   // Row click / double-click behaviour, shared by the commit rows and the pinned
   // meta overlay so clicking the author/date area behaves the same as the row.
-  function handleRowClick(commit: typeof displayCommits[0]) {
+  function handleRowClick(commit: typeof displayCommits[0], e?: MouseEvent) {
     if (bisectBadCommit && bisectBadCommit !== commit.hash) {
       const bad = bisectBadCommit;
       bisectBadCommit = null;
       bisectStartBad = bad;
       bisectStartGood = commit.hash;
       vscode.postMessage({ type: 'bisectStart', payload: { bad, good: commit.hash } });
-      return;
-    }
-    if (compareBase && compareBase !== commit.hash) {
-      uiStore.comparing = true;
-      uiStore.selectedCommitHash = null;
-      uiStore.compareRef1 = compareBase;
-      uiStore.compareRef2 = commit.hash;
-      uiStore.showBottomPanel = true;
-      vscode.postMessage({ type: 'compareCommits', payload: { ref1: compareBase, ref2: commit.hash } });
-      compareBase = null;
       return;
     }
     // The uncommitted-changes row opens VS Code's Source Control view
@@ -507,6 +496,18 @@
       vscode.postMessage({ type: 'openScmView' });
       return;
     }
+
+    // Selection mode (entered via the context menu) — only here do clicks build a set.
+    if (uiStore.multiSelectArmed) {
+      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+      if (e && e.shiftKey) {
+        uiStore.selectRange(commit.hash, displayCommits.map(c => c.hash));
+      } else {
+        uiStore.toggleHash(commit.hash); // plain or Ctrl/Cmd click toggles membership
+      }
+      return;
+    }
+    // Not armed: modifiers are ignored; plain click single-selects (debounced).
     if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
     clickTimer = setTimeout(() => { clickTimer = null; selectCommit(commit.hash); }, 200);
   }
@@ -523,6 +524,9 @@
 
   function handleRowDblClick(commit: typeof displayCommits[0]) {
     if (commit.hash === 'UNCOMMITTED') return;
+    // In selection / compare mode a double-click is just two membership toggles —
+    // never a checkout.
+    if (uiStore.multiSelectArmed || uiStore.comparing) return;
     if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
     const localRefs = commit.refs.filter(r => r.type === 'head' || r.type === 'branch');
     if (localRefs.length === 1) {
@@ -540,7 +544,7 @@
   }
 
   function selectCommit(hash: string) {
-    uiStore.selectCommit(uiStore.selectedCommitHash === hash ? null : hash);
+    uiStore.selectSingle(hash);
   }
 
   function onCommitContextMenu(e: MouseEvent, commit: Commit) {
@@ -812,30 +816,32 @@
         { label: t('graph.savePatch'),        action: () => vscode.postMessage({ type: 'saveCommitPatch', payload: { hash: commit.hash } }) },
       ]);
 
-      // ── Compare ──
+      // ── Compare / Multi-select ──
       const compareGroup: any[] = [{
         label: t('graph.compareToLocal'),
         action: () => {
+          uiStore.multiSelectArmed = false;
           uiStore.comparing = true; uiStore.selectedCommitHash = null;
+          uiStore.selectedCommitHashes = [];
           uiStore.compareRef1 = commit.hash; uiStore.compareRef2 = null;
           uiStore.showBottomPanel = true;
           vscode.postMessage({ type: 'compareToWorking', payload: { hash: commit.hash } });
         },
       }];
-      if (compareBase) {
+      if (uiStore.multiSelectArmed) {
         compareGroup.push({
-          label: t('graph.compareWith', { hash: compareBase.substring(0, 7) }),
-          action: () => {
-            uiStore.comparing = true; uiStore.selectedCommitHash = null;
-            uiStore.compareRef1 = compareBase; uiStore.compareRef2 = commit.hash;
-            uiStore.showBottomPanel = true;
-            vscode.postMessage({ type: 'compareCommits', payload: { ref1: compareBase!, ref2: commit.hash } });
-            compareBase = null;
-          },
+          label: t('graph.addToSelection'),
+          action: () => { uiStore.toggleHash(commit.hash); },
         });
-        compareGroup.push({ label: t('graph.cancelCompare'), action: () => { compareBase = null; } });
+        compareGroup.push({
+          label: t('graph.cancelSelection'),
+          action: () => { uiStore.exitMultiSelect(); },
+        });
       } else {
-        compareGroup.push({ label: t('graph.selectForCompare'), action: () => { compareBase = commit.hash; uiStore.selectedCommitHash = null; uiStore.showBottomPanel = false; } });
+        compareGroup.push({
+          label: t('graph.selectForCompare'),
+          action: () => { uiStore.enterMultiSelect(commit.hash); },
+        });
       }
       groups.push(compareGroup);
 
@@ -921,13 +927,40 @@
     }
   });
 
+  // Orchestration: when armed selection changes, request the right compare data.
+  let lastCompareKey = '';
+  $effect(() => {
+    if (!uiStore.multiSelectArmed) { lastCompareKey = ''; return; }
+    const sel = uiStore.selectedCommitHashes;
+    if (sel.length < 2) { lastCompareKey = ''; return; }
+    // Order by display order (newest first).
+    const idx = new Map(displayCommits.map((c, i) => [c.hash, i]));
+    const ordered = [...sel].sort((a, b) => (idx.get(a) ?? 0) - (idx.get(b) ?? 0));
+    const key = ordered.join(',');
+    if (key === lastCompareKey) return;
+    lastCompareKey = key;
+    uiStore.comparing = true;
+    uiStore.selectedCommitHash = null;
+    if (ordered.length === 2) {
+      const ref2 = ordered[0];                 // newer
+      const ref1 = ordered[1];                 // older
+      uiStore.compareRef1 = ref1; uiStore.compareRef2 = ref2;
+      vscode.postMessage({ type: 'compareCommits', payload: { ref1, ref2 } });
+    } else {
+      const head = ordered[0];
+      const oldest = ordered[ordered.length - 1];
+      uiStore.compareRef1 = `${oldest}^`; uiStore.compareRef2 = head;
+      vscode.postMessage({ type: 'getMultiCommitSections', payload: { hashes: ordered } });
+    }
+  });
+
 </script>
 
 <svelte:window onresize={handleResize} onkeydown={(e) => {
   if (e.key === 'Escape') {
     if (bisectBadCommit) { bisectBadCommit = null; }
     else if (bisectCulpritHash) { vscode.postMessage({ type: 'bisectReset' }); }
-    else if (compareBase) { compareBase = null; }
+    else if (uiStore.multiSelectArmed) { uiStore.exitMultiSelect(); }
   }
 }} />
 
@@ -1038,14 +1071,16 @@
           <div
             class="commit-row"
             class:hovered={hoveredHash === commit.hash}
-            class:selected={uiStore.selectedCommitHash === commit.hash}
+            class:selected={uiStore.selectedCommitHashes.length > 0
+              ? uiStore.selectedCommitHashes.includes(commit.hash)
+              : uiStore.selectedCommitHash === commit.hash}
             class:highlighted={contextMenuHash === commit.hash}
             class:search-match={isSearchActive && searchMatchedHashes?.has(commit.hash)}
             class:search-dim={isSearchActive && !searchMatchedHashes?.has(commit.hash)}
             class:search-current={searchNavigateHash === commit.hash}
             class:other-branch={!isSearchActive && !currentBranchCommits.has(commit.hash) && commit.hash !== 'UNCOMMITTED'}
-            class:compare-mode={compareBase !== null && compareBase !== commit.hash}
-            class:compare-base={compareBase === commit.hash}
+            class:compare-mode={uiStore.multiSelectArmed && !uiStore.selectedCommitHashes.includes(commit.hash)}
+            class:compare-base={uiStore.multiSelectArmed && uiStore.selectedCommitHashes.includes(commit.hash)}
             class:compare-active={uiStore.comparing && (uiStore.compareRef1 === commit.hash || uiStore.compareRef2 === commit.hash)}
             class:bisect-mode={bisectBadCommit !== null && bisectBadCommit !== commit.hash}
             class:bisect-bad={bisectBadCommit === commit.hash}
@@ -1053,7 +1088,7 @@
             class:bisect-start-good={bisectActive && bisectStartGood === commit.hash}
             class:bisect-culprit={bisectCulpritHash !== null && commit.hash.startsWith(bisectCulpritHash)}
             style="height: {ROW_HEIGHT}px;"
-            onclick={() => handleRowClick(commit)}
+            onclick={(e) => handleRowClick(commit, e)}
             ondblclick={() => handleRowDblClick(commit)}
             oncontextmenu={(e) => { if (commit.hash === 'UNCOMMITTED') onUncommittedContextMenu(e); else onCommitContextMenu(e, commit); }}
             use:tooltip={commit.hash === 'UNCOMMITTED' ? t('graph.clickToOpenScm') : ''}
@@ -1219,12 +1254,14 @@
           {#each visibleCommits as { commit, index } (commit.hash)}
             <div
               class="meta-row"
-              class:selected={uiStore.selectedCommitHash === commit.hash}
+              class:selected={uiStore.selectedCommitHashes.length > 0
+                ? uiStore.selectedCommitHashes.includes(commit.hash)
+                : uiStore.selectedCommitHash === commit.hash}
               class:highlighted={contextMenuHash === commit.hash}
               class:search-dim={isSearchActive && !searchMatchedHashes?.has(commit.hash)}
               class:search-current={searchNavigateHash === commit.hash}
               class:other-branch={!isSearchActive && !currentBranchCommits.has(commit.hash) && commit.hash !== 'UNCOMMITTED'}
-              class:compare-base={compareBase === commit.hash}
+              class:compare-base={uiStore.multiSelectArmed && uiStore.selectedCommitHashes.includes(commit.hash)}
               class:compare-active={uiStore.comparing && (uiStore.compareRef1 === commit.hash || uiStore.compareRef2 === commit.hash)}
               class:bisect-bad={bisectBadCommit === commit.hash}
               class:bisect-start-bad={bisectActive && bisectStartBad === commit.hash}
@@ -1234,7 +1271,7 @@
               style="top: {index * ROW_HEIGHT}px; height: {ROW_HEIGHT}px;"
               role="row"
               tabindex={-1}
-              onclick={() => handleRowClick(commit)}
+              onclick={(e) => handleRowClick(commit, e)}
               ondblclick={() => handleRowDblClick(commit)}
               oncontextmenu={(e) => { if (commit.hash === 'UNCOMMITTED') onUncommittedContextMenu(e); else onCommitContextMenu(e, commit); }}
               onkeydown={(e) => { if (e.key === 'Enter') handleRowClick(commit); }}
@@ -1269,12 +1306,11 @@
   {/if}
 </div>
 
-{#if compareBase}
+{#if uiStore.multiSelectArmed}
   <div class="compare-indicator">
     <i class="codicon codicon-git-compare"></i>
-    <span class="compare-label">{t('graph.comparingFrom')}</span>
-    <span class="compare-hash">{compareBase.substring(0, 7)}</span>
-    <button class="compare-cancel" aria-label="Cancel compare" onclick={() => { compareBase = null; }}>
+    <span class="compare-label">{t('graph.selectingCommits')}</span>
+    <button class="compare-cancel" aria-label="Cancel compare" onclick={() => { uiStore.exitMultiSelect(); }}>
       <i class="codicon codicon-close"></i>
     </button>
   </div>
@@ -1853,11 +1889,6 @@
     font-size: 0.9em;
   }
 
-  .compare-hash {
-    font-family: monospace;
-    color: #63b0f4;
-  }
-
   .compare-cancel {
     background: transparent;
     color: var(--text-secondary);
@@ -1952,10 +1983,6 @@
     border-color: rgba(40, 100, 180, 0.3);
     color: #1a5fa0;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  }
-
-  :global(body.vscode-light) .compare-hash {
-    color: #1a5fa0;
   }
 
   :global(body.vscode-light) .compare-cancel:hover {

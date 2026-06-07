@@ -4,6 +4,9 @@ export const BOTTOM_PANEL_MAX_RATIO = 0.7;
 
 class UiStore {
   selectedCommitHash = $state<string | null>(null);
+  selectedCommitHashes = $state<string[]>([]);
+  anchorHash = $state<string | null>(null);
+  multiSelectArmed = $state(false);
   commitDetailFullscreen = $state(false);
   comparing = $state(false);
   compareRef1 = $state<string | null>(null);
@@ -20,13 +23,86 @@ class UiStore {
   private errorTimer: ReturnType<typeof setTimeout> | null = null;
 
   selectCommit(hash: string | null) {
+    this.multiSelectArmed = false;
     this.selectedCommitHash = hash;
+    this.selectedCommitHashes = hash ? [hash] : [];
+    this.anchorHash = hash;
     this.comparing = false;
     this.compareRef1 = null;
     this.compareRef2 = null;
     if (hash) {
       this.showBottomPanel = true;
     }
+  }
+
+  // Plain click: single selection with toggle-off when re-clicking the sole selection.
+  selectSingle(hash: string) {
+    const toggleOff = this.selectedCommitHash === hash && this.selectedCommitHashes.length === 1;
+    this.selectCommit(toggleOff ? null : hash);
+  }
+
+  // Ctrl/Cmd-click: add or remove a hash from the multi-selection.
+  toggleHash(hash: string) {
+    this.comparing = false;
+    this.compareRef1 = null;
+    this.compareRef2 = null;
+    const arr = [...this.selectedCommitHashes];
+    const i = arr.indexOf(hash);
+    const removed = i >= 0;
+    if (removed) arr.splice(i, 1); else arr.push(hash);
+    this.selectedCommitHashes = arr;
+    if (removed) {
+      // Keep a valid anchor for the next Shift-click: stay if still selected,
+      // else fall back to the last remaining element (or null if empty).
+      if (this.anchorHash === null || !arr.includes(this.anchorHash)) {
+        this.anchorHash = arr.length ? arr[arr.length - 1] : null;
+      }
+    } else {
+      this.anchorHash = hash;
+    }
+    // In armed multi-select mode, selectedCommitHash is always null.
+    this.selectedCommitHash = null;
+    if (arr.length) this.showBottomPanel = true;
+  }
+
+  // Shift-click: select the inclusive range between the anchor and `toHash`,
+  // ordered by `orderedHashes` (graph display order, newest first).
+  selectRange(toHash: string, orderedHashes: string[]) {
+    if (!this.anchorHash) { this.toggleHash(toHash); return; }
+    const a = orderedHashes.indexOf(this.anchorHash);
+    const b = orderedHashes.indexOf(toHash);
+    if (a < 0 || b < 0) { this.toggleHash(toHash); return; }
+    const [lo, hi] = a <= b ? [a, b] : [b, a];
+    this.comparing = false;
+    this.compareRef1 = null;
+    this.compareRef2 = null;
+    this.selectedCommitHashes = orderedHashes.slice(lo, hi + 1);
+    // In armed multi-select mode, selectedCommitHash is always null.
+    this.selectedCommitHash = null;
+    this.showBottomPanel = true;
+  }
+
+  // Menu entry: arm selection mode, seed with one commit. No single-detail view.
+  enterMultiSelect(hash: string) {
+    this.multiSelectArmed = true;
+    this.selectedCommitHash = null;
+    this.selectedCommitHashes = [hash];
+    this.anchorHash = hash;
+    this.comparing = false;
+    this.compareRef1 = null;
+    this.compareRef2 = null;
+    this.showBottomPanel = true;
+  }
+
+  // Esc / menu cancel: leave selection mode entirely.
+  exitMultiSelect() {
+    this.multiSelectArmed = false;
+    this.selectedCommitHashes = [];
+    this.anchorHash = null;
+    this.selectedCommitHash = null;
+    this.comparing = false;
+    this.compareRef1 = null;
+    this.compareRef2 = null;
   }
 
   setViewMode(mode: 'graph' | 'log' | 'stats') {

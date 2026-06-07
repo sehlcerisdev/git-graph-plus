@@ -9,13 +9,17 @@
       ? commitStore.getCommit(uiStore.selectedCommitHash)
       : undefined
   );
+  // Armed but fewer than 2 picked yet → prompt the user to select more.
+  let armedHint = $derived(uiStore.multiSelectArmed && uiStore.selectedCommitHashes.length < 2);
 </script>
 
 <div class="bottom-panel">
-  {#if commit}
-    <CommitDetails {commit} />
-  {:else if uiStore.comparing}
+  {#if uiStore.comparing}
     <CommitDetails />
+  {:else if commit}
+    <CommitDetails {commit} />
+  {:else if armedHint}
+    <div class="empty">{t('details.selectMoreCommits')}</div>
   {:else}
     <div class="empty">{t('details.selectCommit')}</div>
   {/if}
@@ -27,7 +31,6 @@
     overflow-y: auto;
     background: var(--bg-primary);
   }
-
   .empty {
     display: flex;
     align-items: center;

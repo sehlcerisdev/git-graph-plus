@@ -44,6 +44,7 @@ export class MainPanel {
   // should supersede an older one regardless of committed/uncommitted source.
   private commitFilesSequence = new SequenceGuard();
   private fileDiffSequence = new SequenceGuard();
+  private multiCommitSectionsSequence = new SequenceGuard();
   private cachedRepos: RepoInfo[] = [];
   private disposed = false;
   public static onSidebarRefresh: (() => void) | null = null;
@@ -246,6 +247,7 @@ export class MainPanel {
     this.searchSequence = 0;
     this.commitFilesSequence.reset();
     this.fileDiffSequence.reset();
+    this.multiCommitSectionsSequence.reset();
 
     const oldWatcher = this.fileWatcher;
     oldWatcher.dispose();
@@ -374,6 +376,19 @@ export class MainPanel {
           this.post({
             type: 'fileDiffData',
             payload: { hash: message.payload.hash, file: message.payload.file, diff: diffs[0] || null },
+          });
+          break;
+        }
+        case 'getMultiCommitSections': {
+          const ticket = this.multiCommitSectionsSequence.issue();
+          const result = await this.gitService.multiCommitSections(message.payload.hashes);
+          if (!this.multiCommitSectionsSequence.isCurrent(ticket)) break;
+          this.post({
+            type: 'multiCommitSectionsData',
+            payload: {
+              files: result.files.map(f => ({ path: f.path, status: f.status })),
+              sections: result.sections,
+            },
           });
           break;
         }
@@ -1231,6 +1246,7 @@ export class MainPanel {
           this.searchSequence = 0;
           this.commitFilesSequence.reset();
           this.fileDiffSequence.reset();
+          this.multiCommitSectionsSequence.reset();
 
           const oldWatcher = this.fileWatcher;
           oldWatcher.dispose();
