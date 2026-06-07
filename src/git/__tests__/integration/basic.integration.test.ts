@@ -508,6 +508,17 @@ describe('GitService integration — basic queries', () => {
       expect(patch).toContain('Subject: [PATCH] add file');
       expect(patch).toContain('+a');
     });
+
+    it('restricts the patch to the given paths', async () => {
+      commit(repo.path, 'init');
+      const target = commit(repo.path, 'change two files', {
+        'a.txt': 'a\n',
+        'b.txt': 'b\n',
+      });
+      const patch = await svc.formatPatch(target, ['a.txt']);
+      expect(patch).toContain('a/a.txt');
+      expect(patch).not.toContain('a/b.txt');
+    });
   });
 
   describe('getImageBase64', () => {

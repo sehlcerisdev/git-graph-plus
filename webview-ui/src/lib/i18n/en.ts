@@ -570,6 +570,9 @@ export const en: Record<string, string> = {
   // File context menu
   'file.open': 'Open File',
   'file.openChanges': 'Open Changes',
+  'file.createPatch': 'Create Patch',
+  'file.createPatchFromSelected': 'Create Patch from {count} selected files',
+  'file.createPatchFromFolder': 'Create Patch from folder',
 
   // LFS
   'lfs.locked': 'Locked by {owner}',

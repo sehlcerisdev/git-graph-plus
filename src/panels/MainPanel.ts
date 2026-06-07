@@ -1035,9 +1035,12 @@ export class MainPanel {
           break;
         }
         case 'saveCommitPatch': {
-          const patch = await this.gitService.formatPatch(message.payload.hash);
+          const { hash, paths } = message.payload;
+          const patch = await this.gitService.formatPatch(hash, paths);
+          const isSubset = Array.isArray(paths) && paths.length > 0;
+          const fileName = `${hash.substring(0, 7)}${isSubset ? '-partial' : ''}.patch`;
           const uri = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file(path.join(this.repoPath, `${message.payload.hash.substring(0, 7)}.patch`)),
+            defaultUri: vscode.Uri.file(path.join(this.repoPath, fileName)),
             filters: { 'Patch files': ['patch'] },
           });
           if (uri) {

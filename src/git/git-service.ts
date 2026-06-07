@@ -1775,9 +1775,16 @@ export class GitService {
 
   // --- Patch ---
 
-  async formatPatch(hash: string): Promise<string> {
+  async formatPatch(hash: string, paths?: string[]): Promise<string> {
     this.assertSafeRef(hash, 'format-patch');
-    return this.exec(['format-patch', '-1', hash, '--stdout']);
+    const args = ['format-patch', '-1', hash, '--stdout'];
+    if (paths && paths.length > 0) {
+      for (const p of paths) {
+        this.assertSafePath(p, 'format-patch');
+      }
+      args.push('--', ...paths);
+    }
+    return this.exec(args);
   }
 
   async diffCommitToWorking(hash: string): Promise<DiffData[]> {

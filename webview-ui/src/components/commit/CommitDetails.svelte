@@ -29,6 +29,8 @@
   let diffs = $state<DiffData[]>([]);
   let sections = $state<Array<{ file: string; commit: string; diff: DiffData }>>([]);
   let selectedFile = $state<string | null>(null);
+  // Files Ctrl/Cmd-clicked for "Create Patch from selected" (committed view only).
+  let selectedPatchFiles = $state<Set<string>>(new Set());
   let uncommittedFiles = $state<{ staged: CommitFile[]; unstaged: CommitFile[] } | null>(null);
   let uncommittedDiffCache = $state(new Map<string, DiffData>());
   let lfsFiles = $state<Array<{ oid: string; path: string }>>([]);
@@ -132,6 +134,7 @@
       diffs = [];
       sections = [];
       selectedFile = null;
+      selectedPatchFiles = new Set();
       uncommittedFiles = null;
       uncommittedDiffCache = new Map();
       if (hash === 'UNCOMMITTED') {
@@ -159,6 +162,7 @@
       diffs = [];
       sections = [];
       selectedFile = null;
+      selectedPatchFiles = new Set();
     }
   });
 
@@ -654,9 +658,34 @@
               {#if node.isFile}
                 <button
                   class="file-item"
-                  class:selected={selectedFile === node.path}
+                  class:selected={selectedPatchFiles.has(node.path)}
                   style="padding-left: {8 + depth * 16 + 18}px;"
-                  onclick={() => { selectedFile = selectedFile === node.path ? null : node.path; }}
+                  onclick={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && commit) {
+                      // Add/remove this file from the selection; reassign for reactivity.
+                      const next = new Set(selectedPatchFiles);
+                      if (next.has(node.path)) {
+                        next.delete(node.path);
+                        // Move the diff preview to another selected file (or clear it).
+                        if (selectedFile === node.path) {
+                          selectedFile = next.size > 0 ? [...next][next.size - 1] : null;
+                        }
+                      } else {
+                        next.add(node.path);
+                        selectedFile = node.path;
+                      }
+                      selectedPatchFiles = next;
+                      return;
+                    }
+                    // Plain click: select just this file (toggle off if it's the sole selection).
+                    if (selectedFile === node.path && selectedPatchFiles.size <= 1) {
+                      selectedFile = null;
+                      selectedPatchFiles = new Set();
+                    } else {
+                      selectedFile = node.path;
+                      selectedPatchFiles = new Set([node.path]);
+                    }
+                  }}
                   ondblclick={() => {
                     if (commit) {
                       vscode.postMessage({ type: 'openDiff', payload: { file: node.path, commitHash: commit.hash } });
@@ -695,6 +724,22 @@
                         fileContextMenu = null;
                       },
                     });
+
+                    // Create Patch (committed view only)
+                    if (commit) {
+                      const multi = selectedPatchFiles.has(node.path) && selectedPatchFiles.size >= 2;
+                      const paths = multi ? [...selectedPatchFiles] : [node.path];
+                      items.push({ separator: true, label: '', action: () => {} });
+                      items.push({
+                        label: multi
+                          ? t('file.createPatchFromSelected', { count: String(selectedPatchFiles.size) })
+                          : t('file.createPatch'),
+                        action: () => {
+                          vscode.postMessage({ type: 'saveCommitPatch', payload: { hash: commit.hash, paths } });
+                          fileContextMenu = null;
+                        },
+                      });
+                    }
 
                     // LFS actions - only for LFS files
                     if (lfsFileSet.has(node.path)) {
@@ -737,6 +782,23 @@
                   class="dir-item"
                   style="padding-left: {8 + depth * 16}px;"
                   onclick={() => toggleDir(node.path)}
+                  oncontextmenu={(e) => {
+                    e.preventDefault();
+                    if (!commit) return;
+                    fileContextMenu = {
+                      x: e.clientX,
+                      y: e.clientY,
+                      items: [
+                        {
+                          label: t('file.createPatchFromFolder'),
+                          action: () => {
+                            vscode.postMessage({ type: 'saveCommitPatch', payload: { hash: commit.hash, paths: [node.path] } });
+                            fileContextMenu = null;
+                          },
+                        },
+                      ],
+                    };
+                  }}
                 >
                   <i class="codicon" class:codicon-chevron-right={!expandedDirs.has(node.path)} class:codicon-chevron-down={expandedDirs.has(node.path)}></i>
                   <i class="codicon codicon-folder"></i>
