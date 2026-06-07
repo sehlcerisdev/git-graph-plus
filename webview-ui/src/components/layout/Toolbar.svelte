@@ -123,10 +123,10 @@
               <i class="codicon {
                 repo.path === uiStore.activeRepo ? 'codicon-check' : 
                 repo.type === 'submodule' ? 'codicon-archive' : 
-                repo.type === 'nested' ? 'codicon-folder-library' : 
+                repo.type === 'nested' ? 'codicon-folder-library' :
                 'codicon-repo'
               }"></i>
-              {repo.name}
+              <span class="repo-dropdown-item-name">{repo.name}</span>
             </button>
           {/each}
         </div>
@@ -397,6 +397,7 @@
     top: calc(100% + 4px);
     left: 0;
     min-width: 160px;
+    max-width: calc(100vw - 32px);
     background: var(--vscode-menu-background, var(--bg-secondary));
     border: 1px solid var(--vscode-menu-border, var(--border-color));
     border-radius: 6px;
@@ -420,6 +421,7 @@
     background: transparent;
     border-radius: 4px;
     text-align: left;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -435,6 +437,12 @@
   .repo-dropdown-item .codicon {
     font-size: 14px;
     width: 14px;
+    flex-shrink: 0;
+  }
+
+  .repo-dropdown-item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .current-branch {
