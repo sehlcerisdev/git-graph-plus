@@ -93,6 +93,7 @@ export type WebviewMessage =
   | { type: 'deleteRemoteTag'; payload: { name: string; remote?: string } }
   | { type: 'copyToClipboard'; payload: { text: string } }
   | { type: 'saveCommitPatch'; payload: { hash: string; paths?: string[] } }
+  | { type: 'restoreStashFiles'; payload: { index: number; paths: string[] } }
   | { type: 'compareToWorking'; payload: { hash: string } }
   | { type: 'compareCommits'; payload: { ref1: string; ref2: string } }
   | { type: 'getImageAtRef'; payload: { ref: string; path: string } }

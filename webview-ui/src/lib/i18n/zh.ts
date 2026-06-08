@@ -451,6 +451,9 @@ export const zh: Record<string, string> = {
   'stashPop.desc': '应用并删除储藏。应用后储藏条目将<span class="modal-emph modal-emph--danger">被删除</span>。',
   'stashPop.confirm': '应用并删除储藏“{message}”？应用后储藏条目将被删除。',
   'stashPop.pop': '应用并删除',
+  'stashRestore.title': '从储藏恢复文件',
+  'stashRestore.desc': '从储藏恢复选中的文件。工作区中的同名文件将被<span class="modal-emph modal-emph--danger">覆盖</span>。',
+  'stashRestore.restore': '恢复',
 
   // Stash save modal
   'stashSave.title': '储藏更改',
@@ -574,6 +577,9 @@ export const zh: Record<string, string> = {
   'file.createPatch': '创建 Patch',
   'file.createPatchFromSelected': '从选中的 {count} 个文件创建 Patch',
   'file.createPatchFromFolder': '从文件夹创建 Patch',
+  'file.restoreStashFile': '从储藏恢复文件',
+  'file.restoreStashFromSelected': '从储藏恢复选中的 {count} 个文件',
+  'file.restoreStashFromFolder': '从储藏恢复文件夹',
   'lfs.lock': 'LFS 锁定',
   'lfs.unlock': 'LFS 解锁',
   'lfs.unlockForce': 'LFS 强制解锁',

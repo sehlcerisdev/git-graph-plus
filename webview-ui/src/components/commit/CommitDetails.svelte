@@ -11,6 +11,7 @@
   import ContextMenu from '../common/ContextMenu.svelte';
   import CommitHoverCard from '../common/CommitHoverCard.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
+  import { modalStore } from '../../lib/stores/modals.svelte';
 
   interface Props {
     commit?: Commit;
@@ -59,6 +60,15 @@
 
   const lfsFileSet = $derived(new Set(lfsFiles.map(f => f.path)));
   const lfsLockMap = $derived(new Map(lfsLocks.map(l => [l.path, l.owner])));
+
+  // The stash this commit represents, if any (graph rows for stashes carry a
+  // ref of type 'stash' named `stash@{N}`).
+  const stashRef = $derived(commit?.refs?.find(r => r.type === 'stash') ?? null);
+  const stashIndex = $derived.by(() => {
+    const m = stashRef?.name?.match(/^stash@\{(\d+)\}$/);
+    return m ? Number(m[1]) : null;
+  });
+
   let filesPanelWidth = $state(240);
   let isResizing = $state(false);
   let resizeStartX = 0;
@@ -752,6 +762,22 @@
                       });
                     }
 
+                    // Restore from stash (stash commits only)
+                    if (stashIndex !== null) {
+                      const restoreMulti = selectedPatchFiles.has(node.path) && selectedPatchFiles.size >= 2;
+                      const restorePaths = restoreMulti ? [...selectedPatchFiles] : [node.path];
+                      items.push({ separator: true, label: '', action: () => {} });
+                      items.push({
+                        label: restoreMulti
+                          ? t('file.restoreStashFromSelected', { count: String(selectedPatchFiles.size) })
+                          : t('file.restoreStashFile'),
+                        action: () => {
+                          modalStore.openStashRestore(stashIndex, commit?.subject ?? '', restorePaths);
+                          fileContextMenu = null;
+                        },
+                      });
+                    }
+
                     // LFS actions - only for LFS files
                     if (lfsFileSet.has(node.path)) {
                       items.push({ separator: true, label: '', action: () => {} });
@@ -816,19 +842,26 @@
                   oncontextmenu={(e) => {
                     e.preventDefault();
                     if (!commit) return;
-                    fileContextMenu = {
-                      x: e.clientX,
-                      y: e.clientY,
-                      items: [
-                        {
-                          label: t('file.createPatchFromFolder'),
-                          action: () => {
-                            vscode.postMessage({ type: 'saveCommitPatch', payload: { hash: commit.hash, paths: [node.path] } });
-                            fileContextMenu = null;
-                          },
+                    const folderItems: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [
+                      {
+                        label: t('file.createPatchFromFolder'),
+                        action: () => {
+                          vscode.postMessage({ type: 'saveCommitPatch', payload: { hash: commit.hash, paths: [node.path] } });
+                          fileContextMenu = null;
                         },
-                      ],
-                    };
+                      },
+                    ];
+                    if (stashIndex !== null) {
+                      folderItems.push({ separator: true, label: '', action: () => {} });
+                      folderItems.push({
+                        label: t('file.restoreStashFromFolder'),
+                        action: () => {
+                          modalStore.openStashRestore(stashIndex, commit?.subject ?? '', [node.path]);
+                          fileContextMenu = null;
+                        },
+                      });
+                    }
+                    fileContextMenu = { x: e.clientX, y: e.clientY, items: folderItems };
                   }}
                 >
                   <i class="codicon" class:codicon-chevron-right={!expandedDirs.has(node.path)} class:codicon-chevron-down={expandedDirs.has(node.path)}></i>

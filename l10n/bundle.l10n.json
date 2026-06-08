@@ -98,6 +98,8 @@
   "stashApplied": "Stash applied",
   "stashPopped": "Stash popped",
   "stashDropped": "Stash dropped",
+  "stashFilesRestored": "Restored {0} file(s) from {1}: {2}",
+  "stashFilesRestoredMore": " +{0} more",
   "tagCreated": "Tag '{0}' created",
   "tagDeleted": "Tag '{0}' deleted",
   "remoteBranchDeleted": "Remote branch '{0}/{1}' deleted",

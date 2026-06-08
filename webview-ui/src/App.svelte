@@ -22,6 +22,7 @@
   import AbortConfirmModal from './components/modals/AbortConfirmModal.svelte';
   import StashDropModal from './components/modals/StashDropModal.svelte';
   import StashApplyModal from './components/modals/StashApplyModal.svelte';
+  import StashRestoreModal from './components/modals/StashRestoreModal.svelte';
   import StashRenameModal from './components/modals/StashRenameModal.svelte';
   import StashSaveModal from './components/modals/StashSaveModal.svelte';
 import AmendModal from './components/modals/AmendModal.svelte';
@@ -499,6 +500,16 @@ import AmendModal from './components/modals/AmendModal.svelte';
     targetBranch={branchStore.currentBranch?.name ?? 'current branch'}
     onClose={() => { modalStore.closeStashApply(); }}
     onApply={() => { const { index, drop } = modalStore.stashApply; modalStore.closeStashApply(); vscode.postMessage({ type: 'stashApply', payload: { index, drop } }); }}
+  />
+{/if}
+
+{#if modalStore.stashRestore.show}
+  <StashRestoreModal
+    index={modalStore.stashRestore.index}
+    message={modalStore.stashRestore.message}
+    paths={modalStore.stashRestore.paths}
+    onClose={() => { modalStore.closeStashRestore(); }}
+    onRestore={() => { const { index, paths } = modalStore.stashRestore; const plainPaths = [...paths]; modalStore.closeStashRestore(); vscode.postMessage({ type: 'restoreStashFiles', payload: { index, paths: plainPaths } }); }}
   />
 {/if}
 

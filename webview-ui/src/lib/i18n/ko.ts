@@ -451,6 +451,9 @@ export const ko: Record<string, string> = {
   'stashPop.desc': 'Stash를 적용하고 삭제합니다. 적용 후 stash 항목이 <span class="modal-emph modal-emph--danger">삭제</span>됩니다.',
   'stashPop.confirm': 'Stash "{message}"을(를) 적용하고 삭제하시겠습니까? 적용 후 stash 항목이 삭제됩니다.',
   'stashPop.pop': 'Pop',
+  'stashRestore.title': 'Stash에서 파일 복원',
+  'stashRestore.desc': '선택한 파일을 stash에서 복원합니다. 작업 트리의 동일한 파일은 <span class="modal-emph modal-emph--danger">덮어쓰여집니다</span>.',
+  'stashRestore.restore': '복원',
 
   // Stash save modal
   'stashSave.title': '변경사항 Stash',
@@ -574,6 +577,9 @@ export const ko: Record<string, string> = {
   'file.createPatch': 'Patch 생성',
   'file.createPatchFromSelected': '선택한 {count}개 파일로 Patch 생성',
   'file.createPatchFromFolder': '이 폴더를 Patch로 생성',
+  'file.restoreStashFile': 'Stash에서 파일 복원',
+  'file.restoreStashFromSelected': '선택한 {count}개 파일을 Stash에서 복원',
+  'file.restoreStashFromFolder': '이 폴더를 Stash에서 복원',
   'lfs.lock': 'LFS 잠금',
   'lfs.unlock': 'LFS 잠금 해제',
   'lfs.unlockForce': 'LFS 강제 잠금 해제',

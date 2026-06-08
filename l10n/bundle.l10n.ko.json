@@ -98,6 +98,8 @@
   "stashApplied": "Stash가 적용되었습니다",
   "stashPopped": "Stash가 적용되고 삭제되었습니다",
   "stashDropped": "Stash가 삭제되었습니다",
+  "stashFilesRestored": "{1}에서 파일 {0}개를 복원했습니다: {2}",
+  "stashFilesRestoredMore": " 외 {0}개",
   "tagCreated": "태그 '{0}'이(가) 생성되었습니다",
   "tagDeleted": "태그 '{0}'이(가) 삭제되었습니다",
   "remoteBranchDeleted": "리모트 브랜치 '{0}/{1}'이(가) 삭제되었습니다",

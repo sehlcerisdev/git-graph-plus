@@ -451,6 +451,9 @@ export const en: Record<string, string> = {
   'stashPop.desc': 'Apply and remove stash. The stash entry will be <span class="modal-emph modal-emph--danger">deleted</span> after applying.',
   'stashPop.confirm': 'Apply and remove stash "{message}"? The stash entry will be deleted after applying.',
   'stashPop.pop': 'Pop',
+  'stashRestore.title': 'Restore Files from Stash',
+  'stashRestore.desc': 'Restore the selected files from the stash. Matching files in your working tree will be <span class="modal-emph modal-emph--danger">overwritten</span>.',
+  'stashRestore.restore': 'Restore',
 
   // Stash save modal
   'stashSave.title': 'Stash Changes',
@@ -573,6 +576,9 @@ export const en: Record<string, string> = {
   'file.createPatch': 'Create Patch',
   'file.createPatchFromSelected': 'Create Patch from {count} selected files',
   'file.createPatchFromFolder': 'Create Patch from folder',
+  'file.restoreStashFile': 'Restore file from stash',
+  'file.restoreStashFromSelected': 'Restore {count} selected files from stash',
+  'file.restoreStashFromFolder': 'Restore folder from stash',
 
   // LFS
   'lfs.locked': 'Locked by {owner}',

@@ -1499,6 +1499,15 @@ export class GitService {
     await this.exec(['stash', 'store', '-m', newMessage, sha]);
   }
 
+  async stashRestoreFiles(index: number, paths: string[]): Promise<void> {
+    if (!Number.isInteger(index) || index < 0) throw new Error('Invalid stash index');
+    if (!paths || paths.length === 0) throw new Error('No paths to restore');
+    for (const p of paths) {
+      this.assertSafePath(p, 'stash restore');
+    }
+    await this.exec(['restore', `--source=stash@{${index}}`, '--', ...paths]);
+  }
+
   async cherryPick(hash: string, options?: { noCommit?: boolean }): Promise<void> {
     this.assertSafeRef(hash, 'cherry-pick');
     const args = ['cherry-pick'];

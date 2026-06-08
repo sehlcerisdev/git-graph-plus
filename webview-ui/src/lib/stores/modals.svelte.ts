@@ -65,6 +65,11 @@ class ModalStore {
   openStashSave() { this.stashSave = { show: true }; }
   closeStashSave() { this.stashSave = { show: false }; }
 
+  // ── Stash Restore (partial) ──
+  stashRestore = $state<{ show: boolean; index: number; message: string; paths: string[] }>({ show: false, index: 0, message: '', paths: [] });
+  openStashRestore(index: number, message: string, paths: string[]) { this.stashRestore = { show: true, index, message, paths }; }
+  closeStashRestore() { this.stashRestore = { show: false, index: 0, message: '', paths: [] }; }
+
   // ── Amend (last commit) ──
   amend = $state<{ show: boolean; hash: string; subject: string; message: string; isPushed: boolean }>({ show: false, hash: '', subject: '', message: '', isPushed: false });
   openAmend(p: { hash: string; subject: string; message: string; isPushed: boolean }) { this.amend = { show: true, ...p }; }
@@ -114,7 +119,7 @@ class ModalStore {
     return this.deleteBranch.show || this.deleteTag.show || this.createBranch.show ||
       this.createTag.show || this.merge.show || this.checkoutRemote.show ||
       this.renameBranch.show || this.deleteRemoteBranch.show || this.removeWorktree.show ||
-      this.stashApply.show || this.stashRename.show || this.stashSave.show ||
+      this.stashApply.show || this.stashRename.show || this.stashSave.show || this.stashRestore.show ||
       this.setUpstream.show || this.fetch.show || this.pull.show || this.push.show ||
       this.flowInit.show || this.flowStart.show || this.flowFinish.show || this.pushTag.show;
   }
@@ -176,6 +181,7 @@ class ModalStore {
     this.closeStashApply();
     this.closeStashRename();
     this.closeStashSave();
+    this.closeStashRestore();
     this.closeAmend();
     this.closeSetUpstream();
     this.closeFetch();

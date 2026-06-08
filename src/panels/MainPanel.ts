@@ -1048,6 +1048,24 @@ export class MainPanel {
           }
           break;
         }
+        case 'restoreStashFiles': {
+          const { index, paths: stashPaths } = message.payload;
+          await this.gitService.stashRestoreFiles(index, stashPaths);
+          this.post({ type: 'operationComplete', payload: { operation: 'restoreStashFiles', success: true } });
+          // List up to 3 file names; collapse the rest into a "+N more" suffix
+          // so the toast stays a single readable line.
+          const MAX_LISTED = 3;
+          const names = stashPaths.map(p => path.basename(p));
+          let fileList = names.slice(0, MAX_LISTED).join(', ');
+          if (names.length > MAX_LISTED) {
+            fileList += vscode.l10n.t('stashFilesRestoredMore', String(names.length - MAX_LISTED));
+          }
+          vscode.window.showInformationMessage(
+            vscode.l10n.t('stashFilesRestored', String(stashPaths.length), `stash@{${index}}`, fileList),
+          );
+          await this.refreshAll();
+          break;
+        }
         case 'compareToWorking': {
           const [workingDiffs, workingFiles] = await Promise.all([
             this.gitService.diffCommitToWorking(message.payload.hash),

@@ -721,3 +721,32 @@ describe('GitService — log() arg construction', () => {
     await expect(service.log({ branches: ['--injected'] })).rejects.toThrow();
   });
 });
+
+describe('GitService — stashRestoreFiles', () => {
+  let svc: GitService;
+  beforeEach(() => { svc = new GitService('/tmp/repo'); });
+
+  it('runs git restore with the stash source and paths', async () => {
+    const exec = vi.spyOn(svc as any, 'exec').mockResolvedValue('');
+    await svc.stashRestoreFiles(0, ['src/a.ts', 'src/b.ts']);
+    expect(exec).toHaveBeenCalledWith([
+      'restore', '--source=stash@{0}', '--', 'src/a.ts', 'src/b.ts',
+    ]);
+  });
+
+  it('rejects a negative index', async () => {
+    await expect(svc.stashRestoreFiles(-1, ['a.ts'])).rejects.toThrow('Invalid stash index');
+  });
+
+  it('rejects a non-integer index', async () => {
+    await expect(svc.stashRestoreFiles(1.5, ['a.ts'])).rejects.toThrow('Invalid stash index');
+  });
+
+  it('rejects an empty paths array', async () => {
+    await expect(svc.stashRestoreFiles(0, [])).rejects.toThrow('No paths');
+  });
+
+  it('rejects an unsafe path', async () => {
+    await expect(svc.stashRestoreFiles(0, ['../escape'])).rejects.toThrow('Unsafe path');
+  });
+});
