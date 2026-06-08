@@ -1809,6 +1809,10 @@
     border: 1px solid color-mix(in srgb, var(--badge-color) 25%, transparent);
   }
 
+  /* No focus ring on click/keyboard focus. Otherwise clicking a badge and then
+     pressing Esc flips it into :focus-visible, drawing an unwanted outline. */
+  .ref-badge:focus-visible { outline: none; }
+
   .ref-badge.badge-bold {
     background: color-mix(in srgb, var(--badge-color) 55%, transparent);
     border-color: color-mix(in srgb, var(--badge-color) 70%, transparent);
