@@ -168,11 +168,35 @@ VS Code를 위한 모던 Git GUI. 커밋 히스토리를 시각화하고, 브랜
 
 ## 설정
 
-| 설정                          | 기본값        | 설명                                                  |
-| ----------------------------- | ------------- | ----------------------------------------------------- |
-| `gitGraphPlus.autoRefresh`    | `true`        | 리포지토리 변경 감지 시 자동 새로고침                 |
-| `gitGraphPlus.graphSortOrder` | `topological` | 커밋 정렬 순서 (`topological`, `date`, `author-date`) |
-| `gitGraphPlus.locale`         | `auto`        | UI 언어 (`auto`, `en`, `ko`, `zh-cn`)                 |
+| 설정                                   | 기본값        | 설명                                                  |
+| -------------------------------------- | ------------- | ----------------------------------------------------- |
+| `gitGraphPlus.autoRefresh`             | `true`        | 리포지토리 변경 감지 시 자동 새로고침                 |
+| `gitGraphPlus.graphSortOrder`          | `topological` | 커밋 정렬 순서 (`topological`, `date`, `author-date`) |
+| `gitGraphPlus.locale`                  | `auto`        | UI 언어 (`auto`, `en`, `ko`, `zh-cn`)                 |
+| `gitGraphPlus.branchBadgeBarThickness` | `thin`        | 브랜치 배지 색상 바 두께 (`thin`, `medium`, `thick`)  |
+
+### 작업 기본값
+
+각 작업 대화상자의 기본 옵션을 `gitGraphPlus.defaults.*` 로 미리 설정할 수 있습니다 (VS Code 설정에서 변경):
+
+| 작업            | 옵션 (`gitGraphPlus.defaults.` 하위)                                                         |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| Push            | `push.force`, `push.setUpstream`, `push.allTags`                                             |
+| Pull            | `pull.rebase`, `pull.stash`                                                                  |
+| Fetch           | `fetch.allRemotes`                                                                           |
+| Merge           | `merge.mode`, `merge.pushAfter`, `merge.deleteSource`                                        |
+| Rebase          | `rebase.autostash`, `rebase.pushAfter`                                                       |
+| Amend           | `amend.keepMessage`, `amend.resetDate`, `amend.resetAuthor`, `amend.only`, `amend.pushAfter` |
+| Checkout        | `checkout.dirty`, `checkoutRemote.dirty`                                                     |
+| Create Branch   | `createBranch.checkout`, `createBranch.publish`                                              |
+| Create Tag      | `createTag.push`                                                                             |
+| Cherry-pick     | `cherryPick.noCommit`, `cherryPick.pushAfter`                                                |
+| Revert          | `revert.noCommit`, `revert.pushAfter`                                                        |
+| Reset           | `reset.mode`                                                                                 |
+| Stash           | `stashSave.includeUntracked`, `stashSave.keepIndex`                                          |
+| Delete Branch   | `deleteBranch.force`, `deleteBranch.deleteRemote`                                            |
+| Delete Tag      | `deleteTag.deleteRemote`                                                                     |
+| Remove Worktree | `removeWorktree.deleteBranch`                                                                |
 
 ---
 

@@ -168,11 +168,35 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 
 ## Settings
 
-| Setting                       | Default       | Description                                              |
-| ----------------------------- | ------------- | -------------------------------------------------------- |
-| `gitGraphPlus.autoRefresh`    | `true`        | Auto-refresh on repository changes                       |
-| `gitGraphPlus.graphSortOrder` | `topological` | Commit sort order (`topological`, `date`, `author-date`) |
-| `gitGraphPlus.locale`         | `auto`        | UI language (`auto`, `en`, `ko`, `zh-cn`)                |
+| Setting                                | Default       | Description                                              |
+| -------------------------------------- | ------------- | -------------------------------------------------------- |
+| `gitGraphPlus.autoRefresh`             | `true`        | Auto-refresh on repository changes                       |
+| `gitGraphPlus.graphSortOrder`          | `topological` | Commit sort order (`topological`, `date`, `author-date`) |
+| `gitGraphPlus.locale`                  | `auto`        | UI language (`auto`, `en`, `ko`, `zh-cn`)                |
+| `gitGraphPlus.branchBadgeBarThickness` | `thin`        | Branch badge bar thickness (`thin`, `medium`, `thick`)   |
+
+### Operation Defaults
+
+Preset the default options for each operation dialog under `gitGraphPlus.defaults.*` (configure in VS Code Settings):
+
+| Operation       | Options (under `gitGraphPlus.defaults.`)                                                     |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| Push            | `push.force`, `push.setUpstream`, `push.allTags`                                             |
+| Pull            | `pull.rebase`, `pull.stash`                                                                  |
+| Fetch           | `fetch.allRemotes`                                                                           |
+| Merge           | `merge.mode`, `merge.pushAfter`, `merge.deleteSource`                                        |
+| Rebase          | `rebase.autostash`, `rebase.pushAfter`                                                       |
+| Amend           | `amend.keepMessage`, `amend.resetDate`, `amend.resetAuthor`, `amend.only`, `amend.pushAfter` |
+| Checkout        | `checkout.dirty`, `checkoutRemote.dirty`                                                     |
+| Create Branch   | `createBranch.checkout`, `createBranch.publish`                                              |
+| Create Tag      | `createTag.push`                                                                             |
+| Cherry-pick     | `cherryPick.noCommit`, `cherryPick.pushAfter`                                                |
+| Revert          | `revert.noCommit`, `revert.pushAfter`                                                        |
+| Reset           | `reset.mode`                                                                                 |
+| Stash           | `stashSave.includeUntracked`, `stashSave.keepIndex`                                          |
+| Delete Branch   | `deleteBranch.force`, `deleteBranch.deleteRemote`                                            |
+| Delete Tag      | `deleteTag.deleteRemote`                                                                     |
+| Remove Worktree | `removeWorktree.deleteBranch`                                                                |
 
 ---
 

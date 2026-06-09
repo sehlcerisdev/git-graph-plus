@@ -274,6 +274,26 @@ describe('CommitDetails — refs rendering', () => {
     expect(text).toMatch(/v1\.0/);
   });
 
+  it('applies badge-head to the current branch and badge-fixed to tags', () => {
+    const { container } = render(CommitDetails, {
+      commit: commit({
+        refs: [
+          { type: 'head', name: 'main' },
+          { type: 'branch', name: 'feature' },
+          { type: 'tag', name: 'v1.0' },
+        ],
+      }),
+    });
+    const badges = Array.from(container.querySelectorAll('.ref-badge'));
+    const byText = (txt: string) => badges.find(b => (b.textContent ?? '').includes(txt))!;
+    expect(byText('main').classList.contains('badge-head')).toBe(true);
+    expect(byText('main').classList.contains('badge-fixed')).toBe(false);
+    expect(byText('feature').classList.contains('badge-head')).toBe(false);
+    expect(byText('feature').classList.contains('badge-fixed')).toBe(false);
+    expect(byText('v1.0').classList.contains('badge-fixed')).toBe(true);
+    expect(byText('v1.0').classList.contains('badge-head')).toBe(false);
+  });
+
   it('hides REFS row when only stash or remote HEAD refs exist', () => {
     const { container } = render(CommitDetails, {
       commit: commit({

@@ -28,6 +28,7 @@ function resetStores() {
   uiStore.repos = [];
   uiStore.activeRepo = '';
   uiStore.operating = null;
+  uiStore.badgeBarWidth = 4;
   uiStore.setError(null);
   // modalStore is a singleton across tests; one stuck open modal will render
   // through every subsequent App mount and break unrelated assertions.
@@ -89,6 +90,15 @@ describe('App — message handling', () => {
     postMsg('setLocale', { locale: 'ko' });
     await waitFor(() => {
       expect(i18n.locale).toBe('ko');
+    });
+  });
+
+  it('setBadgeBarThickness updates uiStore.badgeBarWidth and the CSS var', async () => {
+    render(App);
+    postMsg('setBadgeBarThickness', { width: 6 });
+    await waitFor(() => {
+      expect(uiStore.badgeBarWidth).toBe(6);
+      expect(document.documentElement.style.getPropertyValue('--badge-bar-width')).toBe('6px');
     });
   });
 

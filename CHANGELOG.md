@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0 (2026-06-10)
+
+### New Features
+- **Accessible Branch Badges** - Branch badges now carry their color in a solid left accent bar over a neutral fill, with a configurable thickness (`gitGraphPlus.branchBadgeBarThickness`), keeping branch colors legible for color vision deficiency.
+- **Partial Stash Restore** - Restore only selected files or folders from a stash instead of the whole stash.
+- **Folder Multi-Select** - Ctrl/Cmd-click a folder in a commit's file list to select every file within it.
+- **Create Patch from Selection** - Generate a patch file from the selected commit files or folders.
+- **Multi-Commit Selection & Compare** - Unified multi-commit selection with compare and per-commit diffs.
+- **Configurable Modal Defaults** - Set default options for operation dialogs (push, pull, merge, rebase, and more), including optional follow-up push or cleanup after the operation.
+- **Push After Rebase** - Optionally push the branch automatically after a successful rebase.
+
+### Performance
+- **Faster Commit Selection** - Reduced the click debounce to 150ms so commit details load more quickly.
+
+### Bug Fixes
+- **Multi-Line Rebase Messages** - Interactive rebase reword and squash now preserve the full multi-line commit message instead of just the subject.
+- **Repository Dropdown** - Canonicalized repository paths so the dropdown stays in sync, and widened it to fit long names without wrapping.
+- **Graph Isolation** - Unrelated commit graphs no longer paint over the active repository.
+- **Rebase Conflict Prediction** - More accurate conflict prediction by chaining commits.
+- **Delete Remote Tags** - Tags are now deleted from all remotes, not just origin.
+- **Interactive Rebase on Windows** - Fixed a failure caused by cmd-shell syntax.
+- **Ref Badge Focus Outline** - Removed an unwanted focus outline on ref badges after pressing Esc.
+
 ## 0.4.3 (2026-05-31)
 
 ### New Features
