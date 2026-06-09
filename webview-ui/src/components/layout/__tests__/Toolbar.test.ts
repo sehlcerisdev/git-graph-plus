@@ -454,3 +454,33 @@ describe('Toolbar — stash', () => {
     expect(openStashSave).toHaveBeenCalled();
   });
 });
+
+describe('Toolbar — repository dropdown path matching (issue #30)', () => {
+  it('shows the active repo when its path format differs from the list (Windows)', () => {
+    // List paths come from `git rev-parse --show-toplevel` (forward slashes);
+    // the active path comes from VS Code fsPath (backslashes). They must still match.
+    uiStore.repos = [
+      { path: 'c:/Users/me/alpha', name: 'alpha', type: 'root' },
+      { path: 'c:/Users/me/projB', name: 'projB', type: 'root' },
+    ];
+    uiStore.activeRepo = 'c:\\Users\\me\\projB';
+
+    const { container } = render(Toolbar);
+    const name = container.querySelector('.repo-name')?.textContent?.trim();
+    // Before the fix this fell back to repos[0] ('alpha').
+    expect(name).toBe('projB');
+  });
+
+  it('marks the matching dropdown item active despite separator differences', async () => {
+    uiStore.repos = [
+      { path: 'c:/Users/me/alpha', name: 'alpha', type: 'root' },
+      { path: 'c:/Users/me/projB', name: 'projB', type: 'root' },
+    ];
+    uiStore.activeRepo = 'c:\\Users\\me\\projB';
+
+    const { container } = render(Toolbar);
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.repo-pill')!);
+    const activeItem = container.querySelector('.repo-dropdown-item.active .repo-dropdown-item-name');
+    expect(activeItem?.textContent?.trim()).toBe('projB');
+  });
+});

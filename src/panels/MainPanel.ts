@@ -1579,10 +1579,18 @@ export class MainPanel {
         workspacePaths.add(f.uri.fsPath);
       }
       workspacePaths.add(this.repoPath);
-      const repos = await RepoDiscoveryService.discoverRepos([...workspacePaths]);
+      const discovered = await RepoDiscoveryService.discoverRepos([...workspacePaths]);
+      // Canonicalize every path to VS Code's fsPath so the repo list and the
+      // active path share one format. `git rev-parse --show-toplevel` returns
+      // forward slashes (and a lowercase drive on Windows) while VS Code paths
+      // use backslashes; without this the membership check below — and the
+      // webview's dropdown lookup — fail to match and fall back to repos[0].
+      // See issue #30.
+      const repos = discovered.map(r => ({ ...r, path: vscode.Uri.file(r.path).fsPath }));
       this.cachedRepos = repos;
 
-      let active = this.repoPath;
+      let active = vscode.Uri.file(this.repoPath).fsPath;
+      this.repoPath = active;
       if (repos.length > 0 && !repos.some(r => r.path === active)) {
         // Current path is not a repo, switch to the first discovered one
         active = repos[0].path;

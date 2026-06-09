@@ -8,6 +8,7 @@
   import NoRemotesErrorModal from '../modals/NoRemotesErrorModal.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
   import { modalStore } from '../../lib/stores/modals.svelte';
+  import { samePath } from '../../lib/utils/path';
   import type { FlowStatus, FlowBranches } from '../../lib/types';
 
   const vscode = getVsCodeApi();
@@ -85,7 +86,7 @@
   const hasUpstream = $derived(!!branchStore.currentBranch?.upstream && !branchStore.currentBranch?.upstreamGone);
   let ahead = $derived(branchStore.currentBranch?.ahead ?? 0);
   let behind = $derived(branchStore.currentBranch?.behind ?? 0);
-  let activeRepoInfo = $derived(uiStore.repos.find(r => r.path === uiStore.activeRepo) ?? uiStore.repos[0]);
+  let activeRepoInfo = $derived(uiStore.repos.find(r => samePath(r.path, uiStore.activeRepo)) ?? uiStore.repos[0]);
 </script>
 
 <div class="toolbar">
@@ -117,11 +118,11 @@
           {#each uiStore.repos as repo}
             <button
               class="repo-dropdown-item"
-              class:active={repo.path === uiStore.activeRepo}
+              class:active={samePath(repo.path, uiStore.activeRepo)}
               onclick={() => { showRepoDropdown = false; switchRepo(repo.path); }}
             >
               <i class="codicon {
-                repo.path === uiStore.activeRepo ? 'codicon-check' : 
+                samePath(repo.path, uiStore.activeRepo) ? 'codicon-check' :
                 repo.type === 'submodule' ? 'codicon-archive' : 
                 repo.type === 'nested' ? 'codicon-folder-library' :
                 'codicon-repo'
