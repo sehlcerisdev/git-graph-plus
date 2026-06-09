@@ -163,12 +163,16 @@
     overflow: visible;
   }
 
+  /* Mirrors the graph ref-badge: neutral fill + colored left accent bar
+     (::before, clipped to the rounded corners via overflow). The bar color is
+     --pill-color; tag/stash add a light tint like the graph's fixed-color refs.
+     source(green)/target(blue) keep their colors to show operation direction. */
   :global(.modal-pill) {
     display: inline-flex;
     align-items: center;
     vertical-align: middle;
     gap: 3px;
-    padding: 1px 7px;
+    padding: 1px 7px 1px calc(var(--badge-bar-width, 4px) + 6px);
     border-radius: 4px;
     font-size: 12px;
     font-weight: normal;
@@ -176,10 +180,21 @@
     min-width: 0;
     max-width: 40%;
     position: relative;
-    /* Dark theme defaults — mirrors graph ref-badge */
-    background: color-mix(in srgb, var(--pill-color) 15%, transparent);
+    overflow: hidden;
+    /* Dark theme defaults: neutral fill */
+    background: rgba(255, 255, 255, 0.05);
     color: #fff;
-    border: 1px solid color-mix(in srgb, var(--pill-color) 25%, transparent);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  :global(.modal-pill::before) {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--badge-bar-width, 4px);
+    background: var(--pill-color);
   }
 
   :global(.modal-pill-text) {
@@ -198,22 +213,20 @@
 
   :global(.modal-pill--source) { --pill-color: #73d13d; }
   :global(.modal-pill--target) { --pill-color: #63b0f4; }
-  :global(.modal-pill--danger) { --pill-color: #f44336; }
-  :global(.modal-pill--tag)    { --pill-color: #f0c040; background: color-mix(in srgb, #f0c040 55%, transparent); border-color: color-mix(in srgb, #f0c040 70%, transparent); }
-  :global(.modal-pill--stash)  { --pill-color: #888; }
+  :global(.modal-pill--danger) { --pill-color: #f44336; background: color-mix(in srgb, #f44336 18%, transparent); }
+  :global(.modal-pill--tag)    { --pill-color: #f0c040; background: color-mix(in srgb, #f0c040 20%, transparent); }
+  :global(.modal-pill--stash)  { --pill-color: #888; background: color-mix(in srgb, #888 28%, transparent); }
 
-  /* Light theme — mirrors graph ref-badge light overrides */
+  /* Light theme overrides */
   :global(body.vscode-light .modal-pill) {
-    background: color-mix(in srgb, var(--pill-color) 18%, transparent);
+    background: rgba(0, 0, 0, 0.04);
     color: #000;
-    border: 1px solid color-mix(in srgb, var(--pill-color) 40%, transparent);
+    border: 1px solid rgba(0, 0, 0, 0.15);
   }
 
-  :global(body.vscode-light .modal-pill--tag) {
-    background: color-mix(in srgb, #f0c040 75%, #fff);
-    border-color: color-mix(in srgb, #f0c040 85%, transparent);
-    color: #000;
-  }
+  :global(body.vscode-light .modal-pill--danger) { background: color-mix(in srgb, #f44336 18%, #fff); }
+  :global(body.vscode-light .modal-pill--tag)    { background: color-mix(in srgb, #f0c040 20%, #fff); }
+  :global(body.vscode-light .modal-pill--stash)  { background: color-mix(in srgb, #888 28%, #fff); }
 
   :global(.modal-label) {
     font-size: 11px;

@@ -964,7 +964,7 @@
   }
 }} />
 
-<div class="commit-graph" class:h-scroll={horizontalScroll} style="--badge-bar-width: {uiStore.badgeBarWidth}px;" bind:this={container} onscroll={handleScroll}>
+<div class="commit-graph" class:h-scroll={horizontalScroll} bind:this={container} onscroll={handleScroll}>
   {#if commitStore.loading && !isSearchActive}
     <div class="loading"><span class="spinner"></span> {t('graph.loading')}</div>
   {:else if commitStore.notGitRepo}

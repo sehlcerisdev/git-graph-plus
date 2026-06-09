@@ -519,9 +519,10 @@
                 }) as ref}
                   {@const isWtBranch = (ref.type === 'branch' || ref.type === 'head') && branchStore.worktrees.some(w => !w.isMain && w.branch === ref.name)}
                   {@const badgeColor = ref.type === 'tag' ? '#f0c040' : isWtBranch ? '#4caf50' : '#63b0f4'}
-                  <span 
-                    class="ref-badge" 
-                    class:badge-bold={ref.type === 'tag'}
+                  <span
+                    class="ref-badge"
+                    class:badge-fixed={ref.type === 'tag' || isWtBranch}
+                    class:badge-head={ref.type === 'head'}
                     style="--badge-color: {badgeColor};"
                   >
                     {#if ref.type === 'remote-branch'}
@@ -1172,40 +1173,69 @@
     text-decoration: underline;
   }
 
+  /* Mirrors the graph ref-badge: neutral fill + colored left accent bar
+     (::before, clipped to the rounded corners) with light tint for fixed-color
+     refs and a stronger tint + bold for the current branch. */
   .ref-badge {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 1px 6px;
-    border-radius: 3px;
+    padding: 1px 6px 1px calc(var(--badge-bar-width, 4px) + 6px);
+    border-radius: 4px;
     font-size: 0.9em;
     font-weight: normal;
     margin-right: 6px;
     cursor: default;
     white-space: nowrap;
     line-height: 1.4;
-    /* Dark theme defaults */
-    background: color-mix(in srgb, var(--badge-color) 15%, transparent);
+    overflow: hidden;
+    /* Dark theme defaults: neutral fill */
+    background: rgba(255, 255, 255, 0.05);
     color: #fff;
-    border: 1px solid color-mix(in srgb, var(--badge-color) 25%, transparent);
+    border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
-  .ref-badge.badge-bold {
+  .ref-badge::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--badge-bar-width, 4px);
+    background: var(--badge-color);
+  }
+
+  .ref-badge.badge-fixed {
+    background: color-mix(in srgb, var(--badge-color) var(--fixed-tint, 20%), transparent);
+  }
+
+  .ref-badge.badge-head {
     background: color-mix(in srgb, var(--badge-color) 55%, transparent);
-    border-color: color-mix(in srgb, var(--badge-color) 70%, transparent);
+    font-weight: 600;
   }
 
   /* Light theme overrides */
   :global(body.vscode-light) .ref-badge {
-    background: color-mix(in srgb, var(--badge-color) 18%, transparent);
+    background: rgba(0, 0, 0, 0.04);
     color: #000;
-    border: 1px solid color-mix(in srgb, var(--badge-color) 40%, transparent);
+    border: 1px solid rgba(0, 0, 0, 0.15);
   }
 
-  :global(body.vscode-light) .ref-badge.badge-bold {
-    background: color-mix(in srgb, var(--badge-color) 75%, #fff);
+  :global(body.vscode-light) .ref-badge.badge-fixed {
+    background: color-mix(in srgb, var(--badge-color) var(--fixed-tint, 20%), #fff);
+  }
+
+  :global(body.vscode-light) .ref-badge.badge-head {
+    background: color-mix(in srgb, var(--badge-color) 70%, #fff);
     color: #000;
-    border-color: color-mix(in srgb, var(--badge-color) 85%, transparent);
+  }
+
+  /* High contrast overrides */
+  :global(body.vscode-high-contrast) .ref-badge {
+    background: transparent;
+    color: #fff;
+    border: 1px solid var(--badge-color);
   }
 
   .ref-icon {

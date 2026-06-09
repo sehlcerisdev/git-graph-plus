@@ -68,6 +68,12 @@ import AmendModal from './components/modals/AmendModal.svelte';
   let addWorktreeDefaultPath = $state('');
   let tagDetails = $state<{ name: string; hash: string; message?: string; isAnnotated: boolean } | null>(null);
 
+  // Expose the branch-badge bar thickness globally so every badge surface
+  // (graph, commit details, modal pills) scales with the setting consistently.
+  $effect(() => {
+    document.documentElement.style.setProperty('--badge-bar-width', `${uiStore.badgeBarWidth}px`);
+  });
+
   onMount(() => {
     uiStore.bottomPanelHeight = Math.round(window.innerHeight * BOTTOM_PANEL_DEFAULT_RATIO);
 

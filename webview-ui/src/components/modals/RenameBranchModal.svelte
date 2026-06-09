@@ -23,7 +23,7 @@
 
 <Modal title={t('renameBranch.title')} {onClose}>
   <div class="modal-context-card">
-    <span use:tooltip={oldName} class="modal-pill modal-pill--source"><i class="codicon codicon-git-branch"></i><span class="modal-pill-text">{oldName}</span></span>
+    <span use:tooltip={oldName} class="modal-pill modal-pill--target"><i class="codicon codicon-git-branch"></i><span class="modal-pill-text">{oldName}</span></span>
   </div>
   <div class="modal-form-group">
     <label class="modal-field-label" for="rename-branch-input">{t('renameBranch.newName')}</label>
