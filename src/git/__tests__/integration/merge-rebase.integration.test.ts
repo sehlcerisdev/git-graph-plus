@@ -526,6 +526,19 @@ describe('GitService integration — merge / rebase / cherry-pick / revert', () 
       expect(subject).toBe('shiny new subject');
     });
 
+    it('reword preserves multi-line commit message via printf pipeline', async () => {
+      commit(repo.path, 'init');
+      const base = head(repo.path);
+      const c1 = commit(repo.path, 'old subject', { 'a.txt': 'A\n' });
+
+      await svc.interactiveRebase(base, [
+        { action: 'reword', hash: c1, subject: 'old subject', message: 'new subject\n\nbody line one\nbody line two' },
+      ]);
+
+      const fullMsg = runGit(repo.path, ['log', '-1', '--format=%B']).trim();
+      expect(fullMsg).toBe('new subject\n\nbody line one\nbody line two');
+    });
+
     it('squash collapses commits and uses the provided final message', async () => {
       commit(repo.path, 'init');
       const base = head(repo.path);
@@ -544,6 +557,23 @@ describe('GitService integration — merge / rebase / cherry-pick / revert', () 
         .trim().split('\n').filter(Boolean);
       expect(subjects.length).toBe(1);
       expect(subjects[0]).toBe('combined ABC');
+    });
+
+    it('squash uses multi-line combined message from printf pipeline', async () => {
+      commit(repo.path, 'init');
+      const base = head(repo.path);
+      const c1 = commit(repo.path, 'A', { 'a.txt': 'A\n' });
+      const c2 = commit(repo.path, 'B', { 'b.txt': 'B\n' });
+      const c3 = commit(repo.path, 'C', { 'c.txt': 'C\n' });
+
+      await svc.interactiveRebase(base, [
+        { action: 'pick', hash: c1, subject: 'A', message: 'combined title\n\n- item one\n- item two' },
+        { action: 'squash', hash: c2, subject: 'B' },
+        { action: 'squash', hash: c3, subject: 'C' },
+      ]);
+
+      const fullMsg = runGit(repo.path, ['log', '-1', '--format=%B']).trim();
+      expect(fullMsg).toBe('combined title\n\n- item one\n- item two');
     });
 
     it('fixup discards the squashed commits message (no exec amend)', async () => {

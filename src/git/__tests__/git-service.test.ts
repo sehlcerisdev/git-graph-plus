@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GitService, GitError, binCommitTime } from '../git-service';
+import { GitService, GitError, binCommitTime, buildAmendCommandStr } from '../git-service';
 
 // Access private exec method via prototype for mocking
 function mockExec(service: GitService, fn: (args: string[]) => Promise<string>) {
@@ -1298,5 +1298,37 @@ describe('GitService', () => {
       await expect(service.flowInit(flowOpts))
         .rejects.toThrow("Branch 'main' does not exist");
     });
+  });
+});
+
+describe('buildAmendCommandStr', () => {
+  const escape = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
+
+  it('returns --no-edit -m for single-line messages', () => {
+    const cmd = buildAmendCommandStr('hello world', escape);
+    expect(cmd).toBe("git commit --amend --no-edit -m 'hello world'");
+  });
+
+  it('returns printf pipeline for multi-line messages', () => {
+    const cmd = buildAmendCommandStr('subject\n\nbody line', escape);
+    expect(cmd).toContain('printf');
+    expect(cmd).toContain('git commit --amend -F -');
+    expect(cmd).toContain("'subject'");
+    expect(cmd).toContain("''");
+    expect(cmd).toContain("'body line'");
+  });
+
+  it('escapes single quotes in multi-line messages', () => {
+    const cmd = buildAmendCommandStr("it's\nbroken", escape);
+    expect(cmd).toContain("'it'\\''s'");
+    expect(cmd).toContain("'broken'");
+  });
+
+  it('handles message with only newlines (empty lines)', () => {
+    const cmd = buildAmendCommandStr('\n\n', escape);
+    expect(cmd).toContain('printf');
+    const parts = cmd.split(' ');
+    // Three empty strings after split
+    expect(parts.filter(p => p === "''").length).toBe(3);
   });
 });

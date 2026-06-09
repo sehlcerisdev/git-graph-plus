@@ -1227,11 +1227,7 @@ export class GitService {
    *  Single-line → `git commit --amend --no-edit -m 'msg'`.
    *  Multi-line → `printf '%s\n' ... | git commit --amend -F -` (POSIX, no temp files). */
   private buildAmendCommand(message: string): string {
-    if (!message.includes('\n')) {
-      return `git commit --amend --no-edit -m ${this.shellEscapeForExec(message)}`;
-    }
-    const parts = message.split('\n').map(l => this.shellEscapeForExec(l));
-    return `printf '%s\\n' ${parts.join(' ')} | git commit --amend -F -`;
+    return buildAmendCommandStr(message, s => this.shellEscapeForExec(s));
   }
 
   /**
@@ -2089,4 +2085,17 @@ export class GitService {
     } catch (err) { console.warn('Git Graph+: flow init check failed:', err instanceof Error ? err.message : err); return false; }
   }
 
+}
+
+/**
+ * Build a `git commit --amend` command for use in interactive rebase exec lines.
+ * Single-line messages → `--no-edit -m 'msg'`.
+ * Multi-line messages → POSIX printf pipeline to preserve newlines.
+ */
+export function buildAmendCommandStr(message: string, escape: (s: string) => string): string {
+  if (!message.includes('\n')) {
+    return `git commit --amend --no-edit -m ${escape(message)}`;
+  }
+  const parts = message.split('\n').map(l => escape(l));
+  return `printf '%s\\n' ${parts.join(' ')} | git commit --amend -F -`;
 }
