@@ -136,6 +136,7 @@ export type ExtensionMessage =
   | { type: 'tagDetailsData'; payload: { name: string; hash: string; message?: string; isAnnotated: boolean } }
   | { type: 'setLocale'; payload: { locale: string; homeDir?: string } }
   | { type: 'setDefaults'; payload: ModalDefaults }
+  | { type: 'setBadgeBarThickness'; payload: { width: number } }
   | { type: 'repoList'; payload: { repos: Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>; active: string } }
   | { type: 'worktreeData'; payload: WorktreeInfo[] }
   | { type: 'uncommittedDiffData'; payload: { staged: Array<{ path: string; status: string }>; unstaged: Array<{ path: string; status: string }> } }

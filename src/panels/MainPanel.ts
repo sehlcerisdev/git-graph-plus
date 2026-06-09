@@ -119,6 +119,14 @@ export class MainPanel {
     } as ModalDefaults;
   }
 
+  // Width (px) of the colored branch-badge bar, mapped from the user setting.
+  private readBadgeBarWidth(): number {
+    const level = vscode.workspace
+      .getConfiguration('gitGraphPlus')
+      .get<'thin' | 'medium' | 'thick'>('branchBadgeBarThickness', 'thin');
+    return level === 'thick' ? 8 : level === 'medium' ? 6 : 4;
+  }
+
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
@@ -151,6 +159,9 @@ export class MainPanel {
         if (e.affectsConfiguration('gitGraphPlus.defaults')) {
           this.post({ type: 'setDefaults', payload: this.readModalDefaults() });
         }
+        if (e.affectsConfiguration('gitGraphPlus.branchBadgeBarThickness')) {
+          this.post({ type: 'setBadgeBarThickness', payload: { width: this.readBadgeBarWidth() } });
+        }
       })
     );
 
@@ -162,6 +173,7 @@ export class MainPanel {
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     this.post({ type: 'setLocale', payload: { locale, homeDir } });
     this.post({ type: 'setDefaults', payload: this.readModalDefaults() });
+    this.post({ type: 'setBadgeBarThickness', payload: { width: this.readBadgeBarWidth() } });
 
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewMessage) => this.handleMessage(message),

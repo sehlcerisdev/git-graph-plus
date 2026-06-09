@@ -386,6 +386,21 @@
           "default": "topological",
           "description": "Commit sort order in the graph"
         },
+        "gitGraphPlus.branchBadgeBarThickness": {
+          "type": "string",
+          "enum": [
+            "thin",
+            "medium",
+            "thick"
+          ],
+          "enumDescriptions": [
+            "Thin colored bar (4px)",
+            "Medium colored bar (6px)",
+            "Thick colored bar (8px) — easier to tell branches apart, helpful for color vision deficiency"
+          ],
+          "default": "thin",
+          "description": "Thickness of the colored accent bar on the left of branch badges in the graph"
+        },
         "gitGraphPlus.defaults.push.force": { "type": "string", "enum": ["none", "with-lease", "force"], "default": "none", "markdownDescription": "⚠️ `with-lease`/`force` pre-checks a force push, which can overwrite remote history." },
         "gitGraphPlus.defaults.push.setUpstream": { "type": "boolean", "default": true, "markdownDescription": "Set the upstream tracking reference with `-u` when pushing." },
         "gitGraphPlus.defaults.push.allTags": { "type": "boolean", "default": false, "markdownDescription": "Also push all tags (`--tags`)." },

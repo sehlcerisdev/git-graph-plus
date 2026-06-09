@@ -964,7 +964,7 @@
   }
 }} />
 
-<div class="commit-graph" class:h-scroll={horizontalScroll} bind:this={container} onscroll={handleScroll}>
+<div class="commit-graph" class:h-scroll={horizontalScroll} style="--badge-bar-width: {uiStore.badgeBarWidth}px;" bind:this={container} onscroll={handleScroll}>
   {#if commitStore.loading && !isSearchActive}
     <div class="loading"><span class="spinner"></span> {t('graph.loading')}</div>
   {:else if commitStore.notGitRepo}
@@ -1141,11 +1141,13 @@
                   {@const trackedUpstream = (ref.type === 'branch' || ref.type === 'head') ? (localBranchMap.get(ref.name)?.upstream ?? null) : null}
                   {@const isWtBranch = (ref.type === 'branch' || ref.type === 'head') && worktreeBranches.has(ref.name)}
                   {@const badgeColor = ref.type === 'tag' ? '#f0c040' : ref.type === 'stash' ? 'var(--text-secondary, #888)' : isWtBranch ? '#4caf50' : nodeColor}
-                  {#if hasRemote && trackedUpstream && (remoteFilter.length === 0 || (remoteFilter.includes('local') && remoteFilter.includes(trackedUpstream.split('/')[0])))}
+                  {@const showCloudOnly = hasRemote && trackedUpstream && (remoteFilter.length === 0 || (remoteFilter.includes('local') && remoteFilter.includes(trackedUpstream.split('/')[0])))}
+                  {#if showCloudOnly}
                     <span
                       class="ref-badge badge-cloud-only"
                       style="--badge-color: {badgeColor};"
-                      class:badge-bold={ref.type === 'head' || isWtBranch}
+                      class:badge-head={ref.type === 'head'}
+                      class:badge-fixed={isWtBranch}
                       use:tooltip={trackedUpstream ?? ''}
                       ondblclick={(e) => {
                         e.stopPropagation();
@@ -1164,9 +1166,10 @@
                   {/if}
                   <span
                     class="ref-badge"
-                    style="--badge-color: {badgeColor};"
-                    class:badge-bold={ref.type === 'head' || ref.type === 'tag' || ref.type === 'stash' || isWtBranch}
+                    style="--badge-color: {badgeColor};{ref.type === 'stash' ? ' --fixed-tint: 28%;' : ''}"
+                    class:badge-fixed={ref.type === 'tag' || ref.type === 'stash' || isWtBranch}
                     class:badge-head={ref.type === 'head'}
+                    class:badge-no-bar={showCloudOnly}
                     use:tooltip={t('graph.dblClickCheckout', { ref: ref.type === 'remote-branch' ? ref.remote + '/' + ref.name : ref.name })}
                     ondblclick={(e) => {
                       e.stopPropagation();
@@ -1789,12 +1792,21 @@
     min-width: 0;
   }
 
-  /* ---- Ref badges ---- */
+  /* ---- Ref badges ----
+     Branches carry their color through a solid left accent bar (the same color
+     as the commit dot, drawn as a ::before so it follows the badge's rounded
+     corners cleanly instead of a mismatched thick border) over a neutral fill,
+     so a branch's badge color is legible regardless of color vision. Three
+     levels of emphasis share this one visual language: regular branch (no fill)
+     < tag/stash/worktree (light tint) < current branch (strong tint + bold).
+     The bar width is user-configurable via --badge-bar-width (see
+     gitGraphPlus.branchBadgeBarThickness). */
   .ref-badge {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    padding: 1px 7px;
+    padding: 1px 7px 1px calc(var(--badge-bar-width, 4px) + 6px);
     border-radius: 4px;
     font-size: 0.95em;
     font-weight: normal;
@@ -1802,23 +1814,39 @@
     flex-shrink: 0;
     line-height: 17px;
     cursor: pointer;
-    transition: filter 0.1s;
-    /* Dark theme defaults */
-    background: color-mix(in srgb, var(--badge-color) 15%, transparent);
+    overflow: hidden;
+    transition: box-shadow 0.1s;
+    /* Dark theme defaults: neutral fill */
+    background: rgba(255, 255, 255, 0.05);
     color: #fff;
-    border: 1px solid color-mix(in srgb, var(--badge-color) 25%, transparent);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  /* Colored accent bar. Clipped to the badge's rounded corners by its
+     overflow:hidden, so it reads as an integrated edge accent. Painted above the
+     hover overlay (inset box-shadow) while text/icons stay above both. */
+  .ref-badge::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--badge-bar-width, 4px);
+    background: var(--badge-color);
   }
 
   /* No focus ring on click/keyboard focus. Otherwise clicking a badge and then
      pressing Esc flips it into :focus-visible, drawing an unwanted outline. */
   .ref-badge:focus-visible { outline: none; }
 
-  .ref-badge.badge-bold {
-    background: color-mix(in srgb, var(--badge-color) 55%, transparent);
-    border-color: color-mix(in srgb, var(--badge-color) 70%, transparent);
+  /* Fixed-color refs: tag/worktree 20%, stash 28% (via inline --fixed-tint). */
+  .ref-badge.badge-fixed {
+    background: color-mix(in srgb, var(--badge-color) var(--fixed-tint, 20%), transparent);
   }
 
+  /* Current branch: strongest tint + bold — the most prominent badge. */
   .ref-badge.badge-head {
+    background: color-mix(in srgb, var(--badge-color) 55%, transparent);
     font-weight: 600;
   }
 
@@ -1826,38 +1854,66 @@
     -webkit-text-stroke: 1px currentColor;
   }
 
-  /* Light theme overrides */
-  :global(body.vscode-light) .ref-badge {
-    background: color-mix(in srgb, var(--badge-color) 18%, transparent);
-    color: #000;
-    border: 1px solid color-mix(in srgb, var(--badge-color) 40%, transparent);
+  /* Paired local badge whose colored bar lives on the cloud companion instead. */
+  .ref-badge.badge-no-bar {
+    padding-left: 7px;
+  }
+  .ref-badge.badge-no-bar::before {
+    content: none;
   }
 
-  :global(body.vscode-light) .ref-badge.badge-bold {
-    background: color-mix(in srgb, var(--badge-color) 75%, #fff);
+  /* Light theme overrides */
+  :global(body.vscode-light) .ref-badge {
+    background: rgba(0, 0, 0, 0.04);
     color: #000;
-    border-color: color-mix(in srgb, var(--badge-color) 85%, transparent);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+  }
+
+  :global(body.vscode-light) .ref-badge.badge-fixed {
+    background: color-mix(in srgb, var(--badge-color) var(--fixed-tint, 20%), #fff);
+  }
+
+  :global(body.vscode-light) .ref-badge.badge-head {
+    background: color-mix(in srgb, var(--badge-color) 70%, #fff);
+    color: #000;
   }
 
   /* High contrast overrides */
   :global(body.vscode-high-contrast) .ref-badge {
-    background: color-mix(in srgb, var(--badge-color) 30%, transparent);
+    background: transparent;
     color: #fff;
     border: 1px solid var(--badge-color);
   }
 
   .badge-cloud-only {
-    padding: 1px 5px;
+    padding: 1px 5px 1px calc(var(--badge-bar-width, 4px) + 4px);
     height: calc(17px + 2px + 2px); /* line-height + padding top/bottom + border */
     box-sizing: border-box;
   }
 
-  .ref-badge:hover {
-    filter: brightness(1.2);
+  /* Pull the local name badge closer to its cloud companion: tightens the
+     .col-message flex gap (5px) down to 2px for this pair only, so the two
+     read as a single unit. */
+  .badge-cloud-only + .ref-badge {
+    margin-left: -3px;
   }
 
-  :global(body.vscode-light) .ref-badge:hover {
-    filter: brightness(0.9);
+  /* Hover highlight: a translucent inset overlay painted below the text and the
+     accent bar, so it stays visible even on the near-transparent regular-branch
+     fill while preserving each badge's tint. Cloud pairs highlight as a unit:
+     hovering either the cloud companion or the local name badge highlights both
+     (:hover covers the directly-hovered one; the other two selectors cover its
+     paired sibling in each direction). */
+  .ref-badge:hover,
+  .badge-cloud-only:hover + .ref-badge,
+  .badge-cloud-only:has(+ .ref-badge:hover) {
+    box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.12);
+  }
+
+  :global(body.vscode-light) .ref-badge:hover,
+  :global(body.vscode-light) .badge-cloud-only:hover + .ref-badge,
+  :global(body.vscode-light) .badge-cloud-only:has(+ .ref-badge:hover) {
+    box-shadow: inset 0 0 0 100px rgba(0, 0, 0, 0.06);
   }
 
   .ref-icon {

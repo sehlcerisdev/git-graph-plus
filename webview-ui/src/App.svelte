@@ -95,6 +95,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'setDefaults':
           defaultsStore.set(msg.payload);
           break;
+        case 'setBadgeBarThickness':
+          uiStore.badgeBarWidth = msg.payload.width;
+          break;
         case 'repoList':
           uiStore.repos = msg.payload.repos;
           uiStore.activeRepo = msg.payload.active;

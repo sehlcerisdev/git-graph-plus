@@ -20,6 +20,7 @@ class UiStore {
   activeRepo = $state('');
   homeDir = $state('');
   operating = $state<string | null>(null);
+  badgeBarWidth = $state(4);
   private errorTimer: ReturnType<typeof setTimeout> | null = null;
 
   selectCommit(hash: string | null) {
