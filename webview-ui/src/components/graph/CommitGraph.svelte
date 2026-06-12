@@ -1787,6 +1787,10 @@
     white-space: nowrap;
   }
 
+  .graph-header .col-hash {
+    font-family: inherit;
+  }
+
   .commit-subject {
     flex: 1;
     min-width: 0;

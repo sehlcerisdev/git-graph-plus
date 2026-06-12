@@ -781,9 +781,9 @@
   }
 
   /* ── 행 ─────────────────────────────────────────────── */
-  .reflog-list { 
-    flex: 1; 
-    overflow-y: auto; 
+  .reflog-list {
+    flex: 1;
+    overflow-y: auto;
     overflow-x: hidden;
     position: relative;
   }
@@ -874,6 +874,10 @@
     padding: 0 10px;
     font-family: var(--vscode-editor-font-family, monospace);
     color: var(--text-secondary);
+  }
+
+  .reflog-header .col-hash {
+    font-family: inherit;
   }
 
   .col-date {
