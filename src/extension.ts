@@ -311,6 +311,23 @@ export function activate(context: vscode.ExtensionContext) {
   MainPanel.onSidebarRefresh = refreshAll;
   MainPanel.onRepoChange = switchToRepo;
 
+  function getWorktreeUri(wtItem: { worktree?: { path?: string } } | undefined): vscode.Uri | undefined {
+    const wtPath = wtItem?.worktree?.path;
+    return wtPath ? vscode.Uri.file(wtPath) : undefined;
+  }
+
+  function openWorktree(wtItem: { worktree?: { path?: string } } | undefined): void {
+    const uri = getWorktreeUri(wtItem);
+    if (!uri) { return; }
+    vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: true });
+  }
+
+  function openWorktreeInFileExplorer(wtItem: { worktree?: { path?: string } } | undefined): void {
+    const uri = getWorktreeUri(wtItem);
+    if (!uri) { return; }
+    vscode.env.openExternal(uri);
+  }
+
   // Auto-switch sidebar when the active editor moves to a different repo
   if (builtinGit) {
     const waitForGitApi = builtinGit.isActive
@@ -554,6 +571,8 @@ export function activate(context: vscode.ExtensionContext) {
         MainPanel.showModalWithPanel(context.extensionUri, { modal: 'deleteRemoteBranch', remote, name: branchName });
       }
     }),
+    vscode.commands.registerCommand('gitGraphPlus.openWorktree', openWorktree),
+    vscode.commands.registerCommand('gitGraphPlus.openWorktreeInFileExplorer', openWorktreeInFileExplorer),
     vscode.commands.registerCommand('gitGraphPlus.removeWorktree', (wtItem) => {
       if (wtItem?.worktree) {
         const wtPath = wtItem.worktree.path;
