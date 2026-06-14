@@ -152,6 +152,16 @@
         "icon": "$(trash)"
       },
       {
+        "command": "gitGraphPlus.openWorktree",
+        "title": "Open Worktree",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "gitGraphPlus.openWorktreeInFileExplorer",
+        "title": "Open in File Explorer",
+        "icon": "$(folder-opened)"
+      },
+      {
         "command": "gitGraphPlus.removeWorktree",
         "title": "%command.removeWorktree%",
         "icon": "$(trash)"
@@ -344,6 +354,16 @@
           "command": "gitGraphPlus.stashDrop",
           "when": "view == gitGraphPlus.stashes && viewItem == stash",
           "group": "2_danger@1"
+        },
+        {
+          "command": "gitGraphPlus.openWorktree",
+          "when": "view == gitGraphPlus.worktrees && (viewItem == worktree || viewItem == worktree-main)",
+          "group": "1_worktree@1"
+        },
+        {
+          "command": "gitGraphPlus.openWorktreeInFileExplorer",
+          "when": "view == gitGraphPlus.worktrees && (viewItem == worktree || viewItem == worktree-main)",
+          "group": "1_worktree@2"
         },
         {
           "command": "gitGraphPlus.removeWorktree",

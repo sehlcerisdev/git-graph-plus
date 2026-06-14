@@ -68,6 +68,11 @@ class WorktreeItem extends vscode.TreeItem {
       displayPath = worktree.path;
     }
     this.description = worktree.isMain ? '' : displayPath;
+    this.command = {
+      command: 'gitGraphPlus.openWorktree',
+      title: 'Open Worktree',
+      arguments: [this],
+    };
     this.tooltip = [
       `Path: ${worktree.path}`,
       `Branch: ${worktree.branch || '(detached)'}`,
