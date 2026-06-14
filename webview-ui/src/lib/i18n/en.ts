@@ -468,7 +468,11 @@ export const en: Record<string, string> = {
 
   // Worktree modals
   'worktree.addTitle': 'Add Worktree',
+  'worktree.mode': 'Worktree mode',
   'worktree.startAt': 'Start at:',
+  'worktree.useExisting': 'Use existing branch',
+  'worktree.existingBranch': 'Branch:',
+  'worktree.createNewBranch': 'Create a new branch',
   'worktree.branchName': 'Branch name:',
   'worktree.branchPlaceholder': 'Enter Branch Name',
   'worktree.location': 'Location:',

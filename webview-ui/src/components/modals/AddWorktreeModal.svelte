@@ -12,54 +12,115 @@
     onAdd: (path: string, branch?: string, newBranch?: string) => void;
   }
 
+  type WorktreeMode = 'existing' | 'new';
+
   let { defaultPath = '', onClose, onAdd }: Props = $props();
 
   const localBranches = $derived(branchStore.localBranches.map(b => b.name));
+  const checkedOutBranches = $derived(new Set(branchStore.worktrees.map(w => w.branch).filter(Boolean)));
+  const availableExistingBranches = $derived(localBranches.filter(b => !checkedOutBranches.has(b)));
+  const startAtOptions = $derived(localBranches.length > 0 ? localBranches : ['HEAD']);
+  let existingBranch = $state('');
   // svelte-ignore state_referenced_locally
   let startAt = $state(branchStore.currentBranch?.name ?? 'HEAD');
+  let mode = $state<WorktreeMode>('existing');
   let branchName = $state('');
   // svelte-ignore state_referenced_locally
   let location = $state(defaultPath);
   let branchInput: HTMLInputElement | undefined = $state();
 
+  const sourceRef = $derived(startAt || 'HEAD');
+  const folderName = $derived(mode === 'new' ? branchName.trim() : existingBranch);
+
+  function worktreeFolder(basePath: string, name: string): string {
+    const sanitized = name.replace(/[\\/]+/g, '-');
+    if (!basePath) return sanitized;
+    return basePath.replace(/[\\/]+$/, '') + '/' + sanitized;
+  }
+
   $effect(() => {
-    if (defaultPath && branchName) {
-      location = defaultPath + branchName.replace(/\//g, '-');
+    if (!startAtOptions.includes(startAt)) {
+      startAt = startAtOptions[0] ?? 'HEAD';
+    }
+    if (!existingBranch || !availableExistingBranches.includes(existingBranch)) {
+      existingBranch = availableExistingBranches[0] ?? '';
+    }
+    if (mode === 'existing' && availableExistingBranches.length === 0) {
+      mode = 'new';
+    }
+  });
+
+  $effect(() => {
+    if (defaultPath && folderName) {
+      location = worktreeFolder(defaultPath, folderName);
     } else if (defaultPath) {
       location = defaultPath;
     }
   });
 
-  onMount(() => { branchInput?.focus(); });
+  onMount(() => { if (mode === 'new') branchInput?.focus(); });
 
-  const refError = $derived(branchName.trim() !== '' ? validateGitRefName(branchName.trim()) : null);
-  const canSubmit = $derived(branchName.trim() !== '' && location.trim() !== '' && !refError);
-
+  const refError = $derived(mode === 'new' && branchName.trim() !== '' ? validateGitRefName(branchName.trim()) : null);
+  const canSubmit = $derived(
+    location.trim() !== ''
+      && (mode === 'new'
+        ? branchName.trim() !== '' && !refError
+        : existingBranch !== '')
+  );
   function handleSubmit() {
     if (!canSubmit) return;
-    onAdd(location.trim(), startAt, branchName.trim());
+    if (mode === 'new') {
+      onAdd(location.trim(), sourceRef, branchName.trim());
+    } else {
+      onAdd(location.trim(), existingBranch);
+    }
   }
 </script>
 
 <Modal title={t('worktree.addTitle')} {onClose}>
-  <div class="modal-form-group">
-    <div class="modal-field-row">
-      <div class="modal-field-label">{t('worktree.startAt')}</div>
-      <ColorSelect
-        options={localBranches.map(b => ({ value: b, label: b, color: '' }))}
-        value={startAt}
-        onChange={(v) => { startAt = v; }}
-        showDot={false}
-      />
-    </div>
+  <div class="modal-form-group mode-options" role="radiogroup" aria-label={t('worktree.mode')}>
+    <label class="modal-radio">
+      <input type="radio" name="worktree-mode" value="existing" bind:group={mode} disabled={availableExistingBranches.length === 0} />
+      <span>{t('worktree.useExisting')}</span>
+    </label>
+    <label class="modal-radio">
+      <input type="radio" name="worktree-mode" value="new" bind:group={mode} />
+      <span>{t('worktree.createNewBranch')}</span>
+    </label>
   </div>
 
-  <div class="modal-form-group">
-    <div class="modal-field-row">
-      <label class="modal-field-label" for="wt-branch">{t('worktree.branchName')}</label>
-      <input id="wt-branch" class="modal-input" type="text" bind:value={branchName} bind:this={branchInput} placeholder={t('worktree.branchPlaceholder')} onkeydown={(e) => { if (e.key === 'Enter' && canSubmit) handleSubmit(); }} />
+  {#if mode === 'existing'}
+    <div class="modal-form-group">
+      <div class="modal-field-row">
+        <div class="modal-field-label">{t('worktree.existingBranch')}</div>
+        <ColorSelect
+          options={availableExistingBranches.map(b => ({ value: b, label: b, color: '' }))}
+          value={existingBranch}
+          onChange={(v) => { existingBranch = v; }}
+          showDot={false}
+        />
+      </div>
     </div>
-  </div>
+  {:else}
+    <div class="modal-form-group">
+      <div class="modal-field-row">
+        <div class="modal-field-label">{t('worktree.startAt')}</div>
+        <ColorSelect
+          options={startAtOptions.map(b => ({ value: b, label: b, color: '' }))}
+          value={startAt}
+          onChange={(v) => { startAt = v; }}
+          showDot={false}
+        />
+      </div>
+    </div>
+
+    <div class="modal-form-group">
+      <div class="modal-field-row">
+        <label class="modal-field-label" for="wt-branch">{t('worktree.branchName')}</label>
+        <input id="wt-branch" class="modal-input" type="text" bind:value={branchName} bind:this={branchInput} placeholder={t('worktree.branchPlaceholder')} onkeydown={(e) => { if (e.key === 'Enter' && canSubmit) handleSubmit(); }} />
+      </div>
+    </div>
+  {/if}
 
   <div class="modal-form-group">
     <div class="modal-field-row">
@@ -82,5 +143,11 @@
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 11px;
     color: var(--text-secondary);
+  }
+
+  .mode-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 </style>

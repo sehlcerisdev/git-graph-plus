@@ -468,7 +468,11 @@ export const zh: Record<string, string> = {
 
   // Worktree modals
   'worktree.addTitle': '添加工作树',
+  'worktree.mode': '工作树模式',
   'worktree.startAt': '基于：',
+  'worktree.useExisting': '使用现有分支',
+  'worktree.existingBranch': '分支：',
+  'worktree.createNewBranch': '创建新分支',
   'worktree.branchName': '分支名：',
   'worktree.branchPlaceholder': '输入分支名',
   'worktree.location': '位置：',

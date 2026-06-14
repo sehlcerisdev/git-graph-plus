@@ -6,9 +6,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // resolver. Everything it imports is stubbed so activate() runs to completion.
 const H = vi.hoisted(() => ({
   registeredCommands: [] as string[],
+  commandHandlers: {} as Record<string, (...args: unknown[]) => unknown>,
   treeViewsCreated: [] as string[],
   workspaceFolders: undefined as Array<{ uri: { fsPath: string } }> | undefined,
   gitPathConfig: null as string | string[] | null,
+  worktreeList: [] as Array<{ path: string; isMain: boolean }>,
 }));
 
 vi.mock('vscode', () => ({
@@ -35,7 +37,7 @@ vi.mock('vscode', () => ({
     activeTextEditor: undefined,
   },
   commands: {
-    registerCommand: (id: string) => { H.registeredCommands.push(id); return { dispose() {} }; },
+    registerCommand: (id: string, cb: (...args: unknown[]) => unknown) => { H.registeredCommands.push(id); H.commandHandlers[id] = cb; return { dispose() {} }; },
     executeCommand: vi.fn(),
   },
   extensions: { getExtension: () => undefined },
@@ -57,7 +59,7 @@ vi.mock('../panels/MainPanel', () => ({
   },
 }));
 vi.mock('../services/git-content-provider', () => ({ GitContentProvider: class {} }));
-vi.mock('../git/git-service', () => ({ GitService: class { setExtraEnv() {} get rootPath() { return '/repo'; } } }));
+vi.mock('../git/git-service', () => ({ GitService: class { setExtraEnv() {} get rootPath() { return '/repo'; } worktreeList() { return Promise.resolve(H.worktreeList); } } }));
 vi.mock('../services/file-watcher', () => ({ FileWatcher: class { enabled = true; suppress() {} dispose() {} } }));
 const viewStub = () => ({ ViewProvider: undefined });
 vi.mock('../views/branches-view', () => ({ BranchesViewProvider: class { refresh() {} dispose() {} setGitService() {} prefetch() { return Promise.resolve(); } getCurrentItem() { return null; } } }));
@@ -78,9 +80,11 @@ function makeContext() {
 
 beforeEach(() => {
   H.registeredCommands = [];
+  H.commandHandlers = {};
   H.treeViewsCreated = [];
   H.workspaceFolders = undefined;
   H.gitPathConfig = null;
+  H.worktreeList = [];
   vi.mocked(existsSync).mockReturnValue(true);
 });
 
@@ -136,5 +140,23 @@ describe('activate', () => {
       'gitGraphPlus.stashes',
       'gitGraphPlus.worktrees',
     ]);
+  });
+
+  it('addWorktree defaults beside the main worktree even when active repo is linked worktree', async () => {
+    H.workspaceFolders = [{ uri: { fsPath: '/repos/project.worktrees/custom.worktrees' } }];
+    H.worktreeList = [
+      { path: '/repos/project', isMain: true },
+      { path: '/repos/project.worktrees/custom.worktrees', isMain: false },
+    ];
+    const ctx = makeContext();
+    activate(ctx);
+
+    await H.commandHandlers['gitGraphPlus.addWorktree']();
+
+    const { MainPanel } = await import('../panels/MainPanel');
+    expect(MainPanel.showModalWithPanel).toHaveBeenCalledWith(ctx.extensionUri, {
+      modal: 'addWorktree',
+      defaultPath: '/repos/project.worktrees',
+    });
   });
 });

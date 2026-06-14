@@ -468,7 +468,11 @@ export const ko: Record<string, string> = {
 
   // Worktree modals
   'worktree.addTitle': 'Worktree 추가',
+  'worktree.mode': 'Worktree 모드',
   'worktree.startAt': '시작점:',
+  'worktree.useExisting': '기존 브랜치 사용',
+  'worktree.existingBranch': '브랜치:',
+  'worktree.createNewBranch': '새 브랜치 만들기',
   'worktree.branchName': '브랜치 이름:',
   'worktree.branchPlaceholder': '브랜치 이름 입력',
   'worktree.location': '위치:',
