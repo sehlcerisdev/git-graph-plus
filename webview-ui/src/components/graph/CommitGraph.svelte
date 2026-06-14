@@ -1992,7 +1992,7 @@
   }
 
   .bisect-indicator-hash {
-    font-family: monospace;
+    font-family: var(--vscode-editor-font-family, monospace);
     color: #f44336;
   }
 

@@ -181,7 +181,7 @@
   }
 
   .bisect-hash {
-    font-family: monospace;
+    font-family: var(--vscode-editor-font-family, monospace);
     font-weight: 600;
     color: var(--text-primary);
   }

@@ -402,7 +402,7 @@
   }
 
   :global(.modal-hash) {
-    font-family: monospace;
+    font-family: var(--vscode-editor-font-family, monospace);
     color: var(--text-secondary);
   }
 
