@@ -34,6 +34,35 @@ npm run serve          # node dist/server.js
 
 Open `http://127.0.0.1:8080` (through your SSH tunnel / tailnet).
 
+## Run as a systemd user service
+
+`scripts/service.sh` builds the app, creates `.env` from `.env.example` if it's
+missing, and installs the server as a **systemd user service** so it starts on
+boot and restarts on failure:
+
+```bash
+scripts/service.sh install     # build, create .env, install + start
+scripts/service.sh status      # systemctl --user status
+scripts/service.sh logs        # journalctl -f
+scripts/service.sh restart
+scripts/service.sh uninstall   # stop + remove the unit (keeps .env + build)
+```
+
+It runs as a *user* service (not system) so git operations keep using your own
+credential helpers / `gh auth` / SSH agent. The installer handles the
+service-environment quirks that would otherwise break things:
+
+- **PATH:** systemd user services get a minimal `PATH`, but git is spawned as
+  bare `git` and calls the `gh` credential helper via `PATH`. The unit bakes in
+  a `PATH` containing your `node`, `git`, `gh`, and current interactive `PATH`.
+- **`.env` / `~/projects`:** `WorkingDirectory` is pinned to the project root so
+  `.env` loads, and `HOME` is set so `~` paths resolve.
+- **Survives logout:** the installer enables `loginctl enable-linger` so the
+  server keeps running after you disconnect SSH (it will print a `sudo` hint if
+  it can't enable linger itself).
+
+Edit `.env` and `scripts/service.sh restart` to apply config changes.
+
 ## Configuration (`.env`)
 
 | Variable | Default | Meaning |
