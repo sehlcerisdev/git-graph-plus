@@ -67,9 +67,39 @@ ensure_env() {
   fi
 }
 
+# Resolve a *stable* node executable path for the unit file.
+#
+# `command -v node` under fnm points at an ephemeral per-shell symlink like
+# /run/user/1000/fnm_multishells/<pid>_<ts>/bin/node, which is deleted when the
+# shell exits — baking that into ExecStart makes the service fail with 203/EXEC.
+# Prefer fnm's `default` alias ($FNM_DIR/aliases/default/bin/node): it's a stable
+# symlink that fnm re-points whenever you run `fnm default <version>`, so the
+# service keeps working across node upgrades. Fall back to `readlink -f` (the
+# version-specific install dir) and finally the raw path.
+resolve_node_bin() {
+  local current fnm_dir candidate
+  current="$(command -v node 2>/dev/null)" || return 1
+
+  if [[ "$current" == *"/fnm_multishells/"* ]]; then
+    fnm_dir="${FNM_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/fnm}"
+    for candidate in "${fnm_dir}/aliases/default/bin/node" "$HOME/.fnm/aliases/default/bin/node"; do
+      if [ -x "$candidate" ]; then
+        printf '%s' "$candidate"
+        return 0
+      fi
+    done
+    warn "node resolved to an ephemeral fnm multishell path and no fnm 'default' alias was found."
+    warn "Run 'fnm default \$(fnm current)' to pin a default, then re-run install. Falling back to the resolved install path."
+  fi
+
+  # Resolve symlinks to the concrete install (stable as long as that version exists).
+  readlink -f "$current" 2>/dev/null || printf '%s' "$current"
+}
+
 write_unit() {
   local node_bin svc_path git_bin gh_bin
-  node_bin="$(command -v node)" || die "node not found on PATH."
+  node_bin="$(resolve_node_bin)" || die "node not found on PATH."
+  log "Using node: ${node_bin}"
 
   # Compose a PATH the service can use: node's dir + git's dir + gh's dir + the
   # current interactive PATH (covers nvm, /usr/local/bin, ~/.local/bin, etc.).
