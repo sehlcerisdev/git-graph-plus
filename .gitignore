@@ -3,6 +3,7 @@ dist/
 webview-ui/dist/
 webview-ui/node_modules/
 *.vsix
+.env
 .vscode/
 .vscode-test/
 out/
