@@ -16,12 +16,14 @@ class UiStore {
   showBottomPanel = $state(true);
   sidebarWidth = $state(220);
   errorMessage = $state<string | null>(null);
+  noticeMessage = $state<string | null>(null);
   repos = $state<Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>>([]);
   activeRepo = $state('');
   homeDir = $state('');
   operating = $state<string | null>(null);
   badgeBarWidth = $state(4);
   private errorTimer: ReturnType<typeof setTimeout> | null = null;
+  private noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
   selectCommit(hash: string | null) {
     this.multiSelectArmed = false;
@@ -123,6 +125,21 @@ class UiStore {
         this.errorMessage = null;
         this.errorTimer = null;
       }, 8000);
+    }
+  }
+
+  setNotice(message: string | null) {
+    if (this.noticeTimer) {
+      clearTimeout(this.noticeTimer);
+      this.noticeTimer = null;
+    }
+
+    this.noticeMessage = message;
+    if (message) {
+      this.noticeTimer = setTimeout(() => {
+        this.noticeMessage = null;
+        this.noticeTimer = null;
+      }, 5000);
     }
   }
 }

@@ -128,6 +128,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
           // composing form data into — which silently destroyed their input.
           modalStore.closeForSource(msg.payload.source);
           break;
+        case 'notice':
+          uiStore.setNotice(msg.payload.message);
+          break;
         case 'flowStatus':
           flowConfig = msg.payload.config;
           break;
@@ -416,6 +419,16 @@ import AmendModal from './components/modals/AmendModal.svelte';
       <i class="codicon codicon-error error-icon"></i>
       <span class="error-text">{uiStore.errorMessage ?? ''}</span>
       <button class="error-dismiss" onclick={() => uiStore.setError(null)} title={t('common.dismiss')}>
+        <i class="codicon codicon-close"></i>
+      </button>
+    </div>
+  {/if}
+
+  {#if uiStore.noticeMessage}
+    <div class="notice-bar banner-card" transition:slide={{ duration: 150 }}>
+      <i class="codicon codicon-info notice-icon"></i>
+      <span class="error-text">{uiStore.noticeMessage ?? ''}</span>
+      <button class="error-dismiss" onclick={() => uiStore.setNotice(null)} title={t('common.dismiss')}>
         <i class="codicon codicon-close"></i>
       </button>
     </div>
@@ -788,6 +801,21 @@ import AmendModal from './components/modals/AmendModal.svelte';
     flex-shrink: 0;
     font-size: 14px;
     color: var(--vscode-errorForeground, #f48771);
+  }
+
+  .notice-bar {
+    display: flex;
+    align-items: center;
+    padding: 7px 8px 7px 12px;
+    background: var(--vscode-inputValidation-infoBackground, #063b49);
+    border: 1px solid var(--vscode-inputValidation-infoBorder, #1a85ff);
+    gap: 8px;
+  }
+
+  .notice-icon {
+    flex-shrink: 0;
+    font-size: 14px;
+    color: var(--vscode-notificationsInfoIcon-foreground, #3794ff);
   }
 
   .error-text {

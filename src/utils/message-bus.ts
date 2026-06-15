@@ -122,6 +122,10 @@ export type ExtensionMessage =
   | { type: 'reflogData'; payload: { entries: Array<{ hash: string; shortHash: string; selector: string; message: string; date: string; dangling: boolean }>; hasMore: boolean } }
   | { type: 'repoChanged'; payload: { what: string } }
   | { type: 'error'; payload: { message: string; command?: string; source?: string } }
+  // Friendly, transient info toast (NOT an error). Used by the standalone web
+  // host for editor/OS-bound actions that have no browser equivalent, so they
+  // surface as a non-modal notice instead of a scary error banner.
+  | { type: 'notice'; payload: { message: string } }
   | { type: 'notGitRepo' }
   | { type: 'operationComplete'; payload: { operation: string; success: boolean } }
   | { type: 'operationPaused'; payload: { operation: 'rebase' } }
