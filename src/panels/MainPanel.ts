@@ -6,6 +6,7 @@ import { formatGitError, isAuthFailure, transportFromRemoteUrl } from '../git/gi
 import { splitUpstreamRef } from '../git/git-parser';
 import { samePath } from '../utils/path';
 import { buildFullGraph } from '../git/git-graph-builder';
+import { compileBranchColorRules, makeBranchColorResolver } from '../git/branch-color-resolver';
 import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
 import { FileWatcher } from '../services/file-watcher';
 import { resolveGitDirs, shouldRefreshGraph } from '../services/file-watcher-helpers';
@@ -128,6 +129,11 @@ export class MainPanel {
     return level === 'thick' ? 8 : level === 'medium' ? 6 : 4;
   }
 
+  private makeBranchColorResolver(): (name: string) => string | undefined {
+    const raw = vscode.workspace.getConfiguration('gitGraphPlus').get('branchColors');
+    return makeBranchColorResolver(compileBranchColorRules(raw));
+  }
+
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
@@ -162,6 +168,9 @@ export class MainPanel {
         }
         if (e.affectsConfiguration('gitGraphPlus.branchBadgeBarThickness')) {
           this.post({ type: 'setBadgeBarThickness', payload: { width: this.readBadgeBarWidth() } });
+        }
+        if (e.affectsConfiguration('gitGraphPlus.branchColors')) {
+          this.refreshAll();
         }
       })
     );
@@ -332,7 +341,8 @@ export class MainPanel {
           if (seq !== this.logSequence) break;
           const hasMore = allFetched.length > requestedLimit;
           const commits = hasMore ? allFetched.slice(0, requestedLimit) : allFetched;
-          const fullGraph = commits.length > 0 ? buildFullGraph(commits, logBranches) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
+          const branchColorResolver = this.makeBranchColorResolver();
+          const fullGraph = commits.length > 0 ? buildFullGraph(commits, logBranches, branchColorResolver) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
           this.post({
             type: 'logData',
             payload: {
@@ -1554,7 +1564,8 @@ export class MainPanel {
       const allCommits = hasMore ? allFetched.slice(0, refreshLimit) : allFetched;
       // Handle empty repository (0 commits) gracefully. The webview renders from
       // paths/links/dots; the legacy GraphNode[] is unused so we don't build it.
-      const fg = allCommits.length > 0 ? buildFullGraph(allCommits, branches) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
+      const branchColorResolver = this.makeBranchColorResolver();
+      const fg = allCommits.length > 0 ? buildFullGraph(allCommits, branches, branchColorResolver) : { paths: [], links: [], dots: [], commitLeftMargin: [] };
       // Send as single combined message to ensure atomic update
       this.post({
         type: 'fullRefresh',

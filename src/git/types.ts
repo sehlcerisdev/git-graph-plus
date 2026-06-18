@@ -39,6 +39,7 @@ export interface ParentConnection {
 export interface GraphPathData {
   points: Array<{ x: number; y: number }>;
   color: number;
+  colorOverride?: string;
 }
 
 export interface GraphLinkData {
@@ -46,11 +47,13 @@ export interface GraphLinkData {
   control: { x: number; y: number };
   end: { x: number; y: number };
   color: number;
+  colorOverride?: string;
 }
 
 export interface GraphDotData {
   center: { x: number; y: number };
   color: number;
+  colorOverride?: string;
   type: 'default' | 'head' | 'merge' | 'remote-tip';
 }
 

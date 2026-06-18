@@ -351,3 +351,43 @@ describe('buildFullGraph lane geometry', () => {
     expect(graph.dots[0].center.x).not.toBe(graph.dots[1].center.x);
   });
 });
+
+describe('buildFullGraph branch color override', () => {
+  it('stamps colorOverride on the matching tip rail path and dot', () => {
+    const commits = [
+      makeCommit('c3', ['c2'], [{ type: 'branch', name: 'main' }]),
+      makeCommit('c2', ['c1']),
+      makeCommit('c1', []),
+    ];
+    const resolve = (name: string) => (name === 'main' ? '#abcdef' : undefined);
+    const full = buildFullGraph(commits, [], resolve);
+
+    // The tip's dot (index 0) belongs to the main rail.
+    expect(full.dots[0].colorOverride).toBe('#abcdef');
+    // The rail path carrying the tip is overridden.
+    expect(full.paths.some(p => p.colorOverride === '#abcdef')).toBe(true);
+  });
+
+  it('matches remote-branch refs by name without remote prefix', () => {
+    const commits = [
+      makeCommit('c1', [], [{ type: 'remote-branch', name: 'main', remote: 'origin' }]),
+    ];
+    const resolve = (name: string) => (name === 'main' ? '#123456' : undefined);
+    const full = buildFullGraph(commits, [], resolve);
+    expect(full.dots[0].colorOverride).toBe('#123456');
+  });
+
+  it('leaves colorOverride undefined when nothing matches', () => {
+    const commits = [makeCommit('c1', [], [{ type: 'branch', name: 'dev' }])];
+    const resolve = () => undefined;
+    const full = buildFullGraph(commits, [], resolve);
+    expect(full.dots[0].colorOverride).toBeUndefined();
+    expect(full.paths.every(p => p.colorOverride === undefined)).toBe(true);
+  });
+
+  it('is a no-op when no resolver is provided', () => {
+    const commits = [makeCommit('c1', [], [{ type: 'branch', name: 'main' }])];
+    const full = buildFullGraph(commits, []);
+    expect(full.dots[0].colorOverride).toBeUndefined();
+  });
+});

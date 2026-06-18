@@ -6,6 +6,7 @@
   import { t } from '../../lib/i18n/index.svelte';
   import { getGravatarUrl } from '../../lib/utils/gravatar';
   import { requestDirtyState } from '../../lib/utils/dirty-check';
+  import { resolveGraphColor } from '../../lib/utils/graph-color';
   import ContextMenu from '../common/ContextMenu.svelte';
   import InteractiveRebase from '../rebase/InteractiveRebase.svelte';
   import PullAfterCheckoutModal from '../modals/PullAfterCheckoutModal.svelte';
@@ -407,11 +408,11 @@
   let pathDs = $derived(displayPaths.map(p => buildPathD(p.points)));
 
   let visiblePaths = $derived.by(() => {
-    const out: Array<{ color: number; d: string }> = [];
+    const out: Array<{ color: number; colorOverride?: string; d: string }> = [];
     for (let i = 0; i < displayPaths.length; i++) {
       const b = pathBounds[i];
       if (b.maxY >= startIndex && b.minY <= endIndex) {
-        out.push({ color: displayPaths[i].color, d: pathDs[i] });
+        out.push({ color: displayPaths[i].color, colorOverride: displayPaths[i].colorOverride, d: pathDs[i] });
       }
     }
     return out;
@@ -1025,7 +1026,7 @@
       >
         <!-- Paths: continuous branch lines -->
         {#each visiblePaths as path}
-          {@const pathColor = COLOR_PALETTE[path.color % COLOR_PALETTE.length]}
+          {@const pathColor = resolveGraphColor(COLOR_PALETTE, path.color, path.colorOverride)}
           {#if path.d}
             <path d={path.d} fill="none" stroke={pathColor} stroke-width="5" opacity="0.07" stroke-linecap="round" />
             <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" opacity="0.85" stroke-linecap="round" />
@@ -1034,7 +1035,7 @@
 
         <!-- Links: merge connection curves -->
         {#each visibleLinks as link}
-          {@const linkColor = COLOR_PALETTE[link.color % COLOR_PALETTE.length]}
+          {@const linkColor = resolveGraphColor(COLOR_PALETTE, link.color, link.colorOverride)}
           {@const sx = laneX(link.start.x)}
           {@const sy = link.start.y * ROW_HEIGHT}
           {@const cx = laneX(link.control.x)}
@@ -1053,7 +1054,7 @@
 
         <!-- Dots: commit nodes -->
         {#each visibleDots as dot, i}
-          {@const dotColor = COLOR_PALETTE[dot.color % COLOR_PALETTE.length]}
+          {@const dotColor = resolveGraphColor(COLOR_PALETTE, dot.color, dot.colorOverride)}
           {@const dx = laneX(dot.center.x)}
           {@const dy = dot.center.y * ROW_HEIGHT}
           {@const dotCommit = displayCommits[startIndex + i]}
@@ -1078,7 +1079,7 @@
       >
         {#each visibleCommits as { commit, index } (commit.hash)}
           {@const dot = displayDots[index]}
-          {@const nodeColor = dot ? COLOR_PALETTE[dot.color % COLOR_PALETTE.length] : '#888'}
+          {@const nodeColor = dot ? resolveGraphColor(COLOR_PALETTE, dot.color, dot.colorOverride) : '#888'}
           {@const isRemoteTip = dot?.remoteTip ?? false}
           <div
             class="commit-row"

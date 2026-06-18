@@ -14,6 +14,7 @@ const COLOR_PALETTE = [
 export interface GraphPath {
   points: Array<{ x: number; y: number }>;
   color: number;
+  colorOverride?: string;
 }
 
 export interface GraphLink {
@@ -21,11 +22,13 @@ export interface GraphLink {
   control: { x: number; y: number };
   end: { x: number; y: number };
   color: number;
+  colorOverride?: string;
 }
 
 export interface GraphDot {
   center: { x: number; y: number };
   color: number;
+  colorOverride?: string;
   type: 'default' | 'head' | 'merge';
   localOnly: boolean;
   remoteTip: boolean;
@@ -259,7 +262,11 @@ function pickColor(unsolved: PathHelper[]): number {
 
 // ── Main parse function (SourceGit CommitGraph.Parse port) ──
 
-export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): FullGraphData {
+export function buildFullGraph(
+  commits: Commit[],
+  branches: BranchInfo[] = [],
+  resolveBranchColor?: (refName: string) => string | undefined,
+): FullGraphData {
   const UNIT_W = 12;
   const HALF_W = 6;
   const UNIT_H = 1;
@@ -289,6 +296,19 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
   }
   const { tipSet: remoteTipSet, allSet: remoteOnlySet } = buildRemoteOnlyData(commits, branches, hashIndex);
   const pushedSet = buildPushedSet(commits, hashIndex);
+
+  // Map each commit that is a (local or remote) branch tip to its pattern color.
+  // First matching ref on a commit wins; the resolver enforces config-order priority.
+  const tipColorMap = new Map<string, string>();
+  if (resolveBranchColor) {
+    for (const commit of commits) {
+      for (const ref of commit.refs) {
+        if (ref.type !== 'branch' && ref.type !== 'remote-branch') continue;
+        const c = resolveBranchColor(ref.name);
+        if (c) { tipColorMap.set(commit.hash, c); break; }
+      }
+    }
+  }
 
   for (const commit of commits) {
     let major: PathHelper | null = null;
@@ -344,15 +364,24 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
       }
     }
 
+    // Pattern color: recolor this commit's rail. The tip sets it once; first set
+    // wins so the topmost tip on a shared rail takes precedence.
+    if (major && tipColorMap.size > 0 && major.path.colorOverride === undefined) {
+      const override = tipColorMap.get(commit.hash);
+      if (override) major.path.colorOverride = override;
+    }
+
     // Dot
     const position = { x: major?.lastX ?? offsetX, y: offsetY };
     const dotColor = major?.path.color ?? 0;
+    // For parentless (root) commits major is null and carries no path; fall back to tipColorMap.
+    const dotColorOverride = major?.path.colorOverride ?? tipColorMap.get(commit.hash);
     const isRemoteOnly = remoteOnlySet.has(commit.hash);
     const isLocalOnly = !pushedSet.has(commit.hash);
     let dotType: GraphDot['type'] = 'default';
     if (commit.refs.some(r => r.type === 'head')) dotType = 'head';
     else if (commit.parents.length > 1) dotType = 'merge';
-    result.dots.push({ center: position, color: dotColor, type: dotType, localOnly: isLocalOnly, remoteTip: isRemoteOnly });
+    result.dots.push({ center: position, color: dotColor, colorOverride: dotColorOverride, type: dotType, localOnly: isLocalOnly, remoteTip: isRemoteOnly });
 
     // Merge parents - skip for remote-tip commits unless they are merge commits
     if (!remoteTipSet.has(commit.hash) || commit.parents.length > 1) {
@@ -367,6 +396,7 @@ export function buildFullGraph(commits: Commit[], branches: BranchInfo[] = []): 
             end: { x: parent.lastX, y: offsetY + HALF_H },
             control: { x: parent.lastX, y: position.y },
             color: parent.path.color,
+            colorOverride: parent.path.colorOverride,
           });
         } else {
           // New path for merge parent
