@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.3 (2026-06-21)
+
+### New Features
+- **Branch Colors by Pattern** - Assign fixed colors to branches by name pattern (`gitGraphPlus.branchColors`), so important branches always stand out in the graph. The first matching rule wins; branches matching no rule keep an automatic color.
+- **Commit Signature Status** - Show GPG/SSH signature verification status next to each commit in the graph (`gitGraphPlus.showSignatureStatus`). The Commit Details panel always shows it on demand regardless of the setting.
+- **Custom Graph Color Palette** - Customize the colors auto-assigned to graph rails with your own list of hex colors (`gitGraphPlus.graphColors`), defaulting to the built-in 12-color palette.
+
+### Bug Fixes
+- **Branch Color on All Nodes** - A pattern-colored branch now recolors every commit node on its rail, not just the rail line. Previously, commit nodes above the matching branch tip kept the default color while the line was recolored.
+
 ## 0.5.2 (2026-06-15)
 
 ### New Features
