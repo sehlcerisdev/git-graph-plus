@@ -7,6 +7,7 @@ import { splitUpstreamRef } from '../git/git-parser';
 import { samePath } from '../utils/path';
 import { buildFullGraph } from '../git/git-graph-builder';
 import { compileBranchColorRules, makeBranchColorResolver } from '../git/branch-color-resolver';
+import { resolveGraphColors } from '../git/graph-colors';
 import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
 import { FileWatcher } from '../services/file-watcher';
 import { resolveGitDirs, shouldRefreshGraph } from '../services/file-watcher-helpers';
@@ -134,6 +135,12 @@ export class MainPanel {
     return makeBranchColorResolver(compileBranchColorRules(raw));
   }
 
+  // Validated graph rail palette from the user setting (falls back to default).
+  private readGraphColors(): string[] {
+    const raw = vscode.workspace.getConfiguration('gitGraphPlus').get('graphColors');
+    return resolveGraphColors(raw);
+  }
+
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
@@ -172,6 +179,9 @@ export class MainPanel {
         if (e.affectsConfiguration('gitGraphPlus.branchColors')) {
           this.refreshAll();
         }
+        if (e.affectsConfiguration('gitGraphPlus.graphColors')) {
+          this.post({ type: 'setGraphColors', payload: { colors: this.readGraphColors() } });
+        }
       })
     );
 
@@ -184,6 +194,7 @@ export class MainPanel {
     this.post({ type: 'setLocale', payload: { locale, homeDir } });
     this.post({ type: 'setDefaults', payload: this.readModalDefaults() });
     this.post({ type: 'setBadgeBarThickness', payload: { width: this.readBadgeBarWidth() } });
+    this.post({ type: 'setGraphColors', payload: { colors: this.readGraphColors() } });
 
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewMessage) => this.handleMessage(message),

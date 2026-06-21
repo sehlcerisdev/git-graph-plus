@@ -37,6 +37,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
   import PushModal from './components/modals/PushModal.svelte';
   import { modalStore } from './lib/stores/modals.svelte';
   import { defaultsStore } from './lib/stores/defaults.svelte';
+  import { graphColorsStore } from './lib/stores/graph-colors.svelte';
   import SetUpstreamModal from './components/modals/SetUpstreamModal.svelte';
   import FlowInitModal from './components/modals/FlowInitModal.svelte';
   import FlowStartModal from './components/modals/FlowStartModal.svelte';
@@ -104,6 +105,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
           break;
         case 'setBadgeBarThickness':
           uiStore.badgeBarWidth = msg.payload.width;
+          break;
+        case 'setGraphColors':
+          graphColorsStore.set(msg.payload.colors);
           break;
         case 'repoList':
           uiStore.repos = msg.payload.repos;

@@ -7,6 +7,7 @@
   import { getGravatarUrl } from '../../lib/utils/gravatar';
   import { requestDirtyState } from '../../lib/utils/dirty-check';
   import { resolveGraphColor } from '../../lib/utils/graph-color';
+  import { graphColorsStore } from '../../lib/stores/graph-colors.svelte';
   import ContextMenu from '../common/ContextMenu.svelte';
   import InteractiveRebase from '../rebase/InteractiveRebase.svelte';
   import PullAfterCheckoutModal from '../modals/PullAfterCheckoutModal.svelte';
@@ -21,11 +22,6 @@
   import type { Commit, CommitGraphData } from '../../lib/types';
   import { tooltip } from '../../lib/actions/tooltip';
 
-  const COLOR_PALETTE = [
-    '#63b0f4', '#73d13d', '#ff7a45', '#b37feb',
-    '#f759ab', '#36cfc9', '#ffc53d', '#ff4d4f',
-    '#597ef7', '#9254de', '#43e8d8', '#faad14',
-  ];
 
   /**
    * Build SVG path `d` string from SourceGit Path points.
@@ -1034,7 +1030,7 @@
       >
         <!-- Paths: continuous branch lines -->
         {#each visiblePaths as path}
-          {@const pathColor = resolveGraphColor(COLOR_PALETTE, path.color, path.colorOverride)}
+          {@const pathColor = resolveGraphColor(graphColorsStore.palette, path.color, path.colorOverride)}
           {#if path.d}
             <path d={path.d} fill="none" stroke={pathColor} stroke-width="5" opacity="0.07" stroke-linecap="round" />
             <path d={path.d} fill="none" stroke={pathColor} stroke-width="2" opacity="0.85" stroke-linecap="round" />
@@ -1043,7 +1039,7 @@
 
         <!-- Links: merge connection curves -->
         {#each visibleLinks as link}
-          {@const linkColor = resolveGraphColor(COLOR_PALETTE, link.color, link.colorOverride)}
+          {@const linkColor = resolveGraphColor(graphColorsStore.palette, link.color, link.colorOverride)}
           {@const sx = laneX(link.start.x)}
           {@const sy = link.start.y * ROW_HEIGHT}
           {@const cx = laneX(link.control.x)}
@@ -1062,7 +1058,7 @@
 
         <!-- Dots: commit nodes -->
         {#each visibleDots as dot, i}
-          {@const dotColor = resolveGraphColor(COLOR_PALETTE, dot.color, dot.colorOverride)}
+          {@const dotColor = resolveGraphColor(graphColorsStore.palette, dot.color, dot.colorOverride)}
           {@const dx = laneX(dot.center.x)}
           {@const dy = dot.center.y * ROW_HEIGHT}
           {@const dotCommit = displayCommits[startIndex + i]}
@@ -1087,7 +1083,7 @@
       >
         {#each visibleCommits as { commit, index } (commit.hash)}
           {@const dot = displayDots[index]}
-          {@const nodeColor = dot ? resolveGraphColor(COLOR_PALETTE, dot.color, dot.colorOverride) : '#888'}
+          {@const nodeColor = dot ? resolveGraphColor(graphColorsStore.palette, dot.color, dot.colorOverride) : '#888'}
           {@const isRemoteTip = dot?.remoteTip ?? false}
           <div
             class="commit-row"

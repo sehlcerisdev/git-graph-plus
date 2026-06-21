@@ -445,6 +445,27 @@
           },
           "markdownDescription": "Assign fixed colors to branches by name pattern in the graph. Each rule is `{ \"pattern\": <regex>, \"color\": <hex> }`; the first matching rule wins. Branches matching no rule keep an automatic color. Patterns are regular expressions and match anywhere in the name unless anchored (use `^main$` for an exact match)."
         },
+        "gitGraphPlus.graphColors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "#63b0f4",
+            "#73d13d",
+            "#ff7a45",
+            "#b37feb",
+            "#f759ab",
+            "#36cfc9",
+            "#ffc53d",
+            "#ff4d4f",
+            "#597ef7",
+            "#9254de",
+            "#43e8d8",
+            "#faad14"
+          ],
+          "markdownDescription": "Color palette auto-assigned to graph rails. Each entry is a hex color (`#rgb` or `#rrggbb`). When there are more branches than colors, the palette cycles. Invalid entries are ignored; an empty list falls back to the built-in palette. `branchColors` pattern rules, when present, take precedence over this palette."
+        },
         "gitGraphPlus.defaults.push.force": { "type": "string", "enum": ["none", "with-lease", "force"], "default": "none", "markdownDescription": "⚠️ `with-lease`/`force` pre-checks a force push, which can overwrite remote history." },
         "gitGraphPlus.defaults.push.setUpstream": { "type": "boolean", "default": true, "markdownDescription": "Set the upstream tracking reference with `-u` when pushing." },
         "gitGraphPlus.defaults.push.allTags": { "type": "boolean", "default": false, "markdownDescription": "Also push all tags (`--tags`)." },

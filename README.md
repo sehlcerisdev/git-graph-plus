@@ -171,9 +171,12 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 | Setting                                | Default       | Description                                              |
 | -------------------------------------- | ------------- | -------------------------------------------------------- |
 | `gitGraphPlus.autoRefresh`             | `true`        | Auto-refresh on repository changes                       |
-| `gitGraphPlus.graphSortOrder`          | `topological` | Commit sort order (`topological`, `date`, `author-date`) |
 | `gitGraphPlus.locale`                  | `auto`        | UI language (`auto`, `en`, `ko`, `zh-cn`)                |
+| `gitGraphPlus.graphSortOrder`          | `topological` | Commit sort order (`topological`, `date`, `author-date`) |
+| `gitGraphPlus.showSignatureStatus`     | `true`        | Show GPG/SSH signature status in the graph               |
 | `gitGraphPlus.branchBadgeBarThickness` | `thin`        | Branch badge bar thickness (`thin`, `medium`, `thick`)   |
+| `gitGraphPlus.branchColors`            | `[]`          | Fixed branch colors by name pattern (regex → hex)        |
+| `gitGraphPlus.graphColors`             | 12 colors     | Color palette auto-assigned to graph rails (hex strings) |
 
 ### Operation Defaults
 

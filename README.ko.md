@@ -171,9 +171,12 @@ VS Code를 위한 모던 Git GUI. 커밋 히스토리를 시각화하고, 브랜
 | 설정                                   | 기본값        | 설명                                                  |
 | -------------------------------------- | ------------- | ----------------------------------------------------- |
 | `gitGraphPlus.autoRefresh`             | `true`        | 리포지토리 변경 감지 시 자동 새로고침                 |
-| `gitGraphPlus.graphSortOrder`          | `topological` | 커밋 정렬 순서 (`topological`, `date`, `author-date`) |
 | `gitGraphPlus.locale`                  | `auto`        | UI 언어 (`auto`, `en`, `ko`, `zh-cn`)                 |
+| `gitGraphPlus.graphSortOrder`          | `topological` | 커밋 정렬 순서 (`topological`, `date`, `author-date`) |
+| `gitGraphPlus.showSignatureStatus`     | `true`        | 그래프에 GPG/SSH 서명 상태 표시                       |
 | `gitGraphPlus.branchBadgeBarThickness` | `thin`        | 브랜치 배지 색상 바 두께 (`thin`, `medium`, `thick`)  |
+| `gitGraphPlus.branchColors`            | `[]`          | 이름 패턴별 고정 브랜치 색 (정규식 → hex)             |
+| `gitGraphPlus.graphColors`             | 12색          | 그래프 레일에 자동 할당되는 색 팔레트 (hex 문자열)    |
 
 ### 작업 기본값
 
