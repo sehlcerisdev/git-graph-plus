@@ -390,4 +390,21 @@ describe('buildFullGraph branch color override', () => {
     const full = buildFullGraph(commits, []);
     expect(full.dots[0].colorOverride).toBeUndefined();
   });
+
+  it('colors dots above the matching tip on the same rail', () => {
+    // The matching ref (origin/main) sits at the BOTTOM of the rail. The newer
+    // commits above it on the same rail must still get the override — the rail
+    // line is recolored when the bottom tip is processed, so the dots above
+    // (snapshotted earlier in the top-down pass) must not keep the auto color.
+    const commits = [
+      makeCommit('c0', ['c1']),
+      makeCommit('c1', ['c2']),
+      makeCommit('c2', [], [{ type: 'remote-branch', name: 'main', remote: 'origin' }]),
+    ];
+    const resolve = (name: string) => (name === 'main' ? '#00FF00' : undefined);
+    const full = buildFullGraph(commits, [], resolve);
+    expect(full.dots.map(d => d.colorOverride)).toEqual(['#00FF00', '#00FF00', '#00FF00']);
+    // The rail path is also green (it already was, pre-fix).
+    expect(full.paths.some(p => p.colorOverride === '#00FF00')).toBe(true);
+  });
 });

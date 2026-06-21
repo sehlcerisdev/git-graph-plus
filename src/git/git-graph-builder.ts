@@ -281,6 +281,12 @@ export function buildFullGraph(
 
   const unsolved: PathHelper[] = [];
   const ended: PathHelper[] = [];
+  // Track the rail (PathHelper) each dot sits on so we can backfill the dot's
+  // pattern color after the loop. A rail's override may be set by a tip that
+  // appears lower on the rail than commits already processed top-to-bottom;
+  // the path object is recolored retroactively, but the dots above it were
+  // already snapshotted, so we resolve them once the loop has finished.
+  const dotPaths: (PathHelper | null)[] = [];
   // Index `unsolved` by `.next` for O(1) merge-parent lookup. Matches `.find()`
   // "first wins" semantics: if multiple paths share the same `next`, the
   // earliest-inserted one is kept in the map.
@@ -382,6 +388,7 @@ export function buildFullGraph(
     if (commit.refs.some(r => r.type === 'head')) dotType = 'head';
     else if (commit.parents.length > 1) dotType = 'merge';
     result.dots.push({ center: position, color: dotColor, colorOverride: dotColorOverride, type: dotType, localOnly: isLocalOnly, remoteTip: isRemoteOnly });
+    dotPaths.push(major);
 
     // Merge parents - skip for remote-tip commits unless they are merge commits
     if (!remoteTipSet.has(commit.hash) || commit.parents.length > 1) {
@@ -410,6 +417,15 @@ export function buildFullGraph(
     }
 
     result.commitLeftMargin.push(Math.max(offsetX, maxOffsetOld) + HALF_W + 2);
+  }
+
+  // Backfill dot overrides from each rail's final color. Dots are 1:1 with
+  // commits in order; a dot on a rail whose override was set after the dot was
+  // created (a tip lower on the same rail) now picks up the rail color, so the
+  // node matches its line. Root commits (no rail) fall back to tipColorMap.
+  for (let i = 0; i < result.dots.length; i++) {
+    const override = dotPaths[i]?.path.colorOverride ?? tipColorMap.get(commits[i].hash);
+    if (override) result.dots[i].colorOverride = override;
   }
 
   // End remaining paths
