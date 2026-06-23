@@ -100,7 +100,7 @@ describe('FileDiffView revert context menu', () => {
     expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0 });
   });
 
-  it('reverts the whole hunk on a context-line right-click', () => {
+  it('offers Reverse Hunk on a context line', () => {
     const onRevert = vi.fn();
     const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
     const lines = container.querySelectorAll('.diff-content .diff-line');

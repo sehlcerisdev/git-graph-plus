@@ -557,23 +557,24 @@
     border-bottom: 1px solid var(--border-color);
   }
 
-  /* Sticky so the actions + range stay visible (and the actions stay reachable)
-     when the diff is scrolled horizontally. Indented to roughly align with the
-     code column, past the inline gutter (2×45 line-num + 14 prefix = 104px). */
+  /* inline-flex (content width, not the hunk's full max-content width) so the
+     label + buttons cluster at the left and the buttons sit right after the
+     label instead of being pushed to the far-right edge. sticky left:0 keeps
+     them pinned to the viewport's left so they stay reachable when the diff is
+     scrolled horizontally. */
   .hunk-header-inner {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
     position: sticky;
     left: 0;
-    padding-left: 104px;
-    overflow: hidden;
   }
 
-  /* The label shrinks/ellipsizes first when the header is cramped. */
+  /* No flex-grow: the label takes only its own width so it can't push the
+     buttons right. It may still shrink/ellipsize if the panel is very narrow. */
   .diff-hunk-range {
     font-family: var(--vscode-editor-font-family, monospace);
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
