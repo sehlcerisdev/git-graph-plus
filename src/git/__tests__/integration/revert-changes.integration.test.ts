@@ -11,7 +11,7 @@ const CHANGED_F = 'alpha\nbeta2\ngamma\ndelta\nepsilon\nzeta\neta\ntheta\niota\n
 const BASE_G = 'one\ntwo\nthree\nfour\nfive\n';
 const CHANGED_G = 'one\ntwo\nINSERTED-A\nINSERTED-B\nthree\nfour\nfive\n';
 // Two edits close enough (line 2 and line 5) that git keeps them in ONE hunk,
-// separated by context — two distinct change regions inside the same hunk.
+// separated by context lines — two distinct change blocks within the hunk.
 const BASE_H = 'l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\n';
 const CHANGED_H = 'l1\nl2X\nl3\nl4\nl5X\nl6\nl7\nl8\n';
 
@@ -74,6 +74,33 @@ describe('GitService integration — revertCommitChanges', () => {
     const result = read(repo, 'g.txt');
     expect(result).toContain('INSERTED-A');
     expect(result).not.toContain('INSERTED-B');
+  });
+
+  it('reverts a 2-line selection, leaving the rest of the hunk intact', async () => {
+    const hunk = (await svc.showCommitDiff(hash, 'g.txt'))[0].hunks[0];
+    const idxA = hunk.lines.findIndex((l) => l.type === 'add' && l.content === 'INSERTED-A');
+    const idxB = hunk.lines.findIndex((l) => l.type === 'add' && l.content === 'INSERTED-B');
+    expect(idxA).toBeGreaterThanOrEqual(0);
+    expect(idxB).toBeGreaterThanOrEqual(0);
+
+    // Both inserted lines selected → reversing them restores the original file.
+    await svc.revertCommitChanges(hash, 'g.txt', { hunkIndex: 0, lineIndices: [idxA, idxB] });
+    expect(read(repo, 'g.txt')).toBe(BASE_G);
+  });
+
+  it('reverts a selected region of a multi-region hunk, leaving the other region intact', async () => {
+    // h.txt's single hunk has two regions (l2→l2X and l5→l5X). Select only the
+    // first region's modify pair (the delete + its following add).
+    const hunk = (await svc.showCommitDiff(hash, 'h.txt'))[0].hunks[0];
+    const delIdx = hunk.lines.findIndex((l) => l.type === 'delete');
+    expect(hunk.lines[delIdx + 1].type).toBe('add');
+
+    await svc.revertCommitChanges(hash, 'h.txt', { hunkIndex: 0, lineIndices: [delIdx, delIdx + 1] });
+
+    const result = read(repo, 'h.txt');
+    expect(result).toContain('\nl2\n');  // first region reversed
+    expect(result).not.toContain('l2X');
+    expect(result).toContain('\nl5X\n'); // second region untouched
   });
 
   it('reverts the addition of a file created by the commit (deletes it)', async () => {

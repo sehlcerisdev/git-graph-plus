@@ -71,6 +71,7 @@
   // the whole hunk (see patch-builder).
   function handleDiffRevert(target: {
     commitHash: string; file: string; hunkIndex: number;
+    selectedLineIndices?: number[];
     selectionText: string; x: number; y: number;
   }) {
     const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [];
@@ -80,8 +81,21 @@
         action: () => { vscode.postMessage({ type: 'copyToClipboard', payload: { text: target.selectionText } }); fileContextMenu = null; },
       });
     }
+    // When the user has dragged a line-selection, offer to reverse just those
+    // changed lines (lineIndices) in addition to the whole-hunk action below.
+    if (target.selectedLineIndices?.length) {
+      const lineIndices = target.selectedLineIndices;
+      items.push({
+        label: `${t('file.reverseLines')} (${lineIndices.length})`,
+        danger: true,
+        action: () => {
+          vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex, lineIndices } });
+          fileContextMenu = null;
+        },
+      });
+    }
     items.push({
-      label: t('file.revertHunk'),
+      label: t('file.reverseHunk'),
       danger: true,
       action: () => {
         vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex } });
@@ -836,7 +850,7 @@
                     if (commit && stashIndex === null) {
                       items.push({ separator: true, label: '', action: () => {} });
                       items.push({
-                        label: t('file.revertFile'),
+                        label: t('file.reverseFile'),
                         danger: true,
                         action: () => {
                           vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: commit.hash, file: node.path } });

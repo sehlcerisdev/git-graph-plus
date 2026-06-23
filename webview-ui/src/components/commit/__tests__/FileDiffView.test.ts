@@ -168,3 +168,105 @@ describe('FileDiffView revert context menu', () => {
     expect(ev.defaultPrevented).toBe(false);
   });
 });
+
+describe('FileDiffView gutter line-selection', () => {
+  // The inline gutters, one per rendered line (indices match sampleDiff()).
+  function gutters(container: HTMLElement): NodeListOf<Element> {
+    return container.querySelectorAll('.diff-content .diff-line .line-gutter');
+  }
+
+  it('drag-selects two changed lines and reverses just those', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    // Drag from the first add (4) to the second add (5).
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    rightClick(container.querySelectorAll('.diff-content .diff-line')[5]);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0, selectedLineIndices: [4, 5] });
+  });
+
+  it('excludes context lines from a range that spans them', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    // Select indices 2..4 — index 3 is a context line and must be dropped.
+    await fireEvent.mouseDown(g[2]);
+    await fireEvent.mouseEnter(g[3]);
+    await fireEvent.mouseEnter(g[4]);
+    await fireEvent.mouseUp(window);
+
+    rightClick(container.querySelectorAll('.diff-content .diff-line')[4]);
+    expect(onRevert.mock.calls[0][0].selectedLineIndices).toEqual([2, 4]);
+  });
+
+  it('shift-click extends the selection', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    await fireEvent.mouseDown(g[1]);
+    await fireEvent.mouseUp(window);
+    await fireEvent.mouseDown(g[4], { shiftKey: true });
+    await fireEvent.mouseUp(window);
+
+    rightClick(container.querySelectorAll('.diff-content .diff-line')[4]);
+    // 1..4 → changed lines are 1 (del), 2 (add), 4 (add); 3 is context.
+    expect(onRevert.mock.calls[0][0].selectedLineIndices).toEqual([1, 2, 4]);
+  });
+
+  it('Escape clears the selection (context right-click then keeps native menu)', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+    await fireEvent.keyDown(window, { key: 'Escape' });
+
+    // With the selection cleared, a context-line right-click is a no-op again.
+    const ev = rightClick(container.querySelectorAll('.diff-content .diff-line')[6]); // context line
+    expect(onRevert).not.toHaveBeenCalled();
+    expect(ev.defaultPrevented).toBe(false);
+  });
+
+  it('applies the line-selected class to selected lines', async () => {
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert: vi.fn() });
+    const g = gutters(container);
+
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    const lines = container.querySelectorAll('.diff-content .diff-line');
+    expect(lines[4].classList.contains('line-selected')).toBe(true);
+    expect(lines[5].classList.contains('line-selected')).toBe(true);
+    expect(lines[0].classList.contains('line-selected')).toBe(false);
+  });
+
+  it('clears the selection when switching to side-by-side (no stale invisible selection)', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    // Toggle to side-by-side (second button in the mode toggle).
+    const sbsBtn = container.querySelectorAll('.diff-mode-toggle button')[1];
+    await fireEvent.click(sbsBtn);
+
+    // Right-clicking a changed line in SBS reverses the hunk, not a stale selection.
+    const addLine = container.querySelector('.sbs-right .diff-line.diff-add')!;
+    rightClick(addLine);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0].selectedLineIndices).toBeUndefined();
+  });
+});

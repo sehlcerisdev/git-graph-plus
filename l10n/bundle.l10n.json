@@ -92,7 +92,7 @@
   "cherryPickedAndPushed": "Cherry-picked {0} and pushed",
   "pushAfterCherryPickFailed": "Cherry-pick succeeded, but the follow-up push failed: {0}",
   "reverted": "Reverted {0}",
-  "revertedFileChange": "Reverted changes to {0}",
+  "revertedFileChange": "Reversed changes to {0}",
   "revertedAndPushed": "Reverted {0} and pushed",
   "pushAfterRevertFailed": "Revert succeeded, but the follow-up push failed: {0}",
   "resetComplete": "Reset to {0}",
