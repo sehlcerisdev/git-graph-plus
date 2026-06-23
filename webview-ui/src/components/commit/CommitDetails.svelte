@@ -109,6 +109,11 @@
   function handleHunkRevert(target: { commitHash: string; file: string; hunkIndex: number }) {
     vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex } });
   }
+
+  // The "Reverse Selected Lines" button reverts just the dragged changed lines.
+  function handleLinesRevert(target: { commitHash: string; file: string; hunkIndex: number; lineIndices: number[] }) {
+    vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex, lineIndices: target.lineIndices } });
+  }
   let previewCommit = $state<Commit | null>(null);
   let previewPos = $state<{ x: number; y: number } | null>(null);
   let hoveredHash = $state<string | null>(null);
@@ -1014,6 +1019,7 @@
               heading={sec.subject ? `${sec.shortHash}  ${sec.subject}` : sec.shortHash}
               onRevert={commit && stashIndex === null ? handleDiffRevert : undefined}
               onRevertHunk={commit && stashIndex === null ? handleHunkRevert : undefined}
+              onRevertLines={commit && stashIndex === null ? handleLinesRevert : undefined}
               fileStatus={files.find(f => f.path === sec.file)?.status}
             />
           {/each}
@@ -1024,6 +1030,7 @@
           commitHash={commit?.hash}
           onRevert={commit && stashIndex === null ? handleDiffRevert : undefined}
           onRevertHunk={commit && stashIndex === null ? handleHunkRevert : undefined}
+          onRevertLines={commit && stashIndex === null ? handleLinesRevert : undefined}
           fileStatus={files.find(f => f.path === selectedDiff.file)?.status}
         />
       {/if}

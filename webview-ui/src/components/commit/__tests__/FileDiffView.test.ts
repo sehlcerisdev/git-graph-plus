@@ -100,14 +100,17 @@ describe('FileDiffView revert context menu', () => {
     expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0 });
   });
 
-  it('does not fire and preserves the native menu for context lines', () => {
+  it('offers Reverse Hunk on a context line', () => {
     const onRevert = vi.fn();
     const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
     const lines = container.querySelectorAll('.diff-content .diff-line');
 
-    const ev = rightClick(lines[0]); // context line
-    expect(onRevert).not.toHaveBeenCalled();
-    expect(ev.defaultPrevented).toBe(false);
+    const ev = rightClick(lines[0]); // context line → still reverts the whole hunk
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(ev.defaultPrevented).toBe(true);
+    const arg = onRevert.mock.calls[0][0];
+    expect(arg).toMatchObject({ hunkIndex: 0 });
+    expect(arg.selectedLineIndices).toBeUndefined();
   });
 
   it('does not fire and hides the hunk revert button for a wholly-added file', () => {
@@ -120,7 +123,7 @@ describe('FileDiffView revert context menu', () => {
     expect(onRevert).not.toHaveBeenCalled();
     expect(ev.defaultPrevented).toBe(false);
     // canRevert is false → no per-hunk revert button.
-    expect(container.querySelector('.hunk-revert-btn')).toBeNull();
+    expect(container.querySelector('.hunk-hunk-btn')).toBeNull();
   });
 
   it('does nothing without a commit hash (compare/uncommitted view)', () => {
@@ -147,7 +150,7 @@ describe('FileDiffView revert context menu', () => {
     const onRevertHunk = vi.fn();
     const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert, onRevertHunk });
 
-    const btn = container.querySelector('.hunk-revert-btn');
+    const btn = container.querySelector('.hunk-hunk-btn');
     expect(btn).not.toBeNull();
 
     await fireEvent.click(btn!);
@@ -161,7 +164,7 @@ describe('FileDiffView revert context menu', () => {
     const { container } = render(FileDiffView, { diff: hugeDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert, onRevertHunk });
 
     // The hunk is rendered partially, so no revert button and right-click is a no-op.
-    expect(container.querySelector('.hunk-revert-btn')).toBeNull();
+    expect(container.querySelector('.hunk-hunk-btn')).toBeNull();
     const firstChanged = container.querySelector('.diff-content .diff-line.diff-delete')!;
     const ev = rightClick(firstChanged);
     expect(onRevert).not.toHaveBeenCalled();
@@ -220,7 +223,7 @@ describe('FileDiffView gutter line-selection', () => {
     expect(onRevert.mock.calls[0][0].selectedLineIndices).toEqual([1, 2, 4]);
   });
 
-  it('Escape clears the selection (context right-click then keeps native menu)', async () => {
+  it('Escape clears the selection (context right-click then reverts the whole hunk)', async () => {
     const onRevert = vi.fn();
     const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
     const g = gutters(container);
@@ -230,10 +233,47 @@ describe('FileDiffView gutter line-selection', () => {
     await fireEvent.mouseUp(window);
     await fireEvent.keyDown(window, { key: 'Escape' });
 
-    // With the selection cleared, a context-line right-click is a no-op again.
-    const ev = rightClick(container.querySelectorAll('.diff-content .diff-line')[6]); // context line
-    expect(onRevert).not.toHaveBeenCalled();
-    expect(ev.defaultPrevented).toBe(false);
+    // With the selection cleared, a context-line right-click reverts the whole
+    // hunk (no selected lines).
+    rightClick(container.querySelectorAll('.diff-content .diff-line')[6]); // context line
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0 });
+    expect(onRevert.mock.calls[0][0].selectedLineIndices).toBeUndefined();
+  });
+
+  it('keeps an active selection when right-clicking the gutter (right-click does not reset it)', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    // Drag-select the two adds (4, 5).
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    // A right-click mousedown in the gutter must NOT collapse the selection.
+    await fireEvent.mouseDown(g[1], { button: 2 });
+
+    rightClick(container.querySelectorAll('.diff-content .diff-line')[1]);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0, selectedLineIndices: [4, 5] });
+  });
+
+  it('renders a Reverse Lines button that reverts the selection on click', async () => {
+    const onRevert = vi.fn();
+    const onRevertLines = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert, onRevertLines });
+    const g = gutters(container);
+
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    const btn = container.querySelector('.hunk-lines-btn');
+    expect(btn).not.toBeNull();
+    await fireEvent.click(btn!);
+    expect(onRevertLines).toHaveBeenCalledTimes(1);
+    expect(onRevertLines.mock.calls[0][0]).toMatchObject({ hunkIndex: 0, lineIndices: [4, 5] });
   });
 
   it('applies the line-selected class to selected lines', async () => {
@@ -267,6 +307,23 @@ describe('FileDiffView gutter line-selection', () => {
     const addLine = container.querySelector('.sbs-right .diff-line.diff-add')!;
     rightClick(addLine);
     expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0].selectedLineIndices).toBeUndefined();
+  });
+
+  it('offers Reverse Hunk for a right-click anywhere in an SBS hunk (including empty rows)', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+
+    const sbsBtn = container.querySelectorAll('.diff-mode-toggle button')[1];
+    await fireEvent.click(sbsBtn);
+
+    // Right-click an empty placeholder row inside an SBS hunk → bubbles to the
+    // wrapper and offers Reverse Hunk.
+    const emptyRow = container.querySelector('.diff-sbs .diff-empty-line')!;
+    const ev = rightClick(emptyRow);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0 });
     expect(onRevert.mock.calls[0][0].selectedLineIndices).toBeUndefined();
   });
 });

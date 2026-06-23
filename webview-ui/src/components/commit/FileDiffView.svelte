@@ -37,9 +37,12 @@
     // When provided (committed view only), the per-hunk header "Revert Hunk"
     // button reverts that hunk immediately (no context menu).
     onRevertHunk?: (target: { commitHash: string; file: string; hunkIndex: number }) => void;
+    // When provided (committed view only), the "Reverse Selected Lines" button
+    // reverts just the dragged changed lines of a hunk immediately.
+    onRevertLines?: (target: { commitHash: string; file: string; hunkIndex: number; lineIndices: number[] }) => void;
   }
 
-  let { diff, commitHash, stacked = false, heading, fileStatus, onRevert, onRevertHunk }: Props = $props();
+  let { diff, commitHash, stacked = false, heading, fileStatus, onRevert, onRevertHunk, onRevertLines }: Props = $props();
 
   // Whether this diff supports reverting (committed view, modified file). Drives
   // both the right-click menu and the per-hunk header revert affordance.
@@ -87,6 +90,7 @@
   }
 
   function startLineSelect(e: MouseEvent, hunkIdx: number, lineIndex: number) {
+    if (e.button !== 0) return; // right/middle-click must not reset an active selection
     if (!canRevert || !isHunkComplete(hunkIdx)) return;
     e.preventDefault(); // suppress native text-selection beginning in the gutter
     if (e.shiftKey && lineSel && lineSel.hunkIdx === hunkIdx) {
@@ -104,18 +108,14 @@
     }
   }
 
-  function handleLineContextMenu(e: MouseEvent, hunkIndex: number, lineIndex: number) {
-    if (!onRevert || !commitHash) return;                 // not revertable context → native menu
+  function handleLineContextMenu(e: MouseEvent, hunkIndex: number) {
+    if (!onRevert || !commitHash) return;                 // not revertable → native menu
     if (fileStatus === 'A' || fileStatus === 'D') return; // whole add/delete → use tree's Reverse File
     const changed = selectedChangedIndices();
     // An active line-selection takes precedence and addresses its own hunk.
     const sel = lineSel && changed.length > 0 ? { hunkIdx: lineSel.hunkIdx, indices: changed } : null;
     const targetHunk = sel ? sel.hunkIdx : hunkIndex;
     if (!isHunkComplete(targetHunk)) return;              // truncated hunk → don't revert unseen lines
-    if (!sel) {
-      const line = diff.hunks[hunkIndex]?.lines[lineIndex];
-      if (!line || line.type === 'context') return;       // changed lines only → keep native Copy on context lines
-    }
     e.preventDefault();
     const selectionText = window.getSelection()?.toString() ?? '';
     onRevert({
@@ -132,6 +132,13 @@
   function revertHunk(hunkIndex: number) {
     if (!onRevertHunk || !commitHash || !isHunkComplete(hunkIndex)) return;
     onRevertHunk({ commitHash, file: diff.file, hunkIndex });
+  }
+
+  function revertSelectedLines() {
+    if (!onRevertLines || !commitHash || !lineSel) return;
+    const indices = selectedChangedIndices();
+    if (!indices.length || !isHunkComplete(lineSel.hunkIdx)) return;
+    onRevertLines({ commitHash, file: diff.file, hunkIndex: lineSel.hunkIdx, lineIndices: indices });
   }
 
   function getFileName(path: string): string {
@@ -319,19 +326,31 @@
     {:else if diffMode === 'inline'}
       <div class="diff-content">
         {#each renderHunks as hunk, hunkIdx}
-          <div class="diff-hunk" class:revertable={canRevert && isHunkComplete(hunkIdx)}>
+          <div class="diff-hunk" class:revertable={canRevert && isHunkComplete(hunkIdx)} class:has-selection={lineSel?.hunkIdx === hunkIdx && selectedChangedIndices().length > 0}>
             <div class="diff-hunk-header">
-              <span class="diff-hunk-range">{hunk.header}</span>
-              {#if canRevert && isHunkComplete(hunkIdx)}
-                <button class="hunk-revert-btn" onclick={() => revertHunk(hunkIdx)} aria-label={t('file.reverseHunk')} title={t('file.reverseHunk')}>
-                  <i class="codicon codicon-discard"></i>
-                  <span>{t('file.reverseHunk')}</span>
-                </button>
-              {/if}
+              <div class="hunk-header-inner">
+                <div class="hunk-actions">
+                  {#if canRevert && isHunkComplete(hunkIdx)}
+                    {#if lineSel?.hunkIdx === hunkIdx && selectedChangedIndices().length > 0}
+                      <button class="hunk-action-btn hunk-lines-btn" onclick={revertSelectedLines}
+                              aria-label={t('file.reverseLines')} title={t('file.reverseLines')}>
+                        <i class="codicon codicon-discard"></i>
+                        <span>{t('file.reverseLines')} ({selectedChangedIndices().length})</span>
+                      </button>
+                    {/if}
+                    <button class="hunk-action-btn hunk-hunk-btn" onclick={() => revertHunk(hunkIdx)}
+                            aria-label={t('file.reverseHunk')} title={t('file.reverseHunk')}>
+                      <i class="codicon codicon-discard"></i>
+                      <span>{t('file.reverseHunk')}</span>
+                    </button>
+                  {/if}
+                </div>
+                <span class="diff-hunk-range">{hunk.header}</span>
+              </div>
             </div>
             {#each hunk.lines as line, lineIndex}
               <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="diff-line diff-{line.type}" class:line-selected={lineSel?.hunkIdx === hunkIdx && lineSel.indices.has(lineIndex)} oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex)}>
+              <div class="diff-line diff-{line.type}" class:line-selected={lineSel?.hunkIdx === hunkIdx && lineSel.indices.has(lineIndex)} oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx)}>
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <span
                   class="line-gutter"
@@ -349,9 +368,10 @@
         {/each}
       </div>
     {:else}
-      <!-- SBS keeps right-click → Reverse Hunk parity via the per-line handler.
-           Hovering a hunk in either pane highlights it in both (no header bar):
-           both panes write the shared hoveredHunkIdx. -->
+      <!-- SBS keeps right-click → Reverse Hunk parity via the per-hunk wrapper
+           handler (so right-clicking any line, context line, or empty placeholder
+           row offers Reverse Hunk). Hovering a hunk in either pane highlights it
+           in both (no header bar): both panes write the shared hoveredHunkIdx. -->
       <div class="diff-sbs">
         <div class="sbs-pane sbs-left" bind:this={sbsLeftEl} onscroll={handleSbsScroll}>
           <div class="sbs-inner">
@@ -363,11 +383,11 @@
                 class:hunk-hover={canRevert && isHunkComplete(hunkIdx) && hoveredHunkIdx === hunkIdx}
                 onmouseenter={() => { hoveredHunkIdx = hunkIdx; }}
                 onmouseleave={() => { if (hoveredHunkIdx === hunkIdx) hoveredHunkIdx = null; }}
+                oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx)}
               >
                 {#each hunk.lines as line, lineIndex}
                   {#if line.type === 'context' || line.type === 'delete'}
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="diff-line diff-{line.type}" oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex)}>
+                    <div class="diff-line diff-{line.type}">
                       <span class="line-num">{line.oldLineNumber ?? ''}</span>
                       <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
                     </div>
@@ -392,11 +412,11 @@
                 class:hunk-hover={canRevert && isHunkComplete(hunkIdx) && hoveredHunkIdx === hunkIdx}
                 onmouseenter={() => { hoveredHunkIdx = hunkIdx; }}
                 onmouseleave={() => { if (hoveredHunkIdx === hunkIdx) hoveredHunkIdx = null; }}
+                oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx)}
               >
                 {#each hunk.lines as line, lineIndex}
                   {#if line.type === 'context' || line.type === 'add'}
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="diff-line diff-{line.type}" oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex)}>
+                    <div class="diff-line diff-{line.type}">
                       <span class="line-num">{line.newLineNumber ?? ''}</span>
                       <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
                     </div>
@@ -512,15 +532,29 @@
   }
 
   .diff-hunk-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
     padding: 2px 8px;
     background: var(--bg-secondary);
     color: var(--text-secondary);
     font-size: 0.85em;
     border-bottom: 1px solid var(--border-color);
+  }
+
+  /* Sticky so the actions + range stay visible (and the actions stay reachable)
+     when the diff is scrolled horizontally. Indented to roughly align with the
+     code column, past the inline gutter (2×45 line-num + 14 prefix = 104px). */
+  .hunk-header-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    left: 0;
+    padding-left: 104px;
+  }
+
+  .hunk-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .diff-hunk-range {
@@ -531,7 +565,7 @@
     text-overflow: ellipsis;
   }
 
-  .hunk-revert-btn {
+  .hunk-action-btn {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -542,20 +576,31 @@
     cursor: pointer;
     font-size: 0.95em;
     color: var(--vscode-errorForeground, #f44336);
-    opacity: 0;
     transition: opacity 0.1s, background 0.1s;
   }
 
-  .diff-hunk.revertable:hover .hunk-revert-btn,
-  .hunk-revert-btn:focus {
+  /* The Reverse HUNK button is a hover/focus affordance; the Reverse LINES button
+     is explicit (only renders when a selection exists), so it's always visible. */
+  .hunk-hunk-btn {
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  .hunk-lines-btn {
     opacity: 1;
   }
 
-  .hunk-revert-btn:hover {
+  .diff-hunk.revertable:hover .hunk-hunk-btn,
+  .diff-hunk.has-selection .hunk-hunk-btn,
+  .hunk-action-btn:focus {
+    opacity: 1;
+  }
+
+  .hunk-action-btn:hover {
     background: rgba(244, 67, 54, 0.15);
   }
 
-  .hunk-revert-btn i {
+  .hunk-action-btn i {
     font-size: 1em;
   }
 
