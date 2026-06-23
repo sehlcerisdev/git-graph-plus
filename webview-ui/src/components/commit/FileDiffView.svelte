@@ -5,15 +5,38 @@
   import { detectLanguage, highlightLineSync, getHighlighter, ensureLanguage, activeShikiTheme, escapeHtml } from '../../lib/utils/highlighter';
   import ImageDiff from '../common/ImageDiff.svelte';
 
+  // Right-click target on a diff line. The parent owns the context menu (it
+  // already hosts one for the file tree), so we just hand it the location plus
+  // enough to address the change: hunk/line indices line up with the diff the
+  // backend re-parses (see patch-builder / git-parser).
+  export interface RevertTarget {
+    commitHash: string;
+    file: string;
+    hunkIndex: number;
+    lineIndex: number;
+    lineType: 'context' | 'add' | 'delete';
+    x: number;
+    y: number;
+  }
+
   interface Props {
     diff: DiffData;
     commitHash?: string;
     stacked?: boolean;
     // Optional commit label shown in the toolbar (used by stacked per-commit sections).
     heading?: string;
+    // When provided (committed view only), right-clicking a diff line offers to
+    // revert that line/hunk against the working tree.
+    onRevert?: (target: RevertTarget) => void;
   }
 
-  let { diff, commitHash, stacked = false, heading }: Props = $props();
+  let { diff, commitHash, stacked = false, heading, onRevert }: Props = $props();
+
+  function handleLineContextMenu(e: MouseEvent, hunkIndex: number, lineIndex: number, lineType: 'context' | 'add' | 'delete') {
+    if (!onRevert || !commitHash) return;
+    e.preventDefault();
+    onRevert({ commitHash, file: diff.file, hunkIndex, lineIndex, lineType, x: e.clientX, y: e.clientY });
+  }
 
   function getFileName(path: string): string {
     return path.split('/').pop() ?? path;
@@ -194,7 +217,8 @@
         {#each renderHunks as hunk, hunkIdx}
           {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
           {#each hunk.lines as line, lineIndex}
-            <div class="diff-line diff-{line.type}">
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="diff-line diff-{line.type}" oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex, line.type)}>
               <span class="line-num old">{line.oldLineNumber ?? ''}</span>
               <span class="line-num new">{line.newLineNumber ?? ''}</span>
               <span class="line-prefix">{line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}</span>
@@ -211,7 +235,8 @@
               {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
               {#each hunk.lines as line, lineIndex}
                 {#if line.type === 'context' || line.type === 'delete'}
-                  <div class="diff-line diff-{line.type}">
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <div class="diff-line diff-{line.type}" oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex, line.type)}>
                     <span class="line-num">{line.oldLineNumber ?? ''}</span>
                     <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
                   </div>
@@ -231,7 +256,8 @@
               {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
               {#each hunk.lines as line, lineIndex}
                 {#if line.type === 'context' || line.type === 'add'}
-                  <div class="diff-line diff-{line.type}">
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <div class="diff-line diff-{line.type}" oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex, line.type)}>
                     <span class="line-num">{line.newLineNumber ?? ''}</span>
                     <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
                   </div>

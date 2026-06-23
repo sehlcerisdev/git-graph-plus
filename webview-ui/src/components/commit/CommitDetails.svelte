@@ -63,6 +63,36 @@
     return (name || email) ? `${name} <${email}>`.trim() : '';
   }
   let fileContextMenu = $state<{ x: number; y: number; items: any[] } | null>(null);
+
+  // Right-click on a diff line (committed view) → offer to revert that single
+  // line and/or the whole hunk against the working tree. FileDiffView hands us
+  // the location and indices; we build the menu here since this component
+  // already owns the ContextMenu host.
+  function handleDiffRevert(target: {
+    commitHash: string; file: string; hunkIndex: number; lineIndex: number;
+    lineType: 'context' | 'add' | 'delete'; x: number; y: number;
+  }) {
+    const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [];
+    if (target.lineType !== 'context') {
+      items.push({
+        label: t('file.revertLine'),
+        danger: true,
+        action: () => {
+          vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex, lineIndices: [target.lineIndex] } });
+          fileContextMenu = null;
+        },
+      });
+    }
+    items.push({
+      label: t('file.revertBlock'),
+      danger: true,
+      action: () => {
+        vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex } });
+        fileContextMenu = null;
+      },
+    });
+    fileContextMenu = { x: target.x, y: target.y, items };
+  }
   let previewCommit = $state<Commit | null>(null);
   let previewPos = $state<{ x: number; y: number } | null>(null);
   let hoveredHash = $state<string | null>(null);
@@ -799,6 +829,20 @@
                       },
                     });
 
+                    // Revert this file's change against the working tree
+                    // (regular commits only — stashes offer "restore" instead).
+                    if (commit && stashIndex === null) {
+                      items.push({ separator: true, label: '', action: () => {} });
+                      items.push({
+                        label: t('file.revertFile'),
+                        danger: true,
+                        action: () => {
+                          vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: commit.hash, file: node.path } });
+                          fileContextMenu = null;
+                        },
+                      });
+                    }
+
                     // Create Patch (committed view only)
                     if (commit) {
                       const multi = selectedPatchFiles.has(node.path) && selectedPatchFiles.size >= 2;
@@ -952,11 +996,12 @@
               commitHash={sec.commit}
               stacked
               heading={sec.subject ? `${sec.shortHash}  ${sec.subject}` : sec.shortHash}
+              onRevert={handleDiffRevert}
             />
           {/each}
         </div>
       {:else if selectedDiff}
-        <FileDiffView diff={selectedDiff} commitHash={commit?.hash} />
+        <FileDiffView diff={selectedDiff} commitHash={commit?.hash} onRevert={commit && stashIndex === null ? handleDiffRevert : undefined} />
       {/if}
     </div>
 
