@@ -593,6 +593,7 @@ export const en: Record<string, string> = {
   'file.revertFile': 'Revert File',
   'file.revertBlock': 'Revert Block',
   'file.revertLine': 'Revert Line',
+  'file.copySelection': 'Copy',
 
   // LFS
   'lfs.locked': 'Locked by {owner}',

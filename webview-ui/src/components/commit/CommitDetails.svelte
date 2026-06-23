@@ -64,30 +64,27 @@
   }
   let fileContextMenu = $state<{ x: number; y: number; items: any[] } | null>(null);
 
-  // Right-click on a diff line (committed view) → offer to revert that single
-  // line and/or the whole hunk against the working tree. FileDiffView hands us
-  // the location and indices; we build the menu here since this component
-  // already owns the ContextMenu host.
+  // Right-click on a diff line (committed view) → offer to copy any selected
+  // text and to revert the clicked change block against the working tree.
+  // FileDiffView hands us the location, the contiguous block's line indices and
+  // whether it's a single source line; we build the menu here since this
+  // component already owns the ContextMenu host.
   function handleDiffRevert(target: {
-    commitHash: string; file: string; hunkIndex: number; lineIndex: number;
-    lineType: 'context' | 'add' | 'delete'; x: number; y: number;
+    commitHash: string; file: string; hunkIndex: number;
+    blockLineIndices: number[]; isSingleLine: boolean; selectionText: string; x: number; y: number;
   }) {
     const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [];
-    if (target.lineType !== 'context') {
+    if (target.selectionText) {
       items.push({
-        label: t('file.revertLine'),
-        danger: true,
-        action: () => {
-          vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex, lineIndices: [target.lineIndex] } });
-          fileContextMenu = null;
-        },
+        label: t('file.copySelection'),
+        action: () => { vscode.postMessage({ type: 'copyToClipboard', payload: { text: target.selectionText } }); fileContextMenu = null; },
       });
     }
     items.push({
-      label: t('file.revertBlock'),
+      label: target.isSingleLine ? t('file.revertLine') : t('file.revertBlock'),
       danger: true,
       action: () => {
-        vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex } });
+        vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex, lineIndices: target.blockLineIndices } });
         fileContextMenu = null;
       },
     });
@@ -996,12 +993,18 @@
               commitHash={sec.commit}
               stacked
               heading={sec.subject ? `${sec.shortHash}  ${sec.subject}` : sec.shortHash}
-              onRevert={handleDiffRevert}
+              onRevert={commit && stashIndex === null ? handleDiffRevert : undefined}
+              fileStatus={files.find(f => f.path === sec.file)?.status}
             />
           {/each}
         </div>
       {:else if selectedDiff}
-        <FileDiffView diff={selectedDiff} commitHash={commit?.hash} onRevert={commit && stashIndex === null ? handleDiffRevert : undefined} />
+        <FileDiffView
+          diff={selectedDiff}
+          commitHash={commit?.hash}
+          onRevert={commit && stashIndex === null ? handleDiffRevert : undefined}
+          fileStatus={files.find(f => f.path === selectedDiff.file)?.status}
+        />
       {/if}
     </div>
 

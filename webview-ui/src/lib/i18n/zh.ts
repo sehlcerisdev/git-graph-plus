@@ -594,6 +594,7 @@ export const zh: Record<string, string> = {
   'file.revertFile': '还原文件更改',
   'file.revertBlock': '还原代码块更改',
   'file.revertLine': '还原此行更改',
+  'file.copySelection': '复制',
   'lfs.lock': 'LFS 锁定',
   'lfs.unlock': 'LFS 解锁',
   'lfs.unlockForce': 'LFS 强制解锁',

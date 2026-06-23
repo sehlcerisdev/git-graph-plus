@@ -10,6 +10,10 @@ const BASE_F = 'alpha\nbeta\ngamma\ndelta\nepsilon\nzeta\neta\ntheta\niota\nkapp
 const CHANGED_F = 'alpha\nbeta2\ngamma\ndelta\nepsilon\nzeta\neta\ntheta\niota\nkappa\nlambda\nmu\nnu\nxi2\nomicron\npi\n';
 const BASE_G = 'one\ntwo\nthree\nfour\nfive\n';
 const CHANGED_G = 'one\ntwo\nINSERTED-A\nINSERTED-B\nthree\nfour\nfive\n';
+// Two edits close enough (line 2 and line 5) that git keeps them in ONE hunk,
+// separated by context lines — two distinct change blocks within the hunk.
+const BASE_H = 'l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\n';
+const CHANGED_H = 'l1\nl2X\nl3\nl4\nl5X\nl6\nl7\nl8\n';
 
 function read(repo: TempRepo, file: string): string {
   return readFileSync(join(repo.path, file), 'utf-8');
@@ -23,10 +27,10 @@ describe('GitService integration — revertCommitChanges', () => {
   beforeEach(() => {
     repo = createTempRepo();
     svc = new GitService(repo.path);
-    commit(repo.path, 'base', { 'f.txt': BASE_F, 'g.txt': BASE_G });
-    // One commit touching two files: f.txt with two separated hunks, g.txt
-    // with a single pure-addition hunk.
-    hash = commit(repo.path, 'change', { 'f.txt': CHANGED_F, 'g.txt': CHANGED_G });
+    commit(repo.path, 'base', { 'f.txt': BASE_F, 'g.txt': BASE_G, 'h.txt': BASE_H });
+    // One commit touching three files: f.txt with two separated hunks, g.txt
+    // with a single pure-addition hunk, h.txt with two change blocks in one hunk.
+    hash = commit(repo.path, 'change', { 'f.txt': CHANGED_F, 'g.txt': CHANGED_G, 'h.txt': CHANGED_H });
   });
   afterEach(() => repo.cleanup());
 
@@ -60,6 +64,24 @@ describe('GitService integration — revertCommitChanges', () => {
     const result = read(repo, 'g.txt');
     expect(result).toContain('INSERTED-A');
     expect(result).not.toContain('INSERTED-B');
+  });
+
+  it('reverts only one change block within a single multi-block hunk', async () => {
+    const hunk = (await svc.showCommitDiff(hash, 'h.txt'))[0].hunks[0];
+    // One hunk, two change blocks separated by a context line.
+    // The first block is the "l2 → l2X" modify pair (a delete immediately
+    // followed by an add); collect exactly those two line indices.
+    const firstDelIdx = hunk.lines.findIndex((l) => l.type === 'delete');
+    expect(firstDelIdx).toBeGreaterThanOrEqual(0);
+    expect(hunk.lines[firstDelIdx + 1].type).toBe('add');
+    const blockIndices = [firstDelIdx, firstDelIdx + 1];
+
+    await svc.revertCommitChanges(hash, 'h.txt', { hunkIndex: 0, lineIndices: blockIndices });
+
+    const result = read(repo, 'h.txt');
+    expect(result).toContain('\nl2\n'); // first block reverted to original
+    expect(result).not.toContain('l2X');
+    expect(result).toContain('\nl5X\n'); // second block left intact
   });
 
   it('reverts the addition of a file created by the commit (deletes it)', async () => {
