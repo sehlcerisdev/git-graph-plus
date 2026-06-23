@@ -95,9 +95,14 @@
     e.preventDefault(); // suppress native text-selection beginning in the gutter
     if (e.shiftKey && lineSel && lineSel.hunkIdx === hunkIdx) {
       lineSel = { ...lineSel, indices: rangeSet(lineSel.anchor, lineIndex) };
-    } else {
-      lineSel = { hunkIdx, anchor: lineIndex, indices: rangeSet(lineIndex, lineIndex) };
+      return;
     }
+    // Plain click on a line already in the selection → deselect.
+    if (lineSel && lineSel.hunkIdx === hunkIdx && lineSel.indices.has(lineIndex)) {
+      lineSel = null;
+      return;
+    }
+    lineSel = { hunkIdx, anchor: lineIndex, indices: rangeSet(lineIndex, lineIndex) };
     dragging = true;
     window.addEventListener('mouseup', () => { dragging = false; }, { once: true });
   }
@@ -108,12 +113,14 @@
     }
   }
 
-  function handleLineContextMenu(e: MouseEvent, hunkIndex: number) {
+  function handleLineContextMenu(e: MouseEvent, hunkIndex: number, lineIndex = -1) {
     if (!onRevert || !commitHash) return;                 // not revertable → native menu
     if (fileStatus === 'A' || fileStatus === 'D') return; // whole add/delete → use tree's Reverse File
     const changed = selectedChangedIndices();
-    // An active line-selection takes precedence and addresses its own hunk.
-    const sel = lineSel && changed.length > 0 ? { hunkIdx: lineSel.hunkIdx, indices: changed } : null;
+    // Only offer "Reverse Selected Lines" when the right-click lands on a line
+    // that is part of the active selection; otherwise fall back to whole-hunk.
+    const inSelection = !!lineSel && lineSel.hunkIdx === hunkIndex && lineSel.indices.has(lineIndex) && changed.length > 0;
+    const sel = inSelection ? { hunkIdx: lineSel!.hunkIdx, indices: changed } : null;
     const targetHunk = sel ? sel.hunkIdx : hunkIndex;
     if (!isHunkComplete(targetHunk)) return;              // truncated hunk → don't revert unseen lines
     e.preventDefault();
@@ -139,6 +146,18 @@
     const indices = selectedChangedIndices();
     if (!indices.length || !isHunkComplete(lineSel.hunkIdx)) return;
     onRevertLines({ commitHash, file: diff.file, hunkIndex: lineSel.hunkIdx, lineIndices: indices });
+  }
+
+  // Friendly hunk header label, e.g. "Hunk 1: Lines 1-5". Uses the new-side range
+  // (what the file looks like after the change); falls back to the old side for
+  // pure-deletion hunks where the new side is empty.
+  function hunkLabel(hunk: DiffData['hunks'][number], hunkIdx: number): string {
+    const useNew = hunk.newLines > 0;
+    const start = useNew ? hunk.newStart : hunk.oldStart;
+    const count = useNew ? hunk.newLines : hunk.oldLines;
+    const end = start + Math.max(count, 1) - 1;
+    const range = end > start ? `${start}-${end}` : `${start}`;
+    return `Hunk ${hunkIdx + 1}: ${t('file.lines')} ${range}`;
   }
 
   function getFileName(path: string): string {
@@ -329,28 +348,26 @@
           <div class="diff-hunk" class:revertable={canRevert && isHunkComplete(hunkIdx)} class:has-selection={lineSel?.hunkIdx === hunkIdx && selectedChangedIndices().length > 0}>
             <div class="diff-hunk-header">
               <div class="hunk-header-inner">
-                <div class="hunk-actions">
-                  {#if canRevert && isHunkComplete(hunkIdx)}
-                    {#if lineSel?.hunkIdx === hunkIdx && selectedChangedIndices().length > 0}
-                      <button class="hunk-action-btn hunk-lines-btn" onclick={revertSelectedLines}
-                              aria-label={t('file.reverseLines')} title={t('file.reverseLines')}>
-                        <i class="codicon codicon-discard"></i>
-                        <span>{t('file.reverseLines')} ({selectedChangedIndices().length})</span>
-                      </button>
-                    {/if}
-                    <button class="hunk-action-btn hunk-hunk-btn" onclick={() => revertHunk(hunkIdx)}
-                            aria-label={t('file.reverseHunk')} title={t('file.reverseHunk')}>
+                <span class="diff-hunk-range" title={hunkLabel(hunk, hunkIdx)}>{hunkLabel(hunk, hunkIdx)}</span>
+                {#if canRevert && isHunkComplete(hunkIdx)}
+                  {#if lineSel?.hunkIdx === hunkIdx && selectedChangedIndices().length > 0}
+                    <button class="hunk-action-btn hunk-lines-btn" onclick={revertSelectedLines}
+                            aria-label={t('file.reverseLines')} title={t('file.reverseLines')}>
                       <i class="codicon codicon-discard"></i>
-                      <span>{t('file.reverseHunk')}</span>
+                      <span>{t('file.reverseLines')} ({selectedChangedIndices().length})</span>
                     </button>
                   {/if}
-                </div>
-                <span class="diff-hunk-range">{hunk.header}</span>
+                  <button class="hunk-action-btn hunk-hunk-btn" onclick={() => revertHunk(hunkIdx)}
+                          aria-label={t('file.reverseHunk')} title={t('file.reverseHunk')}>
+                    <i class="codicon codicon-discard"></i>
+                    <span>{t('file.reverseHunk')}</span>
+                  </button>
+                {/if}
               </div>
             </div>
             {#each hunk.lines as line, lineIndex}
               <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="diff-line diff-{line.type}" class:line-selected={lineSel?.hunkIdx === hunkIdx && lineSel.indices.has(lineIndex)} oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx)}>
+              <div class="diff-line diff-{line.type}" class:line-selected={lineSel?.hunkIdx === hunkIdx && lineSel.indices.has(lineIndex)} oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex)}>
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <span
                   class="line-gutter"
@@ -361,7 +378,8 @@
                   <span class="line-num new">{line.newLineNumber ?? ''}</span>
                   <span class="line-prefix">{line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}</span>
                 </span>
-                <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span class="line-content" onmousedown={(e) => { if (e.button === 0) lineSel = null; }}>{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
               </div>
             {/each}
           </div>
@@ -543,22 +561,19 @@
      when the diff is scrolled horizontally. Indented to roughly align with the
      code column, past the inline gutter (2×45 line-num + 14 prefix = 104px). */
   .hunk-header-inner {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     position: sticky;
     left: 0;
     padding-left: 104px;
+    overflow: hidden;
   }
 
-  .hunk-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
+  /* The label shrinks/ellipsizes first when the header is cramped. */
   .diff-hunk-range {
     font-family: var(--vscode-editor-font-family, monospace);
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
@@ -570,6 +585,7 @@
     align-items: center;
     gap: 4px;
     flex-shrink: 0;
+    white-space: nowrap;
     padding: 1px 6px;
     background: transparent;
     border: none;

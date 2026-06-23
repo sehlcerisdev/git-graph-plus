@@ -593,6 +593,7 @@ export const en: Record<string, string> = {
   'file.reverseFile': 'Reverse File',
   'file.reverseHunk': 'Reverse Hunk',
   'file.reverseLines': 'Reverse Selected Lines',
+  'file.lines': 'Lines',
   'file.copySelection': 'Copy',
 
   // LFS

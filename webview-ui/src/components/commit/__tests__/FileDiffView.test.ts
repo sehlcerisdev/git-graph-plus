@@ -100,7 +100,7 @@ describe('FileDiffView revert context menu', () => {
     expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0 });
   });
 
-  it('offers Reverse Hunk on a context line', () => {
+  it('reverts the whole hunk on a context-line right-click', () => {
     const onRevert = vi.fn();
     const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
     const lines = container.querySelectorAll('.diff-content .diff-line');
@@ -254,9 +254,69 @@ describe('FileDiffView gutter line-selection', () => {
     // A right-click mousedown in the gutter must NOT collapse the selection.
     await fireEvent.mouseDown(g[1], { button: 2 });
 
-    rightClick(container.querySelectorAll('.diff-content .diff-line')[1]);
+    // Right-click a line INSIDE the selection so the selected-lines target is offered.
+    rightClick(container.querySelectorAll('.diff-content .diff-line')[4]);
     expect(onRevert).toHaveBeenCalledTimes(1);
     expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0, selectedLineIndices: [4, 5] });
+  });
+
+  it('does not offer Reverse Selected Lines when right-clicking outside the selected region', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    // Drag-select the two adds (4, 5).
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    // Right-click a changed line NOT in the selection → falls back to whole-hunk.
+    rightClick(container.querySelectorAll('.diff-content .diff-line')[2]);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 0 });
+    expect(onRevert.mock.calls[0][0].selectedLineIndices).toBeUndefined();
+  });
+
+  it('left-clicking an already-selected gutter line deselects', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    // Plain left-click on a line already in the selection clears it.
+    await fireEvent.mouseDown(g[4]);
+
+    const lines = container.querySelectorAll('.diff-content .diff-line');
+    expect([...lines].some(l => l.classList.contains('line-selected'))).toBe(false);
+
+    // A subsequent right-click yields no selected lines.
+    rightClick(lines[4]);
+    expect(onRevert.mock.calls[0][0].selectedLineIndices).toBeUndefined();
+  });
+
+  it('left-clicking the code region deselects', async () => {
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert: vi.fn() });
+    const g = gutters(container);
+
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    const contents = container.querySelectorAll('.diff-content .diff-line .line-content');
+    await fireEvent.mouseDown(contents[4], { button: 0 });
+
+    const lines = container.querySelectorAll('.diff-content .diff-line');
+    expect([...lines].some(l => l.classList.contains('line-selected'))).toBe(false);
+  });
+
+  it('hunk header shows the Hunk N: Lines A-B label', () => {
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert: vi.fn() });
+    const range = container.querySelector('.diff-hunk-range')!;
+    expect(range.textContent).toContain('Hunk 1');
+    expect(range.textContent).toContain('Lines 1-5');
   });
 
   it('renders a Reverse Lines button that reverts the selection on click', async () => {
