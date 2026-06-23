@@ -1562,13 +1562,17 @@ export class GitService {
     await this.exec(['restore', `--source=stash@{${index}}`, '--', ...paths]);
   }
 
-  async cherryPick(hash: string, options?: { noCommit?: boolean }): Promise<void> {
-    this.assertSafeRef(hash, 'cherry-pick');
+  async cherryPick(hashes: string | string[], options?: { noCommit?: boolean }): Promise<void> {
+    const list = Array.isArray(hashes) ? hashes : [hashes];
+    for (const hash of list) {
+      this.assertSafeRef(hash, 'cherry-pick');
+    }
     const args = ['cherry-pick'];
     if (options?.noCommit) {
       args.push('--no-commit');
     }
-    args.push(hash);
+    // git applies the listed commits in order, so callers pass them oldest→newest.
+    args.push(...list);
     await this.exec(args);
   }
 

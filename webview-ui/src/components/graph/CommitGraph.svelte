@@ -18,9 +18,12 @@
   import RevertModal from '../modals/RevertModal.svelte';
   import ResetModal from '../modals/ResetModal.svelte';
   import CheckoutCommitModal from '../modals/CheckoutCommitModal.svelte';
+  import SquashModal from '../modals/SquashModal.svelte';
+  import MultiCherryPickModal from '../modals/MultiCherryPickModal.svelte';
   import { modalStore } from '../../lib/stores/modals.svelte';
   import type { Commit, CommitGraphData } from '../../lib/types';
   import { tooltip } from '../../lib/actions/tooltip';
+  import { getSquashChain } from '../../lib/utils/squash';
 
 
   /**
@@ -206,6 +209,11 @@
 
   let showRevertModal = $state(false);
   let revertTarget = $state('');
+
+  // Squash selected commits: the validated chain (oldest→newest) when open.
+  let squashChain = $state<Commit[] | null>(null);
+  // Multi cherry-pick: the selected hashes (oldest→newest) when the modal is open.
+  let multiCherryPickTargets = $state<string[] | null>(null);
 
   let showCheckoutCommitModal = $state(false);
   let checkoutCommitHash = $state('');
@@ -494,17 +502,26 @@
       return;
     }
 
-    // Selection mode (entered via the context menu) — only here do clicks build a set.
-    if (uiStore.multiSelectArmed) {
+    // In multi-select mode, only modifier clicks change the set. Shift extends
+    // the range, Ctrl/Cmd toggles membership. A plain click falls through to the
+    // debounced single-select below, which exits the mode and selects just this row.
+    if (uiStore.multiSelectArmed && e && e.shiftKey) {
       if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-      if (e && e.shiftKey) {
-        uiStore.selectRange(commit.hash, displayCommits.map(c => c.hash));
-      } else {
-        uiStore.toggleHash(commit.hash); // plain or Ctrl/Cmd click toggles membership
-      }
+      uiStore.selectRange(commit.hash, displayCommits.map(c => c.hash));
       return;
     }
-    // Not armed: modifiers are ignored; plain click single-selects (debounced).
+    if (uiStore.multiSelectArmed && e && (e.ctrlKey || e.metaKey)) {
+      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+      uiStore.toggleHash(commit.hash);
+      return;
+    }
+    // Not armed: Ctrl/Cmd or Shift click promotes to multi-select directly.
+    if (e && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+      uiStore.modifierSelect(commit.hash, { range: e.shiftKey, orderedHashes: displayCommits.map(c => c.hash) });
+      return;
+    }
+    // Plain click single-selects (debounced).
     if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
     clickTimer = setTimeout(() => { clickTimer = null; selectCommit(commit.hash); }, 150);
   }
@@ -548,6 +565,44 @@
     e.preventDefault();
     contextMenuHash = commit.hash;
     const currentBranch = branchStore.currentBranch?.name ?? 'HEAD';
+
+    // ── Dedicated multi-select menu ──
+    // When 2+ commits are selected and the right-clicked commit is part of the
+    // selection, show only actions that operate on the whole selection — not the
+    // single-commit menu (whose entries would silently target just this commit).
+    if (uiStore.multiSelectArmed
+      && uiStore.selectedCommitHashes.length >= 2
+      && uiStore.selectedCommitHashes.includes(commit.hash)) {
+      const sel = uiStore.selectedCommitHashes;
+      // Order the selection oldest→newest (display order is newest-first),
+      // excluding the synthetic uncommitted-changes row.
+      const orderedOldestFirst = displayCommits
+        .filter(c => c.hash !== 'UNCOMMITTED' && sel.includes(c.hash))
+        .map(c => c.hash)
+        .reverse();
+      const multiItems: any[] = [];
+
+      const chain = getSquashChain(sel, commitStore.commitMap as Map<string, Commit>);
+      if (chain) {
+        multiItems.push({
+          label: t('graph.squashCommits', { count: String(chain.length) }),
+          action: () => { squashChain = chain; },
+        });
+      }
+      multiItems.push({
+        label: t('graph.cherryPickCommits', { count: String(sel.length) }),
+        action: () => { multiCherryPickTargets = orderedOldestFirst; },
+      });
+      multiItems.push({ separator: true, label: '', action: () => {} });
+      multiItems.push({
+        label: t('graph.cancelSelection'),
+        action: () => { uiStore.exitMultiSelect(); },
+      });
+
+      contextMenu = { x: e.clientX, y: e.clientY, items: multiItems };
+      return;
+    }
+
     const items: any[] = [];
 
     // ── Ref submenus ──
@@ -837,6 +892,8 @@
           vscode.postMessage({ type: 'compareToWorking', payload: { hash: commit.hash } });
         },
       }];
+      // Multi-select is driven by Shift/Cmd-click in the graph; while armed, the
+      // single-commit menu still offers adding this commit or clearing the set.
       if (uiStore.multiSelectArmed) {
         compareGroup.push({
           label: t('graph.addToSelection'),
@@ -845,11 +902,6 @@
         compareGroup.push({
           label: t('graph.cancelSelection'),
           action: () => { uiStore.exitMultiSelect(); },
-        });
-      } else {
-        compareGroup.push({
-          label: t('graph.selectForCompare'),
-          action: () => { uiStore.enterMultiSelect(commit.hash); },
         });
       }
       groups.push(compareGroup);
@@ -1326,16 +1378,6 @@
   {/if}
 </div>
 
-{#if uiStore.multiSelectArmed}
-  <div class="compare-indicator">
-    <i class="codicon codicon-git-compare"></i>
-    <span class="compare-label">{t('graph.selectingCommits')}</span>
-    <button class="compare-cancel" aria-label="Cancel compare" onclick={() => { uiStore.exitMultiSelect(); }}>
-      <i class="codicon codicon-close"></i>
-    </button>
-  </div>
-{/if}
-
 {#if bisectBadCommit}
   <div class="bisect-indicator">
     <i class="codicon codicon-search"></i>
@@ -1398,6 +1440,31 @@
     branch={branchStore.currentBranch?.name ?? 'current branch'}
     onClose={() => { showRevertModal = false; contextMenuHash = null; }}
     onRevert={({ noCommit, pushAfter }) => { showRevertModal = false; contextMenuHash = null; vscode.postMessage({ type: 'revert', payload: { commit: revertTarget, noCommit, pushAfter } }); }}
+  />
+{/if}
+
+{#if squashChain}
+  <SquashModal
+    chain={squashChain}
+    base={squashChain[0].parents[0]}
+    hasPushedCommits={!!branchStore.currentBranch?.upstream
+      && squashChain.some(c => !currentBranchLocalOnly.has(c.hash))}
+    onClose={() => { squashChain = null; uiStore.exitMultiSelect(); contextMenuHash = null; }}
+  />
+{/if}
+
+{#if multiCherryPickTargets}
+  <MultiCherryPickModal
+    commits={multiCherryPickTargets}
+    branch={branchStore.currentBranch?.name ?? 'current branch'}
+    onClose={() => { multiCherryPickTargets = null; contextMenuHash = null; }}
+    onCherryPick={({ noCommit, pushAfter }) => {
+      const commits = multiCherryPickTargets!;
+      multiCherryPickTargets = null;
+      contextMenuHash = null;
+      uiStore.exitMultiSelect();
+      vscode.postMessage({ type: 'cherryPick', payload: { commit: commits[0], commits, noCommit, pushAfter } });
+    }}
   />
 {/if}
 
@@ -1976,48 +2043,6 @@
   }
 
 
-  /* ---- Compare indicator ---- */
-  .compare-indicator {
-    position: fixed;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(99, 176, 244, 0.15);
-    border: 1px solid rgba(99, 176, 244, 0.4);
-    color: #63b0f4;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: var(--vscode-font-size, 13px);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 100;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    backdrop-filter: blur(8px);
-  }
-
-  .compare-label {
-    color: var(--text-secondary);
-    font-size: 0.9em;
-  }
-
-  .compare-cancel {
-    background: transparent;
-    color: var(--text-secondary);
-    border: none;
-    padding: 2px;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    font-size: inherit;
-  }
-
-  .compare-cancel:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-primary);
-  }
-
   /* ---- Bisect indicator ---- */
   .bisect-indicator {
     position: fixed;
@@ -2090,17 +2115,6 @@
   }
 
   /* ---- Light theme overrides ---- */
-  :global(body.vscode-light) .compare-indicator {
-    background: rgba(40, 100, 180, 0.1);
-    border-color: rgba(40, 100, 180, 0.3);
-    color: #1a5fa0;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  }
-
-  :global(body.vscode-light) .compare-cancel:hover {
-    background: rgba(0, 0, 0, 0.06);
-  }
-
   :global(body.vscode-light) .bisect-indicator {
     background: rgba(200, 40, 30, 0.08);
     border-color: rgba(200, 40, 30, 0.3);

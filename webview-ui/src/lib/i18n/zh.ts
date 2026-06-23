@@ -151,8 +151,6 @@ export const zh: Record<string, string> = {
   'graph.resetToHere': '将当前分支重置到此处',
   'graph.addToSelection': '加入选择',
   'graph.cancelSelection': '取消选择',
-  'graph.selectForCompare': '选择用于比较',
-  'graph.selectingCommits': '正在选择提交…',
   'graph.newTag': '新建标签',
   'graph.mergeInto': "合并到 '{branch}'",
   'graph.createWorktree': '新建工作树',
@@ -215,6 +213,18 @@ export const zh: Record<string, string> = {
   'rebase.moveUp': '上移',
   'rebase.moveDown': '下移',
   'rebase.cannotSquashFirst': '无法对最早的提交执行 squash/fixup',
+
+  // Multi-select (squash / cherry-pick selected commits)
+  'graph.squashCommits': 'Squash {count} 个提交',
+  'graph.cherryPickCommits': 'Cherry-pick {count} 个提交',
+  'cherryPickMultiple.title': 'Cherry-pick 提交',
+  'cherryPickMultiple.desc': '将选中的 {count} 个提交应用到 {branch}。',
+  'squash.title': 'Squash 提交',
+  'squash.description': '将选中的 {count} 个提交合并为一个提交。',
+  'squash.message': '提交消息',
+  'squash.squash': 'Squash',
+  'squash.loading': '正在加载提交',
+  'squash.pushedWarning': '部分提交已推送。Squash 会重写历史记录，需要 <span class="modal-emph modal-emph--danger">force push</span>。',
 
   // Commit details
   'details.commit': '提交',

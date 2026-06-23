@@ -55,6 +55,12 @@ class CommitStore {
     return this.commitByHash.get(hash);
   }
 
+  // Read-only hash→Commit map for callers that need bulk lookups (e.g. squash
+  // chain validation). Backed by the same derived map as getCommit().
+  get commitMap(): ReadonlyMap<string, Commit> {
+    return this.commitByHash;
+  }
+
   getGraphNode(hash: string): GraphNode | undefined {
     return this.nodeByHash.get(hash);
   }

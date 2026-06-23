@@ -90,6 +90,7 @@
   "pushAfterRebaseFailed": "变基成功，但后续 push 失败：{0}",
   "cherryPicked": "已遴选 {0}",
   "cherryPickedAndPushed": "已遴选 {0} 并完成 push",
+  "nCommits": "{0} 个提交",
   "pushAfterCherryPickFailed": "遴选成功，但后续 push 失败：{0}",
   "reverted": "已还原 {0}",
   "revertedAndPushed": "已还原 {0} 并完成 push",

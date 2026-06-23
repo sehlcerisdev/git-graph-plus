@@ -83,6 +83,28 @@ class UiStore {
     this.showBottomPanel = true;
   }
 
+  // Modifier-click (Ctrl/Cmd toggle or Shift range) directly on a commit.
+  // The first modifier-click promotes a plain single selection into armed
+  // multi-select (seeding with the previously-selected commit), then defers to
+  // the same toggle/range handlers used in armed mode.
+  modifierSelect(hash: string, opts: { range: boolean; orderedHashes: string[] }) {
+    if (!this.multiSelectArmed) {
+      const seed = this.selectedCommitHash;
+      this.multiSelectArmed = true;
+      this.selectedCommitHashes = seed ? [seed] : [];
+      this.anchorHash = seed;
+      this.selectedCommitHash = null;
+      this.comparing = false;
+      this.compareRef1 = null;
+      this.compareRef2 = null;
+    }
+    if (opts.range) {
+      this.selectRange(hash, opts.orderedHashes);
+    } else {
+      this.toggleHash(hash);
+    }
+  }
+
   // Menu entry: arm selection mode, seed with one commit. No single-detail view.
   enterMultiSelect(hash: string) {
     this.multiSelectArmed = true;

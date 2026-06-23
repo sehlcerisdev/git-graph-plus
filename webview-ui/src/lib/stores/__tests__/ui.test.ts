@@ -110,6 +110,37 @@ describe('uiStore multi-select mode', () => {
   });
 });
 
+describe('uiStore.modifierSelect', () => {
+  const order = ['c4', 'c3', 'c2', 'c1']; // newest → oldest
+
+  it('Ctrl-click while single-selected promotes to a two-commit multi-selection', () => {
+    uiStore.selectCommit('c3');
+    uiStore.modifierSelect('c2', { range: false, orderedHashes: order });
+    expect(uiStore.multiSelectArmed).toBe(true);
+    expect(uiStore.selectedCommitHashes).toEqual(['c3', 'c2']);
+    expect(uiStore.selectedCommitHash).toBeNull();
+  });
+
+  it('Shift-click while single-selected selects the range from the prior selection', () => {
+    uiStore.selectCommit('c4');
+    uiStore.modifierSelect('c2', { range: true, orderedHashes: order });
+    expect(uiStore.multiSelectArmed).toBe(true);
+    expect(uiStore.selectedCommitHashes).toEqual(['c4', 'c3', 'c2']);
+  });
+
+  it('Ctrl-click with no prior selection arms with just that commit', () => {
+    uiStore.modifierSelect('c2', { range: false, orderedHashes: order });
+    expect(uiStore.multiSelectArmed).toBe(true);
+    expect(uiStore.selectedCommitHashes).toEqual(['c2']);
+  });
+
+  it('modifier-click while already armed keeps building the selection', () => {
+    uiStore.enterMultiSelect('c4');
+    uiStore.modifierSelect('c2', { range: false, orderedHashes: order });
+    expect(uiStore.selectedCommitHashes).toEqual(['c4', 'c2']);
+  });
+});
+
 describe('uiStore.setError', () => {
   beforeEach(() => {
     vi.useFakeTimers();

@@ -135,6 +135,21 @@ describe('GitService integration — merge / rebase / cherry-pick / revert', () 
       expect(readFileSync(join(repo.path, 'feat.txt'), 'utf-8')).toBe('x\n');
     });
 
+    it('applies multiple commits in the given order', async () => {
+      commit(repo.path, 'init', { 'a.txt': 'a\n' });
+      runGit(repo.path, ['checkout', '-b', 'feature']);
+      const c1 = commit(repo.path, 'feat one', { 'f1.txt': '1\n' });
+      const c2 = commit(repo.path, 'feat two', { 'f2.txt': '2\n' });
+      runGit(repo.path, ['checkout', 'main']);
+
+      await svc.cherryPick([c1, c2]);
+
+      const subjects = runGit(repo.path, ['log', '-2', '--format=%s']).trim().split('\n');
+      expect(subjects).toEqual(['feat two', 'feat one']); // newest first in log
+      expect(readFileSync(join(repo.path, 'f1.txt'), 'utf-8')).toBe('1\n');
+      expect(readFileSync(join(repo.path, 'f2.txt'), 'utf-8')).toBe('2\n');
+    });
+
     it('with noCommit stages changes without committing', async () => {
       commit(repo.path, 'init', { 'a.txt': 'a\n' });
       runGit(repo.path, ['checkout', '-b', 'feature']);

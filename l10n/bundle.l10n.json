@@ -90,6 +90,7 @@
   "pushAfterRebaseFailed": "Rebase succeeded, but the follow-up push failed: {0}",
   "cherryPicked": "Cherry-picked {0}",
   "cherryPickedAndPushed": "Cherry-picked {0} and pushed",
+  "nCommits": "{0} commits",
   "pushAfterCherryPickFailed": "Cherry-pick succeeded, but the follow-up push failed: {0}",
   "reverted": "Reverted {0}",
   "revertedAndPushed": "Reverted {0} and pushed",

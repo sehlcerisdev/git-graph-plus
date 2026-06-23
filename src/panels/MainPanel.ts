@@ -932,7 +932,10 @@ export class MainPanel {
           break;
         }
         case 'cherryPick': {
-          await this.gitService.cherryPick(message.payload.commit, { noCommit: message.payload.noCommit });
+          // `commits` (oldest→newest) carries a multi-commit selection; fall back
+          // to the single `commit` for the original single-commit flow.
+          const picks = message.payload.commits ?? [message.payload.commit];
+          await this.gitService.cherryPick(picks, { noCommit: message.payload.noCommit });
           // Optional follow-up push (only meaningful when a commit was created).
           // A cherry-pick adds a new commit, so the push needs no force.
           let cherryPushFailed = false;
@@ -945,10 +948,13 @@ export class MainPanel {
             }
           }
           this.post({ type: 'operationComplete', payload: { operation: 'cherryPick', success: true } });
+          const cherryLabel = picks.length > 1
+            ? vscode.l10n.t('nCommits', String(picks.length))
+            : picks[0].substring(0, 7);
           if (message.payload.pushAfter && !message.payload.noCommit && !cherryPushFailed) {
-            vscode.window.showInformationMessage(vscode.l10n.t('cherryPickedAndPushed', message.payload.commit.substring(0, 7)));
+            vscode.window.showInformationMessage(vscode.l10n.t('cherryPickedAndPushed', cherryLabel));
           } else {
-            vscode.window.showInformationMessage(vscode.l10n.t('cherryPicked', message.payload.commit.substring(0, 7)));
+            vscode.window.showInformationMessage(vscode.l10n.t('cherryPicked', cherryLabel));
           }
           await this.refreshAll();
           break;

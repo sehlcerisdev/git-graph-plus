@@ -151,8 +151,6 @@ export const ko: Record<string, string> = {
   'graph.resetToHere': '현재 브랜치를 여기로 Reset',
   'graph.addToSelection': '선택에 추가',
   'graph.cancelSelection': '선택 취소',
-  'graph.selectForCompare': '비교 대상 선택',
-  'graph.selectingCommits': '커밋 선택 중…',
   'graph.newTag': '새 태그 생성',
   'graph.mergeInto': "'{branch}'에 Merge",
   'graph.createWorktree': '새 워크트리 생성',
@@ -215,6 +213,18 @@ export const ko: Record<string, string> = {
   'rebase.moveUp': '위로 이동',
   'rebase.moveDown': '아래로 이동',
   'rebase.cannotSquashFirst': '가장 오래된 commit은 squash/fixup할 수 없습니다',
+
+  // Multi-select (squash / cherry-pick selected commits)
+  'graph.squashCommits': 'Commit {count}개 Squash',
+  'graph.cherryPickCommits': 'Commit {count}개 Cherry-pick',
+  'cherryPickMultiple.title': 'Commit Cherry-pick',
+  'cherryPickMultiple.desc': '선택한 {count}개의 commit을 {branch}에 적용합니다.',
+  'squash.title': 'Commit Squash',
+  'squash.description': '선택한 {count}개의 commit을 하나로 합칩니다.',
+  'squash.message': '커밋 메시지',
+  'squash.squash': 'Squash',
+  'squash.loading': 'Commit 로딩 중',
+  'squash.pushedWarning': '이미 push된 commit이 포함되어 있습니다. Squash는 history를 재작성하므로 <span class="modal-emph modal-emph--danger">force push</span>가 필요합니다.',
 
   // Commit details
   'details.commit': 'Commit',

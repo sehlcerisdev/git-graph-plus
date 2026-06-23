@@ -151,8 +151,6 @@ export const en: Record<string, string> = {
   'graph.resetToHere': 'Reset current branch to here',
   'graph.addToSelection': 'Add to selection',
   'graph.cancelSelection': 'Cancel selection',
-  'graph.selectForCompare': 'Select for Compare',
-  'graph.selectingCommits': 'Selecting commits…',
   'graph.newTag': 'New Tag',
   'graph.mergeInto': "Merge into '{branch}'",
   'graph.createWorktree': 'New Worktree',
@@ -215,6 +213,18 @@ export const en: Record<string, string> = {
   'rebase.moveUp': 'Move up',
   'rebase.moveDown': 'Move down',
   'rebase.cannotSquashFirst': 'Cannot squash/fixup the oldest commit',
+
+  // Multi-select (squash / cherry-pick selected commits)
+  'graph.squashCommits': 'Squash {count} commits',
+  'graph.cherryPickCommits': 'Cherry-pick {count} commits',
+  'cherryPickMultiple.title': 'Cherry-pick Commits',
+  'cherryPickMultiple.desc': 'Apply these {count} commits onto {branch}.',
+  'squash.title': 'Squash Commits',
+  'squash.description': 'Combine these {count} commits into a single commit.',
+  'squash.message': 'Commit message',
+  'squash.squash': 'Squash',
+  'squash.loading': 'Loading commits',
+  'squash.pushedWarning': 'Some of these commits are already pushed. Squashing rewrites history and will require a <span class="modal-emph modal-emph--danger">force push</span>.',
 
   // Commit details
   'details.commit': 'Commit',

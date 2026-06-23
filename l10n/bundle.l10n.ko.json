@@ -90,6 +90,7 @@
   "pushAfterRebaseFailed": "Rebase는 성공했지만 이후 push에 실패했습니다: {0}",
   "cherryPicked": "{0}이(가) cherry-pick 되었습니다",
   "cherryPickedAndPushed": "{0}이(가) cherry-pick 후 push 되었습니다",
+  "nCommits": "commit {0}개",
   "pushAfterCherryPickFailed": "Cherry-pick은 성공했지만 이후 push에 실패했습니다: {0}",
   "reverted": "{0}이(가) revert 되었습니다",
   "revertedAndPushed": "{0}이(가) revert 후 push 되었습니다",
