@@ -590,6 +590,12 @@ export const en: Record<string, string> = {
   'file.restoreStashFile': 'Restore file from stash',
   'file.restoreStashFromSelected': 'Restore {count} selected files from stash',
   'file.restoreStashFromFolder': 'Restore folder from stash',
+  'file.reverseFile': 'Reverse File',
+  'file.reverseHunk': 'Reverse Hunk',
+  'file.reverseLines': 'Reverse Selected Lines',
+  'file.lines': 'Lines',
+  'file.copySelection': 'Copy',
+  'file.copyLines': 'Copy Lines',
 
   // LFS
   'lfs.locked': 'Locked by {owner}',

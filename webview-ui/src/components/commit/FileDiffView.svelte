@@ -5,15 +5,188 @@
   import { detectLanguage, highlightLineSync, getHighlighter, ensureLanguage, activeShikiTheme, escapeHtml } from '../../lib/utils/highlighter';
   import ImageDiff from '../common/ImageDiff.svelte';
 
+  // Right-click target on a diff line. The parent owns the context menu (it
+  // already hosts one for the file tree), so we just hand it the location plus
+  // enough to address the change: the hunk index lines up with the diff the
+  // backend re-parses (see patch-builder / git-parser), where omitting line
+  // indices reverts the whole hunk.
+  export interface RevertTarget {
+    commitHash: string;
+    file: string;
+    hunkIndex: number;
+    // The changed (+/-) line indices the user selected via the gutter drag,
+    // addressing a subset of the hunk to reverse. Omitted reverses the whole hunk.
+    selectedLineIndices?: number[];
+    selectionText: string;
+    // Raw newline-joined text of every gutter-selected line, set only when the
+    // right-click originates in the gutter and a line selection is active. The
+    // parent offers a "Copy Lines" menu item when present. An empty string is a
+    // valid value (a lone blank line was selected), so the parent gates on
+    // `!== undefined`, not truthiness. `copyLinesCount` carries the matching
+    // line count so the parent need not re-split the text.
+    copyLinesText?: string;
+    copyLinesCount?: number;
+    x: number;
+    y: number;
+  }
+
   interface Props {
     diff: DiffData;
     commitHash?: string;
     stacked?: boolean;
     // Optional commit label shown in the toolbar (used by stacked per-commit sections).
     heading?: string;
+    // Git status letter for this file ('A'/'M'/'D'/'R'...). Whole add/delete
+    // files only offer "Revert File" (from the tree), not hunk revert.
+    fileStatus?: string;
+    // When provided (committed view only), right-clicking a diff line offers to
+    // revert that whole hunk against the working tree.
+    onRevert?: (target: RevertTarget) => void;
+    // When provided (committed view only), the per-hunk header "Revert Hunk"
+    // button reverts that hunk immediately (no context menu).
+    onRevertHunk?: (target: { commitHash: string; file: string; hunkIndex: number }) => void;
+    // When provided (committed view only), the "Reverse Selected Lines" button
+    // reverts just the dragged changed lines of a hunk immediately.
+    onRevertLines?: (target: { commitHash: string; file: string; hunkIndex: number; lineIndices: number[] }) => void;
   }
 
-  let { diff, commitHash, stacked = false, heading }: Props = $props();
+  let { diff, commitHash, stacked = false, heading, fileStatus, onRevert, onRevertHunk, onRevertLines }: Props = $props();
+
+  // Whether this diff supports reverting (committed view, modified file). Drives
+  // both the right-click menu and the per-hunk header revert affordance.
+  const canRevert = $derived(!!onRevert && !!commitHash && fileStatus !== 'A' && fileStatus !== 'D');
+
+  // A truncated diff renders only the first N lines of its final hunk (see
+  // renderHunks). Reverting then would silently undo the unseen tail too, so we
+  // only allow revert on hunks rendered in full. Untruncated diffs are always
+  // complete (renderHunks === diff.hunks).
+  function isHunkComplete(hunkIndex: number): boolean {
+    const full = diff.hunks[hunkIndex];
+    const shown = renderHunks[hunkIndex];
+    return !!full && !!shown && shown.lines.length === full.lines.length;
+  }
+
+  // Drag-to-select whole lines in the inline gutter (single hunk at a time).
+  // `indices` holds every line index the drag has covered; the right-click menu
+  // then narrows it to just the changed (+/-) lines via selectedChangedIndices.
+  let lineSel = $state<{ hunkIdx: number; anchor: number; indices: Set<number> } | null>(null);
+  // Plain (non-reactive) flag tracking whether a gutter drag is in progress.
+  let dragging = false;
+
+  // SBS: the hunk currently under the cursor (in either pane), highlighted in
+  // both panes so the revert extent is obvious before right-clicking.
+  let hoveredHunkIdx = $state<number | null>(null);
+
+  // All indices from min(a,b)..max(a,b) inclusive.
+  function rangeSet(a: number, b: number): Set<number> {
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    const out = new Set<number>();
+    for (let i = lo; i <= hi; i++) out.add(i);
+    return out;
+  }
+
+  // The selected line indices that are actually reversible (+/- lines), sorted.
+  // Context lines in the dragged range are dropped. Pure projection of lineSel +
+  // diff.hunks, so it's derived rather than recomputed on every template access.
+  const selectedChangedIndices = $derived.by<number[]>(() => {
+    if (!lineSel) return [];
+    const hunk = diff.hunks[lineSel.hunkIdx];
+    if (!hunk) return [];
+    return [...lineSel.indices]
+      .filter(i => hunk.lines[i] && hunk.lines[i].type !== 'context')
+      .sort((a, b) => a - b);
+  });
+
+  // The full text of every currently selected line (context included), in line
+  // order, joined by newlines — for the "Copy Lines" gutter action.
+  function selectedLinesText(): string {
+    if (!lineSel) return '';
+    const hunk = diff.hunks[lineSel.hunkIdx];
+    if (!hunk) return '';
+    return [...lineSel.indices]
+      .sort((a, b) => a - b)
+      .map(i => hunk.lines[i]?.content ?? '')
+      .join('\n');
+  }
+
+  function startLineSelect(e: MouseEvent, hunkIdx: number, lineIndex: number) {
+    if (e.button !== 0) return; // right/middle-click must not reset an active selection
+    if (!canRevert || !isHunkComplete(hunkIdx)) return;
+    e.preventDefault(); // suppress native text-selection beginning in the gutter
+    if (e.shiftKey && lineSel && lineSel.hunkIdx === hunkIdx) {
+      lineSel = { ...lineSel, indices: rangeSet(lineSel.anchor, lineIndex) };
+      return;
+    }
+    // Plain click on a line already in the selection → deselect.
+    if (lineSel && lineSel.hunkIdx === hunkIdx && lineSel.indices.has(lineIndex)) {
+      lineSel = null;
+      return;
+    }
+    lineSel = { hunkIdx, anchor: lineIndex, indices: rangeSet(lineIndex, lineIndex) };
+    dragging = true;
+    window.addEventListener('mouseup', () => { dragging = false; }, { once: true });
+  }
+
+  function extendLineSelect(_e: MouseEvent, hunkIdx: number, lineIndex: number) {
+    if (dragging && lineSel && lineSel.hunkIdx === hunkIdx) {
+      lineSel = { ...lineSel, indices: rangeSet(lineSel.anchor, lineIndex) };
+    }
+  }
+
+  function handleLineContextMenu(e: MouseEvent, hunkIndex: number, lineIndex = -1) {
+    if (!onRevert || !commitHash) return;                 // not revertable → native menu
+    if (fileStatus === 'A' || fileStatus === 'D') return; // whole add/delete → use tree's Reverse File
+    const changed = selectedChangedIndices;
+    // Only offer "Reverse Selected Lines" when the right-click lands on a line
+    // that is part of the active selection; otherwise fall back to whole-hunk.
+    const inSelection = !!lineSel && lineSel.hunkIdx === hunkIndex && lineSel.indices.has(lineIndex) && changed.length > 0;
+    const sel = inSelection ? { hunkIdx: lineSel!.hunkIdx, indices: changed } : null;
+    const targetHunk = sel ? sel.hunkIdx : hunkIndex;
+    if (!isHunkComplete(targetHunk)) return;              // truncated hunk → don't revert unseen lines
+    e.preventDefault();
+    const selectionText = window.getSelection()?.toString() ?? '';
+    // Right-clicking the gutter while lines are selected → offer "Copy Lines".
+    // Restricted to the SAME hunk that holds the selection so the menu never
+    // mixes one hunk's "Copy Lines" with another hunk's "Reverse Hunk".
+    const inGutter = !!(e.target as HTMLElement).closest('.line-gutter');
+    const hasCopyLines = inGutter && !!lineSel && lineSel.hunkIdx === hunkIndex && lineSel.indices.size > 0;
+    onRevert({
+      commitHash,
+      file: diff.file,
+      hunkIndex: targetHunk,
+      selectedLineIndices: sel ? sel.indices : undefined,
+      selectionText,
+      copyLinesText: hasCopyLines ? selectedLinesText() : undefined,
+      copyLinesCount: hasCopyLines ? lineSel!.indices.size : undefined,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }
+
+  function revertHunk(hunkIndex: number) {
+    if (!onRevertHunk || !commitHash || !isHunkComplete(hunkIndex)) return;
+    onRevertHunk({ commitHash, file: diff.file, hunkIndex });
+  }
+
+  function revertSelectedLines() {
+    if (!onRevertLines || !commitHash || !lineSel) return;
+    const indices = selectedChangedIndices;
+    if (!indices.length || !isHunkComplete(lineSel.hunkIdx)) return;
+    onRevertLines({ commitHash, file: diff.file, hunkIndex: lineSel.hunkIdx, lineIndices: indices });
+  }
+
+  // Friendly hunk header label, e.g. "Hunk 1: Lines 1-5". Uses the new-side range
+  // (what the file looks like after the change); falls back to the old side for
+  // pure-deletion hunks where the new side is empty.
+  function hunkLabel(hunk: DiffData['hunks'][number], hunkIdx: number): string {
+    const useNew = hunk.newLines > 0;
+    const start = useNew ? hunk.newStart : hunk.oldStart;
+    const count = useNew ? hunk.newLines : hunk.oldLines;
+    const end = start + Math.max(count, 1) - 1;
+    const range = end > start ? `${start}-${end}` : `${start}`;
+    return `Hunk ${hunkIdx + 1}: ${t('file.lines')} ${range}`;
+  }
 
   function getFileName(path: string): string {
     return path.split('/').pop() ?? path;
@@ -51,6 +224,7 @@
   $effect(() => {
     diff;
     showFullDiff = false;
+    lineSel = null;
   });
 
   let diffMode = $state<'inline' | 'side-by-side'>('inline');
@@ -93,6 +267,13 @@
     const observer = new MutationObserver(() => { shikiTheme = activeShikiTheme(); });
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
+  });
+
+  // Escape clears any active gutter line-selection.
+  onMount(() => {
+    const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') lineSel = null; };
+    window.addEventListener('keydown', onKeydown);
+    return () => window.removeEventListener('keydown', onKeydown);
   });
 
   $effect(() => {
@@ -168,11 +349,11 @@
       <div class="diff-mode-toggle">
         <button
           class:active={diffMode === 'inline'}
-          onclick={() => { diffMode = 'inline'; }}
+          onclick={() => { diffMode = 'inline'; lineSel = null; }}
         >{t('details.inline')}</button>
         <button
           class:active={diffMode === 'side-by-side'}
-          onclick={() => { diffMode = 'side-by-side'; }}
+          onclick={() => { diffMode = 'side-by-side'; lineSel = null; }}
         >{t('details.sideBySide')}</button>
       </div>
     </div>
@@ -192,36 +373,78 @@
     {:else if diffMode === 'inline'}
       <div class="diff-content">
         {#each renderHunks as hunk, hunkIdx}
-          {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
-          {#each hunk.lines as line, lineIndex}
-            <div class="diff-line diff-{line.type}">
-              <span class="line-num old">{line.oldLineNumber ?? ''}</span>
-              <span class="line-num new">{line.newLineNumber ?? ''}</span>
-              <span class="line-prefix">{line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}</span>
-              <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+          <div class="diff-hunk" class:revertable={canRevert && isHunkComplete(hunkIdx)} class:has-selection={lineSel?.hunkIdx === hunkIdx && selectedChangedIndices.length > 0}>
+            <div class="diff-hunk-header">
+              <div class="hunk-header-inner">
+                <span class="diff-hunk-range" title={hunkLabel(hunk, hunkIdx)}>{hunkLabel(hunk, hunkIdx)}</span>
+                {#if canRevert && isHunkComplete(hunkIdx)}
+                  {#if lineSel?.hunkIdx === hunkIdx && selectedChangedIndices.length > 0}
+                    <button class="hunk-action-btn hunk-lines-btn" onclick={revertSelectedLines}
+                            aria-label={t('file.reverseLines')} title={t('file.reverseLines')}>
+                      <i class="codicon codicon-discard"></i>
+                      <span>{t('file.reverseLines')} ({selectedChangedIndices.length})</span>
+                    </button>
+                  {/if}
+                  <button class="hunk-action-btn hunk-hunk-btn" onclick={() => revertHunk(hunkIdx)}
+                          aria-label={t('file.reverseHunk')} title={t('file.reverseHunk')}>
+                    <i class="codicon codicon-discard"></i>
+                    <span>{t('file.reverseHunk')}</span>
+                  </button>
+                {/if}
+              </div>
             </div>
-          {/each}
+            {#each hunk.lines as line, lineIndex}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="diff-line diff-{line.type}" class:line-selected={lineSel?.hunkIdx === hunkIdx && lineSel.indices.has(lineIndex)} oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex)}>
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span
+                  class="line-gutter"
+                  onmousedown={(e) => startLineSelect(e, hunkIdx, lineIndex)}
+                  onmouseenter={(e) => extendLineSelect(e, hunkIdx, lineIndex)}
+                >
+                  <span class="line-num old">{line.oldLineNumber ?? ''}</span>
+                  <span class="line-num new">{line.newLineNumber ?? ''}</span>
+                  <span class="line-prefix">{line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}</span>
+                </span>
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span class="line-content" onmousedown={(e) => { if (e.button === 0) lineSel = null; }}>{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+              </div>
+            {/each}
+          </div>
         {/each}
       </div>
     {:else}
+      <!-- SBS keeps right-click → Reverse Hunk parity via the per-hunk wrapper
+           handler (so right-clicking any line, context line, or empty placeholder
+           row offers Reverse Hunk). Hovering a hunk in either pane highlights it
+           in both (no header bar): both panes write the shared hoveredHunkIdx. -->
       <div class="diff-sbs">
         <div class="sbs-pane sbs-left" bind:this={sbsLeftEl} onscroll={handleSbsScroll}>
           <div class="sbs-inner">
             {#each renderHunks as hunk, hunkIdx}
               {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
-              {#each hunk.lines as line, lineIndex}
-                {#if line.type === 'context' || line.type === 'delete'}
-                  <div class="diff-line diff-{line.type}">
-                    <span class="line-num">{line.oldLineNumber ?? ''}</span>
-                    <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
-                  </div>
-                {:else}
-                  <div class="diff-line diff-empty-line">
-                    <span class="line-num"></span>
-                    <span class="line-content"></span>
-                  </div>
-                {/if}
-              {/each}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="sbs-hunk"
+                class:hunk-hover={canRevert && isHunkComplete(hunkIdx) && hoveredHunkIdx === hunkIdx}
+                onmouseenter={() => { hoveredHunkIdx = hunkIdx; }}
+                onmouseleave={() => { if (hoveredHunkIdx === hunkIdx) hoveredHunkIdx = null; }}
+                oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx)}
+              >
+                {#each hunk.lines as line, lineIndex}
+                  {#if line.type === 'context' || line.type === 'delete'}
+                    <div class="diff-line diff-{line.type}">
+                      <span class="line-num">{line.oldLineNumber ?? ''}</span>
+                      <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+                    </div>
+                  {:else}
+                    <div class="diff-line diff-empty-line">
+                      <span class="line-num"></span>
+                      <span class="line-content"></span>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
             {/each}
           </div>
         </div>
@@ -229,19 +452,28 @@
           <div class="sbs-inner">
             {#each renderHunks as hunk, hunkIdx}
               {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
-              {#each hunk.lines as line, lineIndex}
-                {#if line.type === 'context' || line.type === 'add'}
-                  <div class="diff-line diff-{line.type}">
-                    <span class="line-num">{line.newLineNumber ?? ''}</span>
-                    <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
-                  </div>
-                {:else}
-                  <div class="diff-line diff-empty-line">
-                    <span class="line-num"></span>
-                    <span class="line-content"></span>
-                  </div>
-                {/if}
-              {/each}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="sbs-hunk"
+                class:hunk-hover={canRevert && isHunkComplete(hunkIdx) && hoveredHunkIdx === hunkIdx}
+                onmouseenter={() => { hoveredHunkIdx = hunkIdx; }}
+                onmouseleave={() => { if (hoveredHunkIdx === hunkIdx) hoveredHunkIdx = null; }}
+                oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx)}
+              >
+                {#each hunk.lines as line, lineIndex}
+                  {#if line.type === 'context' || line.type === 'add'}
+                    <div class="diff-line diff-{line.type}">
+                      <span class="line-num">{line.newLineNumber ?? ''}</span>
+                      <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+                    </div>
+                  {:else}
+                    <div class="diff-line diff-empty-line">
+                      <span class="line-num"></span>
+                      <span class="line-content"></span>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
             {/each}
           </div>
         </div>
@@ -338,6 +570,95 @@
     width: max-content;
   }
 
+  /* Each hunk is a grouping container so it can carry a header bar and show a
+     hover highlight outlining exactly what "Revert Hunk" will affect. */
+  .diff-hunk {
+    position: relative;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .diff-hunk-header {
+    padding: 2px 8px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.85em;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  /* inline-flex (content width, not the hunk's full max-content width) so the
+     label + buttons cluster at the left and the buttons sit right after the
+     label instead of being pushed to the far-right edge. sticky left:0 keeps
+     them pinned to the viewport's left so they stay reachable when the diff is
+     scrolled horizontally. */
+  .hunk-header-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: sticky;
+    left: 0;
+  }
+
+  /* No flex-grow: the label takes only its own width so it can't push the
+     buttons right. It may still shrink/ellipsize if the panel is very narrow. */
+  .diff-hunk-range {
+    font-family: var(--vscode-editor-font-family, monospace);
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .hunk-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 1px 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.95em;
+    color: var(--vscode-errorForeground, #f44336);
+    transition: opacity 0.1s, background 0.1s;
+  }
+
+  /* The Reverse HUNK button is a hover/focus affordance; the Reverse LINES button
+     is explicit (only renders when a selection exists), so it's always visible. */
+  .hunk-hunk-btn {
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  .hunk-lines-btn {
+    opacity: 1;
+  }
+
+  .diff-hunk.revertable:hover .hunk-hunk-btn,
+  .diff-hunk.has-selection .hunk-hunk-btn,
+  .hunk-action-btn:focus {
+    opacity: 1;
+  }
+
+  .hunk-action-btn:hover {
+    background: color-mix(in srgb, var(--vscode-inputValidation-errorBackground, #f44336) 25%, transparent);
+  }
+
+  .hunk-action-btn i {
+    font-size: 1em;
+  }
+
+  /* Outline the whole hunk on hover so the revert extent is obvious. Inline only
+     when revertable (non-committed/added/deleted diffs get no misleading hint);
+     SBS outlines the hovered hunk in both panes (.sbs-hunk.hunk-hover below). */
+  .diff-hunk.revertable:hover,
+  .sbs-hunk.hunk-hover {
+    outline: 1px solid var(--vscode-focusBorder, rgba(120, 120, 255, 0.4));
+    outline-offset: -1px;
+  }
+
+  /* SBS mode still uses a plain dashed separator between hunks (no header bar). */
   .hunk-separator {
     height: 0;
     border-top: 1px dashed var(--border-color);
@@ -355,6 +676,21 @@
   .diff-add { background: var(--vscode-diffEditor-insertedLineBackground, rgba(72, 191, 145, 0.15)); }
   .diff-delete { background: var(--vscode-diffEditor-removedLineBackground, rgba(255, 0, 0, 0.15)); }
   .diff-empty-line { background: rgba(128, 128, 128, 0.05); }
+
+  /* Inline gutter (line numbers + prefix) is the drag handle for line-selection.
+     Suppress native text selection here so dragging selects whole lines instead. */
+  .line-gutter {
+    display: flex;
+    flex-shrink: 0;
+    user-select: none;
+    cursor: pointer;
+  }
+
+  /* Selected lines get a clear accent that reads over the add/delete tints. */
+  .diff-line.line-selected {
+    background: var(--vscode-editor-selectionBackground, rgba(120, 150, 255, 0.25));
+    box-shadow: inset 3px 0 0 var(--vscode-focusBorder, #4a9eff);
+  }
 
   .line-num {
     width: 45px;
