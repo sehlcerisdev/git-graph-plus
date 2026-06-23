@@ -61,7 +61,8 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 | **Merge**                | Default, `--no-ff`, `--ff-only`, and squash merge strategies                                          |
 | **Rebase**               | Standard rebase and interactive rebase with drag-to-reorder UI                                        |
 | **Interactive Rebase**   | Visual UI with action dropdown (pick, reword, edit, squash, fixup, drop) and drop warnings            |
-| **Cherry-pick & Revert** | Apply or undo specific commits, with `--no-commit` option                                             |
+| **Squash Commits**       | Select multiple consecutive commits in the graph and squash them into one                             |
+| **Cherry-pick & Revert** | Apply or undo specific commits (one or several selected at once), with `--no-commit` option           |
 | **Reset**                | Reset to any commit with soft, mixed, or hard mode                                                    |
 | **Tags**                 | Create lightweight or annotated tags; view tag details, push to remote, delete locally or from remote |
 | **Upstream Tracking**    | Automatic local/remote branch matching based on upstream configuration                                |

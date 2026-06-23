@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.4 (2026-06-23)
+
+### New Features
+- **Squash & Cherry-pick Multiple Commits** - Select consecutive commits directly in the graph (Shift-click for a range, Ctrl/Cmd-click to toggle), then right-click the selection to squash them into one or cherry-pick them all at once. Squashing opens a dialog to edit the combined commit message and warns when a force push will be required.
+
+### Bug Fixes
+- **Chrome Network Stall Fix** - Commit author avatars are now fetched and cached in the extension host and shared across windows, instead of loading from gravatar.com in each webview. This prevents the socket exhaustion that could leave Chrome unable to load pages after extended use with multiple windows.
+
 ## 0.5.3 (2026-06-21)
 
 ### New Features

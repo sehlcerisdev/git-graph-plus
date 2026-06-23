@@ -61,7 +61,8 @@ VS Code를 위한 모던 Git GUI. 커밋 히스토리를 시각화하고, 브랜
 | **Merge**                | Default, `--no-ff`, `--ff-only`, squash merge 전략                                      |
 | **Rebase**               | 일반 rebase 및 드래그로 순서 변경 가능한 interactive rebase UI                          |
 | **Interactive Rebase**   | 액션 드롭다운 (pick, reword, edit, squash, fixup, drop) 및 drop 경고가 포함된 시각적 UI |
-| **Cherry-pick & Revert** | 특정 커밋 적용 또는 되돌리기, `--no-commit` 옵션 포함                                   |
+| **Squash Commits**       | 그래프에서 연속된 여러 커밋을 선택해 하나로 합치기                                      |
+| **Cherry-pick & Revert** | 특정 커밋 적용 또는 되돌리기 (한 개 또는 여러 개 동시 선택), `--no-commit` 옵션 포함     |
 | **Reset**                | soft, mixed, hard 모드로 임의의 커밋으로 reset                                          |
 | **태그**                 | 경량 또는 주석 태그 생성; 태그 상세 보기, 리모트에 push, 로컬/리모트 삭제               |
 | **Upstream 추적**        | upstream 설정 기반 로컬/리모트 브랜치 자동 매칭                                         |
