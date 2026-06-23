@@ -8,6 +8,7 @@
   import { t } from '../../lib/i18n/index.svelte';
   import { getGravatarUrl } from '../../lib/utils/gravatar';
   import FileDiffView from './FileDiffView.svelte';
+  import type { RevertTarget } from './FileDiffView.svelte';
   import ContextMenu from '../common/ContextMenu.svelte';
   import CommitHoverCard from '../common/CommitHoverCard.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
@@ -63,6 +64,61 @@
     return (name || email) ? `${name} <${email}>`.trim() : '';
   }
   let fileContextMenu = $state<{ x: number; y: number; items: any[] } | null>(null);
+
+  // Single entry point for every revert action. Omitting hunkIndex reverts the
+  // whole file; omitting lineIndices reverts the whole hunk (see patch-builder).
+  function postRevert(commit: string, file: string, hunkIndex?: number, lineIndices?: number[]) {
+    vscode.postMessage({ type: 'revertCommitChanges', payload: { commit, file, hunkIndex, lineIndices } });
+  }
+
+  // Right-click on a diff line (committed view) → offer to copy any selected
+  // text and to revert the clicked hunk against the working tree. FileDiffView
+  // hands us the location and the hunk index; we build the menu here since this
+  // component already owns the ContextMenu host.
+  function handleDiffRevert(target: RevertTarget) {
+    const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [];
+    if (target.selectionText) {
+      items.push({
+        label: t('file.copySelection'),
+        action: () => { vscode.postMessage({ type: 'copyToClipboard', payload: { text: target.selectionText } }); fileContextMenu = null; },
+      });
+    }
+    // copyLinesText is '' for a lone blank line, so gate on presence (!== undefined).
+    if (target.copyLinesText !== undefined) {
+      const text = target.copyLinesText;
+      const count = target.copyLinesCount ?? 0;
+      items.push({
+        label: `${t('file.copyLines')} (${count})`,
+        action: () => { vscode.postMessage({ type: 'copyToClipboard', payload: { text } }); fileContextMenu = null; },
+      });
+    }
+    // When the user has dragged a line-selection, offer to reverse just those
+    // changed lines (lineIndices) in addition to the whole-hunk action below.
+    if (target.selectedLineIndices?.length) {
+      const lineIndices = target.selectedLineIndices;
+      items.push({
+        label: `${t('file.reverseLines')} (${lineIndices.length})`,
+        danger: true,
+        action: () => { postRevert(target.commitHash, target.file, target.hunkIndex, lineIndices); fileContextMenu = null; },
+      });
+    }
+    items.push({
+      label: t('file.reverseHunk'),
+      danger: true,
+      action: () => { postRevert(target.commitHash, target.file, target.hunkIndex); fileContextMenu = null; },
+    });
+    fileContextMenu = { x: target.x, y: target.y, items };
+  }
+
+  // The per-hunk header "Revert Hunk" button reverts immediately (no menu).
+  function handleHunkRevert(target: Pick<RevertTarget, 'commitHash' | 'file' | 'hunkIndex'>) {
+    postRevert(target.commitHash, target.file, target.hunkIndex);
+  }
+
+  // The "Reverse Selected Lines" button reverts just the dragged changed lines.
+  function handleLinesRevert(target: Pick<RevertTarget, 'commitHash' | 'file' | 'hunkIndex'> & { lineIndices: number[] }) {
+    postRevert(target.commitHash, target.file, target.hunkIndex, target.lineIndices);
+  }
   let previewCommit = $state<Commit | null>(null);
   let previewPos = $state<{ x: number; y: number } | null>(null);
   let hoveredHash = $state<string | null>(null);
@@ -94,6 +150,11 @@
     const m = stashRef?.name?.match(/^stash@\{(\d+)\}$/);
     return m ? Number(m[1]) : null;
   });
+
+  // Reverting against the working tree is offered only for a real commit that
+  // isn't a stash (stashes offer "restore" instead). Gates every revert callback
+  // passed to FileDiffView and the tree's "Reverse File" action.
+  const canRevertInThisView = $derived(!!commit && stashIndex === null);
 
   let filesPanelWidth = $state(240);
   let isResizing = $state(false);
@@ -799,6 +860,17 @@
                       },
                     });
 
+                    // Revert this file's change against the working tree.
+                    if (commit && canRevertInThisView) {
+                      const hash = commit.hash;
+                      items.push({ separator: true, label: '', action: () => {} });
+                      items.push({
+                        label: t('file.reverseFile'),
+                        danger: true,
+                        action: () => { postRevert(hash, node.path); fileContextMenu = null; },
+                      });
+                    }
+
                     // Create Patch (committed view only)
                     if (commit) {
                       const multi = selectedPatchFiles.has(node.path) && selectedPatchFiles.size >= 2;
@@ -952,11 +1024,22 @@
               commitHash={sec.commit}
               stacked
               heading={sec.subject ? `${sec.shortHash}  ${sec.subject}` : sec.shortHash}
+              onRevert={canRevertInThisView ? handleDiffRevert : undefined}
+              onRevertHunk={canRevertInThisView ? handleHunkRevert : undefined}
+              onRevertLines={canRevertInThisView ? handleLinesRevert : undefined}
+              fileStatus={files.find(f => f.path === sec.file)?.status}
             />
           {/each}
         </div>
       {:else if selectedDiff}
-        <FileDiffView diff={selectedDiff} commitHash={commit?.hash} />
+        <FileDiffView
+          diff={selectedDiff}
+          commitHash={commit?.hash}
+          onRevert={canRevertInThisView ? handleDiffRevert : undefined}
+          onRevertHunk={canRevertInThisView ? handleHunkRevert : undefined}
+          onRevertLines={canRevertInThisView ? handleLinesRevert : undefined}
+          fileStatus={files.find(f => f.path === selectedDiff.file)?.status}
+        />
       {/if}
     </div>
 
