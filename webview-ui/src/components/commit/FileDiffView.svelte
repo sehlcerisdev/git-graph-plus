@@ -18,6 +18,10 @@
     // addressing a subset of the hunk to reverse. Omitted reverses the whole hunk.
     selectedLineIndices?: number[];
     selectionText: string;
+    // Raw newline-joined text of every gutter-selected line, set only when the
+    // right-click originates in the gutter and a line selection is active. The
+    // parent offers a "Copy Lines" menu item when present.
+    copyLinesText?: string;
     x: number;
     y: number;
   }
@@ -89,6 +93,18 @@
       .sort((a, b) => a - b);
   }
 
+  // The full text of every currently selected line (context included), in line
+  // order, joined by newlines — for the "Copy Lines" gutter action.
+  function selectedLinesText(): string {
+    if (!lineSel) return '';
+    const hunk = diff.hunks[lineSel.hunkIdx];
+    if (!hunk) return '';
+    return [...lineSel.indices]
+      .sort((a, b) => a - b)
+      .map(i => hunk.lines[i]?.content ?? '')
+      .join('\n');
+  }
+
   function startLineSelect(e: MouseEvent, hunkIdx: number, lineIndex: number) {
     if (e.button !== 0) return; // right/middle-click must not reset an active selection
     if (!canRevert || !isHunkComplete(hunkIdx)) return;
@@ -125,12 +141,22 @@
     if (!isHunkComplete(targetHunk)) return;              // truncated hunk → don't revert unseen lines
     e.preventDefault();
     const selectionText = window.getSelection()?.toString() ?? '';
+    // Right-clicking the gutter while lines are selected → offer "Copy Lines".
+    // Restricted to the SAME hunk that holds the selection so the menu never
+    // mixes one hunk's "Copy Lines" with another hunk's "Reverse Hunk". An empty
+    // string is a valid value (a single blank line selected), so the parent gates
+    // on `!== undefined`, not truthiness.
+    const inGutter = !!(e.target as HTMLElement).closest('.line-gutter');
+    const copyLinesText = inGutter && lineSel && lineSel.hunkIdx === hunkIndex && lineSel.indices.size > 0
+      ? selectedLinesText()
+      : undefined;
     onRevert({
       commitHash,
       file: diff.file,
       hunkIndex: targetHunk,
       selectedLineIndices: sel ? sel.indices : undefined,
       selectionText,
+      copyLinesText,
       x: e.clientX,
       y: e.clientY,
     });

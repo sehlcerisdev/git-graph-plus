@@ -595,6 +595,7 @@ export const en: Record<string, string> = {
   'file.reverseLines': 'Reverse Selected Lines',
   'file.lines': 'Lines',
   'file.copySelection': 'Copy',
+  'file.copyLines': 'Copy Lines',
 
   // LFS
   'lfs.locked': 'Locked by {owner}',

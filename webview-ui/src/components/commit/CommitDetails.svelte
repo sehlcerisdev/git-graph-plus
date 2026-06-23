@@ -72,13 +72,21 @@
   function handleDiffRevert(target: {
     commitHash: string; file: string; hunkIndex: number;
     selectedLineIndices?: number[];
-    selectionText: string; x: number; y: number;
+    selectionText: string; copyLinesText?: string; x: number; y: number;
   }) {
     const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [];
     if (target.selectionText) {
       items.push({
         label: t('file.copySelection'),
         action: () => { vscode.postMessage({ type: 'copyToClipboard', payload: { text: target.selectionText } }); fileContextMenu = null; },
+      });
+    }
+    if (target.copyLinesText !== undefined) {
+      const text = target.copyLinesText;
+      const count = text.split('\n').length;
+      items.push({
+        label: `${t('file.copyLines')} (${count})`,
+        action: () => { vscode.postMessage({ type: 'copyToClipboard', payload: { text } }); fileContextMenu = null; },
       });
     }
     // When the user has dragged a line-selection, offer to reverse just those

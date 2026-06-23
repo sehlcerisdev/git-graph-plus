@@ -596,6 +596,7 @@ export const zh: Record<string, string> = {
   'file.reverseLines': '还原选定行',
   'file.lines': '行',
   'file.copySelection': '复制',
+  'file.copyLines': '复制行',
   'lfs.lock': 'LFS 锁定',
   'lfs.unlock': 'LFS 解锁',
   'lfs.unlockForce': 'LFS 强制解锁',

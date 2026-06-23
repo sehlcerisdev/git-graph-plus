@@ -387,3 +387,155 @@ describe('FileDiffView gutter line-selection', () => {
     expect(onRevert.mock.calls[0][0].selectedLineIndices).toBeUndefined();
   });
 });
+
+// A blank line whose content is the empty string — exercises the edge where
+// selectedLinesText() returns '' for a single selected blank line.
+function blankLineDiff(): DiffData {
+  return {
+    file: 'src/blank.ts',
+    isBinary: false,
+    isImage: false,
+    hunks: [
+      {
+        header: '@@ -1,1 +1,2 @@',
+        oldStart: 1,
+        oldLines: 1,
+        newStart: 1,
+        newLines: 2,
+        lines: [
+          { type: 'add', content: '', newLineNumber: 1 }, // blank added line
+          { type: 'context', content: 'x', oldLineNumber: 1, newLineNumber: 2 },
+        ],
+      },
+    ],
+  };
+}
+
+// Two complete hunks, so a selection in one hunk can be tested against a
+// right-click in the other.
+function twoHunkDiff(): DiffData {
+  return {
+    file: 'src/two.ts',
+    isBinary: false,
+    isImage: false,
+    hunks: [
+      {
+        header: '@@ -1,1 +1,1 @@',
+        oldStart: 1,
+        oldLines: 1,
+        newStart: 1,
+        newLines: 1,
+        lines: [
+          { type: 'delete', content: 'a', oldLineNumber: 1 },
+          { type: 'add', content: 'a2', newLineNumber: 1 },
+        ],
+      },
+      {
+        header: '@@ -10,1 +10,1 @@',
+        oldStart: 10,
+        oldLines: 1,
+        newStart: 10,
+        newLines: 1,
+        lines: [
+          { type: 'delete', content: 'b', oldLineNumber: 10 },
+          { type: 'add', content: 'b2', newLineNumber: 10 },
+        ],
+      },
+    ],
+  };
+}
+
+describe('FileDiffView copy lines (gutter)', () => {
+  function gutters(container: HTMLElement): NodeListOf<Element> {
+    return container.querySelectorAll('.diff-content .diff-line .line-gutter');
+  }
+
+  it('sets copyLinesText to the joined content of the selection on a gutter right-click', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    // Select the two adds (4 = 'd1', 5 = 'd2').
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    // Right-click in the GUTTER of a selected line.
+    rightClick(g[4]);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0].copyLinesText).toBe('d1\nd2');
+  });
+
+  it('includes context lines in copyLinesText (copies everything selected)', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    // Select 2..4: 'b2' (add), 'c' (context), 'd1' (add) — context is kept here.
+    await fireEvent.mouseDown(g[2]);
+    await fireEvent.mouseEnter(g[3]);
+    await fireEvent.mouseEnter(g[4]);
+    await fireEvent.mouseUp(window);
+
+    rightClick(g[3]);
+    expect(onRevert.mock.calls[0][0].copyLinesText).toBe('b2\nc\nd1');
+  });
+
+  it('does NOT offer copy lines when right-clicking the code region', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    await fireEvent.mouseDown(g[4]);
+    await fireEvent.mouseEnter(g[5]);
+    await fireEvent.mouseUp(window);
+
+    // Right-click in the CODE region (not the gutter) → no copy-lines text.
+    const contents = container.querySelectorAll('.diff-content .diff-line .line-content');
+    rightClick(contents[4]);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0].copyLinesText).toBeUndefined();
+  });
+
+  it('does NOT offer copy lines on a gutter right-click when nothing is selected', () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: sampleDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    rightClick(g[2]);
+    expect(onRevert.mock.calls[0][0].copyLinesText).toBeUndefined();
+  });
+
+  it('still offers copy lines for a single blank selected line (empty string, not undefined)', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: blankLineDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+
+    // Select only the blank added line (index 0).
+    await fireEvent.mouseDown(g[0]);
+    await fireEvent.mouseUp(window);
+
+    rightClick(g[0]);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    // Empty string must be passed (defined) so the parent's `!== undefined` gate
+    // still shows the menu item for a lone blank line.
+    expect(onRevert.mock.calls[0][0].copyLinesText).toBe('');
+  });
+
+  it('does NOT offer copy lines when right-clicking a different hunk than the selection', async () => {
+    const onRevert = vi.fn();
+    const { container } = render(FileDiffView, { diff: twoHunkDiff(), commitHash: 'deadbeef', fileStatus: 'M', onRevert });
+    const g = gutters(container);
+    expect(g.length).toBe(4); // hunk0: 0,1  hunk1: 2,3
+
+    // Select a line in hunk 0.
+    await fireEvent.mouseDown(g[1]);
+    await fireEvent.mouseUp(window);
+
+    // Right-click the gutter of a line in hunk 1 → copy-lines gated out.
+    rightClick(g[2]);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+    expect(onRevert.mock.calls[0][0]).toMatchObject({ hunkIndex: 1 });
+    expect(onRevert.mock.calls[0][0].copyLinesText).toBeUndefined();
+  });
+});

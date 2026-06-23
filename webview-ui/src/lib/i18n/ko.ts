@@ -596,6 +596,7 @@ export const ko: Record<string, string> = {
   'file.reverseLines': '선택한 줄 되돌리기',
   'file.lines': '줄',
   'file.copySelection': '복사',
+  'file.copyLines': '줄 복사',
   'lfs.lock': 'LFS 잠금',
   'lfs.unlock': 'LFS 잠금 해제',
   'lfs.unlockForce': 'LFS 강제 잠금 해제',
