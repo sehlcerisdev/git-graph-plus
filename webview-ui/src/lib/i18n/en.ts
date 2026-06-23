@@ -591,8 +591,7 @@ export const en: Record<string, string> = {
   'file.restoreStashFromSelected': 'Restore {count} selected files from stash',
   'file.restoreStashFromFolder': 'Restore folder from stash',
   'file.revertFile': 'Revert File',
-  'file.revertBlock': 'Revert Block',
-  'file.revertLine': 'Revert Line',
+  'file.revertHunk': 'Revert Hunk',
   'file.copySelection': 'Copy',
 
   // LFS

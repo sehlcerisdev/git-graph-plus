@@ -3,19 +3,17 @@
   import { onMount } from 'svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { detectLanguage, highlightLineSync, getHighlighter, ensureLanguage, activeShikiTheme, escapeHtml } from '../../lib/utils/highlighter';
-  import { getChangeBlock } from '../../lib/utils/diff-blocks';
   import ImageDiff from '../common/ImageDiff.svelte';
 
   // Right-click target on a diff line. The parent owns the context menu (it
   // already hosts one for the file tree), so we just hand it the location plus
-  // enough to address the change: hunk/block line indices line up with the diff
-  // the backend re-parses (see patch-builder / git-parser).
+  // enough to address the change: the hunk index lines up with the diff the
+  // backend re-parses (see patch-builder / git-parser), where omitting line
+  // indices reverts the whole hunk.
   export interface RevertTarget {
     commitHash: string;
     file: string;
     hunkIndex: number;
-    blockLineIndices: number[];
-    isSingleLine: boolean;
     selectionText: string;
     x: number;
     y: number;
@@ -28,24 +26,46 @@
     // Optional commit label shown in the toolbar (used by stacked per-commit sections).
     heading?: string;
     // Git status letter for this file ('A'/'M'/'D'/'R'...). Whole add/delete
-    // files only offer "Revert File" (from the tree), not line/block revert.
+    // files only offer "Revert File" (from the tree), not hunk revert.
     fileStatus?: string;
     // When provided (committed view only), right-clicking a diff line offers to
-    // revert that line/block against the working tree.
+    // revert that whole hunk against the working tree.
     onRevert?: (target: RevertTarget) => void;
+    // When provided (committed view only), the per-hunk header "Revert Hunk"
+    // button reverts that hunk immediately (no context menu).
+    onRevertHunk?: (target: { commitHash: string; file: string; hunkIndex: number }) => void;
   }
 
-  let { diff, commitHash, stacked = false, heading, fileStatus, onRevert }: Props = $props();
+  let { diff, commitHash, stacked = false, heading, fileStatus, onRevert, onRevertHunk }: Props = $props();
+
+  // Whether this diff supports reverting (committed view, modified file). Drives
+  // both the right-click menu and the per-hunk header revert affordance.
+  const canRevert = $derived(!!onRevert && !!commitHash && fileStatus !== 'A' && fileStatus !== 'D');
+
+  // A truncated diff renders only the first N lines of its final hunk (see
+  // renderHunks). Reverting then would silently undo the unseen tail too, so we
+  // only allow revert on hunks rendered in full. Untruncated diffs are always
+  // complete (renderHunks === diff.hunks).
+  function isHunkComplete(hunkIndex: number): boolean {
+    const full = diff.hunks[hunkIndex];
+    const shown = renderHunks[hunkIndex];
+    return !!full && !!shown && shown.lines.length === full.lines.length;
+  }
 
   function handleLineContextMenu(e: MouseEvent, hunkIndex: number, lineIndex: number) {
     if (!onRevert || !commitHash) return;                 // not revertable context → native menu
     if (fileStatus === 'A' || fileStatus === 'D') return; // whole add/delete → use tree's Revert File
-    const hunk = diff.hunks[hunkIndex];
-    const block = hunk ? getChangeBlock(hunk.lines, lineIndex) : null;
-    if (!block) return;                                   // context line → native menu (Copy works)
+    if (!isHunkComplete(hunkIndex)) return;               // truncated hunk → don't revert unseen lines
+    const line = diff.hunks[hunkIndex]?.lines[lineIndex];
+    if (!line || line.type === 'context') return;         // changed lines only → keep native Copy on context lines
     e.preventDefault();
     const selectionText = window.getSelection()?.toString() ?? '';
-    onRevert({ commitHash, file: diff.file, hunkIndex, blockLineIndices: block.lineIndices, isSingleLine: block.isSingleLine, selectionText, x: e.clientX, y: e.clientY });
+    onRevert({ commitHash, file: diff.file, hunkIndex, selectionText, x: e.clientX, y: e.clientY });
+  }
+
+  function revertHunk(hunkIndex: number) {
+    if (!onRevertHunk || !commitHash || !isHunkComplete(hunkIndex)) return;
+    onRevertHunk({ commitHash, file: diff.file, hunkIndex });
   }
 
   function getFileName(path: string): string {
@@ -225,19 +245,31 @@
     {:else if diffMode === 'inline'}
       <div class="diff-content">
         {#each renderHunks as hunk, hunkIdx}
-          {#if hunkIdx > 0}<div class="hunk-separator" aria-hidden="true"></div>{/if}
-          {#each hunk.lines as line, lineIndex}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="diff-line diff-{line.type}" oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex)}>
-              <span class="line-num old">{line.oldLineNumber ?? ''}</span>
-              <span class="line-num new">{line.newLineNumber ?? ''}</span>
-              <span class="line-prefix">{line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}</span>
-              <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+          <div class="diff-hunk" class:revertable={canRevert && isHunkComplete(hunkIdx)}>
+            <div class="diff-hunk-header">
+              <span class="diff-hunk-range">{hunk.header}</span>
+              {#if canRevert && isHunkComplete(hunkIdx)}
+                <button class="hunk-revert-btn" onclick={() => revertHunk(hunkIdx)} aria-label={t('file.revertHunk')} title={t('file.revertHunk')}>
+                  <i class="codicon codicon-discard"></i>
+                  <span>{t('file.revertHunk')}</span>
+                </button>
+              {/if}
             </div>
-          {/each}
+            {#each hunk.lines as line, lineIndex}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="diff-line diff-{line.type}" oncontextmenu={(e) => handleLineContextMenu(e, hunkIdx, lineIndex)}>
+                <span class="line-num old">{line.oldLineNumber ?? ''}</span>
+                <span class="line-num new">{line.newLineNumber ?? ''}</span>
+                <span class="line-prefix">{line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}</span>
+                <span class="line-content">{@html getHighlighted(hunk.oldStart, lineIndex, line.content)}</span>
+              </div>
+            {/each}
+          </div>
         {/each}
       </div>
     {:else}
+      <!-- SBS keeps right-click → Revert Hunk parity via the per-line handler;
+           the per-hunk header bar + revert button are an inline-mode follow-up. -->
       <div class="diff-sbs">
         <div class="sbs-pane sbs-left" bind:this={sbsLeftEl} onscroll={handleSbsScroll}>
           <div class="sbs-inner">
@@ -374,6 +406,69 @@
     width: max-content;
   }
 
+  /* Each hunk is a grouping container so it can carry a header bar and show a
+     hover highlight outlining exactly what "Revert Hunk" will affect. */
+  .diff-hunk {
+    position: relative;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .diff-hunk-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 8px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.85em;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .diff-hunk-range {
+    font-family: var(--vscode-editor-font-family, monospace);
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .hunk-revert-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 1px 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.95em;
+    color: var(--vscode-errorForeground, #f44336);
+    opacity: 0;
+    transition: opacity 0.1s, background 0.1s;
+  }
+
+  .diff-hunk.revertable:hover .hunk-revert-btn,
+  .hunk-revert-btn:focus {
+    opacity: 1;
+  }
+
+  .hunk-revert-btn:hover {
+    background: rgba(244, 67, 54, 0.15);
+  }
+
+  .hunk-revert-btn i {
+    font-size: 1em;
+  }
+
+  /* Outline the whole hunk on hover so the revert extent is obvious. Only when
+     revertable, so non-committed/added/deleted diffs get no misleading hint. */
+  .diff-hunk.revertable:hover {
+    outline: 1px solid var(--vscode-focusBorder, rgba(120, 120, 255, 0.4));
+    outline-offset: -1px;
+  }
+
+  /* SBS mode still uses a plain dashed separator between hunks (no header bar). */
   .hunk-separator {
     height: 0;
     border-top: 1px dashed var(--border-color);

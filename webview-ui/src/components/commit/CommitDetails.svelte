@@ -65,13 +65,13 @@
   let fileContextMenu = $state<{ x: number; y: number; items: any[] } | null>(null);
 
   // Right-click on a diff line (committed view) → offer to copy any selected
-  // text and to revert the clicked change block against the working tree.
-  // FileDiffView hands us the location, the contiguous block's line indices and
-  // whether it's a single source line; we build the menu here since this
-  // component already owns the ContextMenu host.
+  // text and to revert the clicked hunk against the working tree. FileDiffView
+  // hands us the location and the hunk index; we build the menu here since this
+  // component already owns the ContextMenu host. Omitting lineIndices reverts
+  // the whole hunk (see patch-builder).
   function handleDiffRevert(target: {
     commitHash: string; file: string; hunkIndex: number;
-    blockLineIndices: number[]; isSingleLine: boolean; selectionText: string; x: number; y: number;
+    selectionText: string; x: number; y: number;
   }) {
     const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [];
     if (target.selectionText) {
@@ -81,14 +81,19 @@
       });
     }
     items.push({
-      label: target.isSingleLine ? t('file.revertLine') : t('file.revertBlock'),
+      label: t('file.revertHunk'),
       danger: true,
       action: () => {
-        vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex, lineIndices: target.blockLineIndices } });
+        vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex } });
         fileContextMenu = null;
       },
     });
     fileContextMenu = { x: target.x, y: target.y, items };
+  }
+
+  // The per-hunk header "Revert Hunk" button reverts immediately (no menu).
+  function handleHunkRevert(target: { commitHash: string; file: string; hunkIndex: number }) {
+    vscode.postMessage({ type: 'revertCommitChanges', payload: { commit: target.commitHash, file: target.file, hunkIndex: target.hunkIndex } });
   }
   let previewCommit = $state<Commit | null>(null);
   let previewPos = $state<{ x: number; y: number } | null>(null);
@@ -994,6 +999,7 @@
               stacked
               heading={sec.subject ? `${sec.shortHash}  ${sec.subject}` : sec.shortHash}
               onRevert={commit && stashIndex === null ? handleDiffRevert : undefined}
+              onRevertHunk={commit && stashIndex === null ? handleHunkRevert : undefined}
               fileStatus={files.find(f => f.path === sec.file)?.status}
             />
           {/each}
@@ -1003,6 +1009,7 @@
           diff={selectedDiff}
           commitHash={commit?.hash}
           onRevert={commit && stashIndex === null ? handleDiffRevert : undefined}
+          onRevertHunk={commit && stashIndex === null ? handleHunkRevert : undefined}
           fileStatus={files.find(f => f.path === selectedDiff.file)?.status}
         />
       {/if}
