@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getVsCodeApi } from '../../lib/vscode-api';
-  import { getGravatarUrl } from '../../lib/utils/gravatar';
+  import { avatarStore } from '../../lib/stores/avatars.svelte';
   import { t } from '../../lib/i18n/index.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
 
@@ -57,7 +57,7 @@
         {#each byAuthor as author, i}
           <div class="author-row">
             <span class="author-rank">#{i + 1}</span>
-            <img class="author-avatar" src={getGravatarUrl(author.email, 24)} alt="" loading="lazy" />
+            <img class="author-avatar" src={avatarStore.url(author.email, 24)} alt="" />
             <div class="author-info">
               <span class="author-name truncate">{author.author}</span>
               <div class="author-bar-container">

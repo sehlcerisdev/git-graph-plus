@@ -6,7 +6,7 @@
   import { commitStore } from '../../lib/stores/commits.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { t } from '../../lib/i18n/index.svelte';
-  import { getGravatarUrl } from '../../lib/utils/gravatar';
+  import { avatarStore } from '../../lib/stores/avatars.svelte';
   import FileDiffView from './FileDiffView.svelte';
   import ContextMenu from '../common/ContextMenu.svelte';
   import CommitHoverCard from '../common/CommitHoverCard.svelte';
@@ -282,9 +282,8 @@
       if (msg.type === 'commitData') {
         const c = msg.payload.commit;
         previewCacheSet(c.hash, c);
-        // Preload avatar immediately
-        const img = new Image();
-        img.src = getGravatarUrl(c.author.email, 32);
+        // Warm the cached avatar (resolved by the extension host).
+        avatarStore.url(c.author.email, 32);
 
         // Only show if still hovering and this is the right hash
         if (hoveredHash === c.hash && previewPos && !previewCommit) {
@@ -310,10 +309,9 @@
     previewTimeout = setTimeout(() => {
       const cached = previewCacheGet(hash) || commitStore.getCommit(hash);
       if (cached) {
-        // Preload avatar
-        const img = new Image();
-        img.src = getGravatarUrl(cached.author.email, 32);
-        
+        // Warm the cached avatar (resolved by the extension host).
+        avatarStore.url(cached.author.email, 32);
+
         previewCommit = cached;
         previewPos = { x, y };
       } else {
@@ -504,7 +502,7 @@
           <div class="info-column">
             <div class="info-label">{t('details.author')}</div>
             <div class="person-info">
-              <img class="avatar-lg" src={getGravatarUrl(commit.author.email, 48)} alt="" loading="lazy" />
+              <img class="avatar-lg" src={avatarStore.url(commit.author.email, 48)} alt="" />
               <div class="person-details">
                 <div class="person-name">
                   {commit.author.name}
@@ -525,7 +523,7 @@
             <div class="info-column">
               <div class="info-label">{t('details.committer')}</div>
               <div class="person-info">
-                <img class="avatar-lg" src={getGravatarUrl(commit.committer.email, 48)} alt="" loading="lazy" />
+                <img class="avatar-lg" src={avatarStore.url(commit.committer.email, 48)} alt="" />
                 <div class="person-details">
                   <div class="person-name">
                     {commit.committer.name}

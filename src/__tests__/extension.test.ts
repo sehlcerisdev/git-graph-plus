@@ -52,6 +52,7 @@ vi.mock('../panels/MainPanel', () => ({
   MainPanel: class {
     static currentPanel: unknown = undefined;
     static setExtraEnv = vi.fn();
+    static setAvatarCacheDir = vi.fn();
     static createOrShow = vi.fn();
     static showModalWithPanel = vi.fn();
     static onSidebarRefresh: unknown = null;

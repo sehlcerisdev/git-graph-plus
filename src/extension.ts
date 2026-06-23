@@ -35,6 +35,10 @@ export function activate(context: vscode.ExtensionContext) {
   const statusBar = new StatusBarManager();
   context.subscriptions.push(statusBar);
 
+  // Persistent avatar cache lives under globalStorage so every window reuses
+  // the same avatars instead of re-fetching from gravatar.com (issue #38).
+  MainPanel.setAvatarCacheDir(vscode.Uri.joinPath(context.globalStorageUri, 'avatars').fsPath);
+
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
     context.subscriptions.push(

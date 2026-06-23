@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Commit } from '../../lib/types';
-  import { getGravatarUrl } from '../../lib/utils/gravatar';
+  import { avatarStore } from '../../lib/stores/avatars.svelte';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -54,7 +54,7 @@
 >
   <div class="card-header">
     <div class="author-row">
-      <img class="avatar" src={getGravatarUrl(commit.author.email, 32)} alt="" />
+      <img class="avatar" src={avatarStore.url(commit.author.email, 32)} alt="" />
       <div class="author-meta">
         <div class="name-line">
           <span class="author-name">{commit.author.name}</span>

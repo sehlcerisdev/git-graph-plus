@@ -4,7 +4,7 @@
   import { uiStore } from '../../lib/stores/ui.svelte';
   import { getVsCodeApi } from '../../lib/vscode-api';
   import { t } from '../../lib/i18n/index.svelte';
-  import { getGravatarUrl } from '../../lib/utils/gravatar';
+  import { avatarStore } from '../../lib/stores/avatars.svelte';
   import { requestDirtyState } from '../../lib/utils/dirty-check';
   import { resolveGraphColor } from '../../lib/utils/graph-color';
   import { graphColorsStore } from '../../lib/stores/graph-colors.svelte';
@@ -989,7 +989,7 @@
       <div class="col-author">
         {#if commit.hash !== 'UNCOMMITTED'}
           <span class="author-id" use:tooltip={commit.author.name}>
-            <img class="avatar-sm" src={getGravatarUrl(commit.author.email, 20)} alt="" loading="lazy" />
+            <img class="avatar-sm" src={avatarStore.url(commit.author.email, 20)} alt="" />
             <span class="author-name truncate">{commit.author.name}</span>
           </span>
           {#if commit.signatureStatus && commit.signatureStatus !== 'none'}

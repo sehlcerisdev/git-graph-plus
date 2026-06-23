@@ -10,6 +10,7 @@ import { compileBranchColorRules, makeBranchColorResolver } from '../git/branch-
 import { resolveGraphColors } from '../git/graph-colors';
 import { triggerVSCodeGitAuth } from '../git/vscode-git-bridge';
 import { FileWatcher } from '../services/file-watcher';
+import { AvatarCache } from '../services/avatar-cache';
 import { resolveGitDirs, shouldRefreshGraph } from '../services/file-watcher-helpers';
 import { RepoDiscoveryService, RepoInfo } from '../services/repo-discovery';
 import type { WebviewMessage, ModalDefaults } from '../utils/message-bus';
@@ -26,6 +27,11 @@ export class MainPanel {
   private static savedRemoteFilter: string[] | undefined = undefined;
   private static savedBranchFilter: string[] | undefined = undefined;
   private static extraEnv: Record<string, string> | undefined = undefined;
+  // Shared across panels in this extension host. The on-disk cache lives under
+  // globalStorage so every VS Code window reuses the same avatars instead of
+  // each one re-fetching from gravatar.com (issue #38).
+  private static avatarCacheDir: string | undefined = undefined;
+  private static avatarCache: AvatarCache | undefined = undefined;
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
@@ -72,6 +78,18 @@ export class MainPanel {
     if (this.currentPanel) {
       this.currentPanel.gitService.setExtraEnv(env);
     }
+  }
+
+  /** Directory for the persistent avatar cache (typically under globalStorage). */
+  public static setAvatarCacheDir(dir: string): void {
+    this.avatarCacheDir = dir;
+  }
+
+  private static getAvatarCache(): AvatarCache {
+    if (!this.avatarCache) {
+      this.avatarCache = new AvatarCache(this.avatarCacheDir ?? null);
+    }
+    return this.avatarCache;
   }
 
   private resolveRepoRelativePath(rel: unknown, op: string): string {
@@ -1251,6 +1269,13 @@ export class MainPanel {
           await this.refreshAll();
           break;
         }
+        // --- Avatar (cached in the extension host; see AvatarCache) ---
+        case 'getAvatar': {
+          const { email, size } = message.payload;
+          const dataUri = await MainPanel.getAvatarCache().get(email, size);
+          this.post({ type: 'avatarData', payload: { email, size, dataUri } });
+          break;
+        }
         // --- Image Diff ---
         case 'getImageAtRef': {
           const { ref, path: filePath } = message.payload;
@@ -1754,7 +1779,7 @@ export class MainPanel {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: https://www.gravatar.com; font-src ${webview.cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};">
   <link rel="stylesheet" href="${codiconUri}">
   <link rel="stylesheet" href="${styleUri}">
   <title>Git Graph+</title>
