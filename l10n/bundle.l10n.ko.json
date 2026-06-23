@@ -92,6 +92,7 @@
   "cherryPickedAndPushed": "{0}이(가) cherry-pick 후 push 되었습니다",
   "pushAfterCherryPickFailed": "Cherry-pick은 성공했지만 이후 push에 실패했습니다: {0}",
   "reverted": "{0}이(가) revert 되었습니다",
+  "revertedFileChange": "{0}의 변경 사항을 되돌렸습니다",
   "revertedAndPushed": "{0}이(가) revert 후 push 되었습니다",
   "pushAfterRevertFailed": "Revert는 성공했지만 이후 push에 실패했습니다: {0}",
   "resetComplete": "{0}으(로) reset 되었습니다",
